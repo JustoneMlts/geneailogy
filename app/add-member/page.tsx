@@ -182,8 +182,12 @@ export default function AddMember() {
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <Checkbox id="deceased" checked={isDeceased} onCheckedChange={setIsDeceased} />
-                    <Label htmlFor="deceased">Cette personne est décédée</Label>
+                    <Checkbox
+                      id="terms"
+                      checked={isDeceased}
+                      onCheckedChange={(checked) => setIsDeceased(checked === true)}
+                      className="mt-1"
+                    />                    <Label htmlFor="deceased">Cette personne est décédée</Label>
                   </div>
 
                   {isDeceased && (
@@ -252,8 +256,12 @@ export default function AddMember() {
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <Checkbox id="married" checked={isMarried} onCheckedChange={setIsMarried} />
-                    <Label htmlFor="married">Cette personne est/était mariée</Label>
+                    <Checkbox
+                      id="terms"
+                      checked={isMarried}
+                      onCheckedChange={(checked) => setIsMarried(checked === true)}
+                      className="mt-1"
+                    />                    <Label htmlFor="married">Cette personne est/était mariée</Label>
                   </div>
 
                   {isMarried && (

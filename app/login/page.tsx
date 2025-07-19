@@ -91,8 +91,12 @@ export default function LoginPage() {
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <Checkbox id="remember" checked={rememberMe} onCheckedChange={setRememberMe} />
-                    <Label htmlFor="remember" className="text-sm text-gray-600">
+                    <Checkbox
+                      id="terms"
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked === true)}
+                      className="mt-1"
+                    />                    <Label htmlFor="remember" className="text-sm text-gray-600">
                       Se souvenir de moi
                     </Label>
                   </div>

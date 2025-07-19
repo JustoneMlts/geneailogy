@@ -141,9 +141,8 @@ const familyData: Record<string, FamilyMember> = {
 function FamilyMemberCard({ member, onClick }: { member: FamilyMember; onClick: () => void }) {
   return (
     <Card
-      className={`w-48 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 ${
-        member.gender === "male" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"
-      }`}
+      className={`w-48 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 ${member.gender === "male" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"
+        }`}
       onClick={onClick}
     >
       <CardContent className="p-4 text-center">
@@ -258,9 +257,8 @@ function DesktopSidebar({
 
   return (
     <div
-      className={`hidden md:flex flex-col h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out ${
-        isExpanded ? "w-64" : "w-16"
-      } fixed left-0 top-0 z-40 shadow-lg`}
+      className={`hidden md:flex flex-col h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out ${isExpanded ? "w-64" : "w-16"
+        } fixed left-0 top-0 z-40 shadow-lg`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -270,9 +268,8 @@ function DesktopSidebar({
           <div className="flex items-center space-x-3">
             <TreePine className="h-8 w-8 text-blue-600 flex-shrink-0" />
             <span
-              className={`text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap transition-all duration-200 ${
-                shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
-              }`}
+              className={`text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
+                }`}
             >
               GeneAIlogy
             </span>
@@ -281,9 +278,8 @@ function DesktopSidebar({
             variant="ghost"
             size="icon"
             onClick={handlePinToggle}
-            className={`h-6 w-6 flex-shrink-0 transition-all duration-200 ${
-              shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
-            }`}
+            className={`h-6 w-6 flex-shrink-0 transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
+              }`}
           >
             {isPinned ? <PinOffIcon className="h-4 w-4" /> : <PinIcon className="h-4 w-4" />}
           </Button>
@@ -301,25 +297,22 @@ function DesktopSidebar({
                     setActiveTab(item.id)
                   }
                 }}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ${
-                  activeTab === item.id
+                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ${activeTab === item.id
                     ? "bg-blue-100 text-blue-700"
                     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                }`}
+                  }`}
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span
-                  className={`whitespace-nowrap transition-all duration-200 ${
-                    shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
-                  }`}
+                  className={`whitespace-nowrap transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
+                    }`}
                 >
                   {item.label}
                 </span>
                 {item.badge && (
                   <Badge
-                    className={`ml-auto bg-red-500 text-white text-xs transition-all duration-200 ${
-                      shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
-                    }`}
+                    className={`ml-auto bg-red-500 text-white text-xs transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
+                      }`}
                   >
                     {item.badge}
                   </Badge>
@@ -334,11 +327,10 @@ function DesktopSidebar({
       <div className="p-4 border-t border-gray-200">
         <Link href="/profile">
           <button
-            className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ${
-              activeTab === "profile"
+            className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ${activeTab === "profile"
                 ? "bg-blue-100 text-blue-700"
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-            }`}
+              }`}
           >
             <div className="flex justify-center w-5">
               <Avatar className="h-6 w-6">
@@ -347,9 +339,8 @@ function DesktopSidebar({
               </Avatar>
             </div>
             <span
-              className={`whitespace-nowrap transition-all duration-200 ${
-                shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
-              }`}
+              className={`whitespace-nowrap transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
+                }`}
             >
               Jean Dupont
             </span>
@@ -400,11 +391,10 @@ function MobileHeader({ activeTab, setActiveTab }: { activeTab: string; setActiv
               <button
                 key={item.id}
                 onClick={() => handleMenuItemClick(item.id)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 transition-colors ${
-                  activeTab === item.id
+                className={`w-full flex items-center space-x-3 px-4 py-3 transition-colors ${activeTab === item.id
                     ? "bg-blue-100 text-blue-700"
                     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                }`}
+                  }`}
               >
                 <item.icon className="h-5 w-5" />
                 <span>{item.label}</span>
@@ -1042,8 +1032,11 @@ export default function Dashboard() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setSelectedMember(familyData[selectedMember.spouse])}
-                              >
+                                onClick={() => {
+                                  if (selectedMember?.spouse) {
+                                    setSelectedMember(familyData[selectedMember.spouse]);
+                                  }
+                                }}                              >
                                 Voir le profil
                               </Button>
                             </div>
@@ -1539,11 +1532,10 @@ export default function Dashboard() {
                     suggestions.map((suggestion) => (
                       <Card
                         key={suggestion.id}
-                        className={`bg-white transition-all duration-300 ease-in-out ${
-                          suggestion.isRemoving
+                        className={`bg-white transition-all duration-300 ease-in-out ${suggestion.isRemoving
                             ? "transform translate-x-full opacity-0"
                             : "transform translate-x-0 opacity-100"
-                        }`}
+                          }`}
                       >
                         <CardContent className="p-4">
                           <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
@@ -1671,9 +1663,8 @@ export default function Dashboard() {
                     {conversations.map((conv) => (
                       <div
                         key={conv.id}
-                        className={`p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${
-                          selectedConversation?.id === conv.id ? "bg-blue-50 border-blue-200" : ""
-                        }`}
+                        className={`p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${selectedConversation?.id === conv.id ? "bg-blue-50 border-blue-200" : ""
+                          }`}
                         onClick={() => setSelectedConversation(conv)}
                       >
                         <div className="flex items-center space-x-3">
@@ -1725,9 +1716,8 @@ export default function Dashboard() {
                           className={`flex ${message.sender === "me" ? "justify-end" : "justify-start"}`}
                         >
                           <div
-                            className={`rounded-lg p-3 max-w-xs ${
-                              message.sender === "me" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-800"
-                            }`}
+                            className={`rounded-lg p-3 max-w-xs ${message.sender === "me" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-800"
+                              }`}
                           >
                             <p className="text-sm">{message.text}</p>
                             <p

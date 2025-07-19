@@ -158,8 +158,12 @@ export default function SignupPage() {
                 </div>
 
                 <div className="flex items-start space-x-2">
-                  <Checkbox id="terms" checked={acceptTerms} onCheckedChange={setAcceptTerms} className="mt-1" />
-                  <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
+                  <Checkbox
+                    id="terms"
+                    checked={acceptTerms}
+                    onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+                    className="mt-1"
+                  />                  <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
                     J'accepte les{" "}
                     <Link href="/terms" className="text-blue-600 hover:text-purple-600">
                       Conditions d'utilisation
