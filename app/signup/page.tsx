@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { ChangeEvent, FormEvent, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,19 +8,79 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { TreePine, ArrowLeft, Eye, EyeOff, Check } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from 'next/navigation';
+import { signUpWithEmailAndPassword } from "@/lib/firebase/firebase-authentication"
+import { createUser } from "../controllers/usersControllers"
 
 export default function SignupPage() {
+  interface FormData {
+    firstName: '',
+    lastName: '',
+    email: string;
+    password: string;
+    confirmPassword: string;
+    agreeToTerms: boolean;
+  }
+
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [acceptTerms, setAcceptTerms] = useState(false)
-  const [password, setPassword] = useState("")
+  const route = useRouter();
+
+  const [formData, setFormData] = useState<FormData>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    agreeToTerms: false
+  });
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prevState => ({
+      ...prevState,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
 
   const passwordRequirements = [
-    { text: "Au moins 8 caractères", met: password.length >= 8 },
-    { text: "Une majuscule", met: /[A-Z]/.test(password) },
-    { text: "Une minuscule", met: /[a-z]/.test(password) },
-    { text: "Un chiffre", met: /\d/.test(password) },
+    { text: "Au moins 8 caractères", met: formData.password.length >= 8 },
+    { text: "Une majuscule", met: /[A-Z]/.test(formData.password) },
+    { text: "Une minuscule", met: /[a-z]/.test(formData.password) },
+    { text: "Un chiffre", met: /\d/.test(formData.password) },
   ]
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Les mots de passe ne correspondent pas');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.agreeToTerms) {
+      setError('Vous devez accepter les conditions générales');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      await signUpWithEmailAndPassword(formData.email, formData.password);
+      await createUser(formData);
+      route.push("/login")
+    } catch (err: any) {
+      setError(err.message || 'Une erreur est survenue lors de la création du compte');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+    console.log(error)
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
@@ -62,7 +122,7 @@ export default function SignupPage() {
             </CardHeader>
 
             <CardContent className="space-y-6">
-              <form className="space-y-4">
+              <form className="space-y-4" onSubmit={handleSubmit}>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
@@ -70,8 +130,11 @@ export default function SignupPage() {
                     </Label>
                     <Input
                       id="firstName"
+                      name='firstName'
                       placeholder="Jean"
                       className="h-11 bg-white/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.firstName}
+                      onChange={handleChange}
                     />
                   </div>
                   <div className="space-y-2">
@@ -80,8 +143,11 @@ export default function SignupPage() {
                     </Label>
                     <Input
                       id="lastName"
+                      name='lastName'
                       placeholder="Dupont"
                       className="h-11 bg-white/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                      value={formData.lastName}
+                      onChange={handleChange}
                     />
                   </div>
                 </div>
@@ -92,9 +158,12 @@ export default function SignupPage() {
                   </Label>
                   <Input
                     id="email"
+                    name='email'
                     type="email"
                     placeholder="votre@email.com"
                     className="h-11 bg-white/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                    value={formData.email}
+                    onChange={handleChange}
                   />
                 </div>
 
@@ -105,10 +174,11 @@ export default function SignupPage() {
                   <div className="relative">
                     <Input
                       id="password"
+                      name="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      value={formData.password}
+                      onChange={handleChange}
                       className="h-11 bg-white/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500 pr-10"
                     />
                     <Button
@@ -122,7 +192,7 @@ export default function SignupPage() {
                     </Button>
                   </div>
 
-                  {password && (
+                  {formData.password && (
                     <div className="mt-2 space-y-1">
                       {passwordRequirements.map((req, index) => (
                         <div key={index} className="flex items-center space-x-2 text-xs">
@@ -141,8 +211,11 @@ export default function SignupPage() {
                   <div className="relative">
                     <Input
                       id="confirmPassword"
+                      name='confirmPassword'
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="••••••••"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
                       className="h-11 bg-white/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500 pr-10"
                     />
                     <Button
@@ -160,10 +233,16 @@ export default function SignupPage() {
                 <div className="flex items-start space-x-2">
                   <Checkbox
                     id="terms"
-                    checked={acceptTerms}
-                    onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+                    name="agreeToTerms"
+                    checked={formData.agreeToTerms}
+                    onCheckedChange={(checked) =>
+                      setFormData((prevState) => ({
+                        ...prevState,
+                        agreeToTerms: checked === true,
+                      }))
+                    }
                     className="mt-1"
-                  />                  <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
+                  />                <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
                     J'accepte les{" "}
                     <Link href="/terms" className="text-blue-600 hover:text-purple-600">
                       Conditions d'utilisation
@@ -175,14 +254,12 @@ export default function SignupPage() {
                   </Label>
                 </div>
 
-                <Link href="/dashboard">
-                  <Button
-                    className="w-full h-11 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium"
-                    disabled={!acceptTerms}
-                  >
-                    Créer mon compte
-                  </Button>
-                </Link>
+                <Button
+                  className="w-full h-11 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium"
+                  disabled={!formData.agreeToTerms}
+                >
+                  Créer mon compte
+                </Button>
               </form>
 
               <div className="relative">
