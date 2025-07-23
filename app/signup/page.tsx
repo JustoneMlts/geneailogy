@@ -106,7 +106,7 @@ export default function SignupPage() {
       </header>
 
       {/* Main Content */}
-      <div className="flex items-center justify-center min-h-[calc(100vh-80px)] px-4 py-12">
+      <div className="flex items-center justify-center min-h-[calc(100vh-80px)] px-4 py-12 animate-fade-in">
         <div className="w-full max-w-md">
           <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
             <CardHeader className="text-center space-y-4">

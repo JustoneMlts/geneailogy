@@ -1,17 +1,59 @@
 "use client"
 
-import { useState } from "react"
+import { ChangeEvent, FormEvent, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { TreePine, ArrowLeft, Eye, EyeOff } from "lucide-react"
+import { useRouter } from 'next/navigation';
 import Link from "next/link"
+import { logInWithEmailAndPassword } from "@/lib/firebase/firebase-authentication"
+
+interface FormData {
+  email: string;
+  password: string;
+  rememberMe: boolean;
+}
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
+  const [loading, setLoading] = useState<boolean>(false);
+  const route = useRouter()
+  const [formData, setFormData] = useState<FormData>({
+    email: '',
+    password: '',
+    rememberMe: false
+  });
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prevState => ({
+      ...prevState,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+  const [error, setError] = useState<string>('');
+
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      await logInWithEmailAndPassword(formData.email, formData.password).then(() => {
+        route.push("/dashboard")
+      })
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during login');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
@@ -37,7 +79,7 @@ export default function LoginPage() {
       </header>
 
       {/* Main Content */}
-      <div className="flex items-center justify-center min-h-[calc(100vh-80px)] px-4 py-12">
+      <div className="flex items-center justify-center min-h-[calc(100vh-80px)] px-4 py-12 animate-fade-in">
         <div className="w-full max-w-md">
           <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
             <CardHeader className="text-center space-y-4">
@@ -53,7 +95,7 @@ export default function LoginPage() {
             </CardHeader>
 
             <CardContent className="space-y-6">
-              <form className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                     Adresse email
@@ -61,6 +103,9 @@ export default function LoginPage() {
                   <Input
                     id="email"
                     type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
                     placeholder="votre@email.com"
                     className="h-11 bg-white/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                   />
@@ -73,6 +118,9 @@ export default function LoginPage() {
                   <div className="relative">
                     <Input
                       id="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
                       className="h-11 bg-white/50 border-gray-200 focus:border-blue-500 focus:ring-blue-500 pr-10"
@@ -104,12 +152,9 @@ export default function LoginPage() {
                     Mot de passe oublié ?
                   </Link>
                 </div>
-
-                <Link href="/dashboard">
                   <Button className="w-full h-11 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium">
                     Se connecter
                   </Button>
-                </Link>
               </form>
 
               <div className="relative">

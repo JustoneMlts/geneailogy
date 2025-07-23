@@ -34,6 +34,7 @@ import {
   Globe,
   FileText,
   Trash2,
+  Users
 } from "lucide-react"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -206,6 +207,7 @@ function DesktopSidebar({
     { id: "tree", label: "Mon arbre", icon: TreePine },
     { id: "ai", label: "Suggestions IA", icon: Sparkles },
     { id: "search", label: "Recherche", icon: Search },
+    { id: "connections", label: "Connexions", icon: Users, href: "/connections" },
     { id: "messages", label: "Messages", icon: MessageCircle },
   ]
 
@@ -360,6 +362,7 @@ function MobileHeader({ activeTab, setActiveTab }: { activeTab: string; setActiv
     { id: "tree", label: "Mon arbre", icon: TreePine },
     { id: "ai", label: "Suggestions IA", icon: Sparkles },
     { id: "search", label: "Recherche", icon: Search },
+    { id: "connections", label: "Connexions", icon: Users, href: "/connections" },
     { id: "messages", label: "Messages", icon: MessageCircle },
   ]
 
@@ -656,85 +659,293 @@ export default function Dashboard() {
       <div className={`min-h-screen transition-all duration-300 ease-in-out ${getLeftMargin()}`}>
         <div className="p-6">
           {activeTab === "feed" && (
-            <div className="space-y-6">
-              {/* Create Post */}
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex space-x-4">
-                    <Avatar className="flex-shrink-0">
-                      <AvatarImage src="/placeholder.svg?height=40&width=40" />
-                      <AvatarFallback>JD</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <Input placeholder="Partagez une découverte familiale..." className="mb-4" />
-                      <div className="flex justify-between items-center">
-                        <div className="flex space-x-3">
-                          <Button variant="outline" size="sm">
-                            <Camera className="mr-2 h-4 w-4" />
-                            Photo
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <MapPin className="mr-2 h-4 w-4" />
-                            Lieu
+            <div className="animate-fade-in">
+              <h1 className="text-3xl font-bold mb-6 animate-slide-up">Fil d'actualité</h1>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Create Post */}
+                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-1 card-hover">
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-4">
+                        <Avatar className="animate-scale-in">
+                          <AvatarImage src="/placeholder.svg?height=40&width=40" />
+                          <AvatarFallback>JD</AvatarFallback>
+                        </Avatar>
+                        <Input
+                          placeholder="Partagez une découverte ou une histoire familiale..."
+                          className="bg-gray-100 border-0 focus-visible:ring-blue-500"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                        >
+                          <Camera className="h-4 w-4 mr-2" />
+                          Photo
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Document
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                        >
+                          <TreePine className="h-4 w-4 mr-2" />
+                          Arbre
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Posts */}
+                  <Card className="shadow-md border-0 overflow-hidden animate-slide-up animate-stagger-2 card-hover">
+                    <CardContent className="p-0">
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="animate-scale-in">
+                              <AvatarImage src="/placeholder.svg?height=40&width=40" />
+                              <AvatarFallback>MD</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-semibold">Marie Dubois</div>
+                              <div className="text-xs text-gray-500">Il y a 2 heures</div>
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24"
+                              height="24"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="h-4 w-4"
+                            >
+                              <circle cx="12" cy="12" r="1" />
+                              <circle cx="19" cy="12" r="1" />
+                              <circle cx="5" cy="12" r="1" />
+                            </svg>
                           </Button>
                         </div>
-                        <Button size="sm" className="bg-gradient-to-r from-blue-600 to-purple-600">
-                          Publier
-                        </Button>
+                        <div className="mb-4">
+                          <p className="text-gray-700 mb-4">
+                            J'ai découvert cette photo de notre arrière-grand-père lors de son service militaire en
+                            1915. Incroyable de voir cette partie de notre histoire familiale !
+                          </p>
+                          <div className="rounded-lg overflow-hidden bg-gray-100 h-64 flex items-center justify-center animate-scale-in">
+                            <img
+                              src="/placeholder.svg?height=300&width=500"
+                              alt="Photo historique"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <div className="flex space-x-4">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                            >
+                              <Heart className="h-4 w-4 mr-2" />
+                              12
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                            >
+                              <MessageSquare className="h-4 w-4 mr-2" />4
+                            </Button>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                          >
+                            <Share2 className="h-4 w-4 mr-2" />
+                            Partager
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
 
-              {/* Feed Posts */}
-              {[1, 2, 3].map((post) => (
-                <Card key={post} className="hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center space-x-3">
-                      <Avatar>
-                        <AvatarImage src="/placeholder.svg?height=40&width=40" />
-                        <AvatarFallback>MD</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h3 className="font-semibold">Marie Dubois</h3>
-                        <p className="text-sm text-gray-500">Il y a 2 heures</p>
+                  <Card className="shadow-md border-0 overflow-hidden animate-slide-up animate-stagger-3 card-hover">
+                    <CardContent className="p-0">
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="animate-scale-in">
+                              <AvatarImage src="/placeholder.svg?height=40&width=40" />
+                              <AvatarFallback>PD</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-semibold">Pierre Dupont</div>
+                              <div className="text-xs text-gray-500">Hier</div>
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24"
+                              height="24"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="h-4 w-4"
+                            >
+                              <circle cx="12" cy="12" r="1" />
+                              <circle cx="19" cy="12" r="1" />
+                              <circle cx="5" cy="12" r="1" />
+                            </svg>
+                          </Button>
+                        </div>
+                        <div className="mb-4">
+                          <p className="text-gray-700">
+                            Je viens de mettre à jour notre arbre généalogique avec les informations que j'ai trouvées
+                            dans les archives départementales. Nous pouvons maintenant remonter jusqu'en 1820 !
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <div className="flex space-x-4">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                            >
+                              <Heart className="h-4 w-4 mr-2" />8
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                            >
+                              <MessageSquare className="h-4 w-4 mr-2" />2
+                            </Button>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                          >
+                            <Share2 className="h-4 w-4 mr-2" />
+                            Partager
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <p className="mb-4 leading-relaxed">
-                      J'ai découvert un acte de naissance de mon arrière-grand-père ! Il était né à Lyon en 1890.
-                      Quelqu'un d'autre a des ancêtres de cette région ?
-                    </p>
-                    <img
-                      src="/placeholder.svg?height=300&width=500"
-                      alt="Acte de naissance ancien"
-                      className="w-full rounded-lg mb-4"
-                    />
-                    <div className="flex items-center justify-between pt-2">
-                      <div className="flex space-x-4">
-                        <Button variant="ghost" size="sm">
-                          <Heart className="mr-2 h-4 w-4" />
-                          12
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <MessageSquare className="mr-2 h-4 w-4" />5
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Share2 className="mr-2 h-4 w-4" />
-                          Partager
-                        </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Suggestions */}
+                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-1 card-hover">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">Suggestions</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between animate-slide-up animate-stagger-1">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="animate-scale-in">
+                              <AvatarImage src="/placeholder.svg?height=40&width=40" />
+                              <AvatarFallback>JM</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-semibold">Jean Martin</div>
+                              <div className="text-xs text-gray-500">Possible cousin</div>
+                            </div>
+                          </div>
+                          <Button size="sm" variant="outline" className="transition-colors duration-200 bg-transparent">
+                            Voir
+                          </Button>
+                        </div>
+                        <div className="flex items-center justify-between animate-slide-up animate-stagger-2">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="animate-scale-in">
+                              <AvatarImage src="/placeholder.svg?height=40&width=40" />
+                              <AvatarFallback>LD</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-semibold">Lucie Dubois</div>
+                              <div className="text-xs text-gray-500">Possible tante</div>
+                            </div>
+                          </div>
+                          <Button size="sm" variant="outline" className="transition-colors duration-200 bg-transparent">
+                            Voir
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      <div className="mt-4 text-center">
+                        <Link href="/dashboard" onClick={() => setActiveTab("ai")}>
+                          <Button variant="link" size="sm" className="text-blue-600 transition-colors duration-200">
+                            Voir toutes les suggestions
+                          </Button>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Recent Activity */}
+                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-2 card-hover">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">Activité récente</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-start space-x-3 animate-slide-up animate-stagger-1">
+                          <div className="w-1 h-1 rounded-full bg-blue-500 mt-2"></div>
+                          <div>
+                            <div className="text-sm">
+                              <span className="font-semibold">Marie Dubois</span> a ajouté une nouvelle photo
+                            </div>
+                            <div className="text-xs text-gray-500">Il y a 2 heures</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-3 animate-slide-up animate-stagger-2">
+                          <div className="w-1 h-1 rounded-full bg-blue-500 mt-2"></div>
+                          <div>
+                            <div className="text-sm">
+                              <span className="font-semibold">Pierre Dupont</span> a mis à jour l'arbre généalogique
+                            </div>
+                            <div className="text-xs text-gray-500">Hier</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-3 animate-slide-up animate-stagger-3">
+                          <div className="w-1 h-1 rounded-full bg-blue-500 mt-2"></div>
+                          <div>
+                            <div className="text-sm">
+                              <span className="font-semibold">Sophie Dupont</span> a ajouté un nouveau membre
+                            </div>
+                            <div className="text-xs text-gray-500">Il y a 2 jours</div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
             </div>
           )}
 
           {activeTab === "tree" && (
-            <div className="space-y-6">
+            <div className="animate-fade-in">
               <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
                 <div>
                   <h1 className="text-3xl font-bold text-gray-800 mb-2">Mon arbre généalogique</h1>
@@ -915,6 +1126,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
+              
 
               {/* Member Details Panel - Version améliorée */}
               {selectedMember && (
@@ -1497,98 +1709,302 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-slide-up animate-stagger-3">
+                <Card className="shadow-md border-0 card-hover">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Origines géographiques</CardTitle>
+                    <CardDescription>Répartition des origines de votre famille</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64 flex items-center justify-center bg-gray-100 rounded-lg mb-4 animate-scale-in">
+                      <div className="text-center text-gray-500">
+                        <Globe className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                        <p>Carte des origines</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {origins.map((origin, index) => (
+                        <div
+                          key={origin.id}
+                          className="flex items-center space-x-2 animate-slide-up"
+                          style={{ animationDelay: `${index * 0.1}s` }}
+                        >
+                          <div
+                            className="h-3 rounded-full"
+                            style={{
+                              width: `${origin.percentage}%`,
+                              backgroundColor: `hsl(var(--chart-${(index % 5) + 1}))`,
+                            }}
+                          ></div>
+                          <div className="text-sm">
+                            {origin.country}, {origin.region} ({origin.percentage}%)
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-md border-0 card-hover">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Lieux importants</CardTitle>
+                    <CardDescription>Lieux significatifs dans l'histoire de votre famille</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {locations.map((location, index) => (
+                        <div
+                          key={location.id}
+                          className="flex items-start space-x-3 animate-slide-up"
+                          style={{ animationDelay: `${index * 0.1}s` }}
+                        >
+                          <MapPin className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <div className="font-medium">{location.place}</div>
+                            <div className="text-sm text-gray-500">
+                              {location.period} • {location.type}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
+            
           )}
 
           {activeTab === "ai" && (
-            <div className="space-y-6">
-              <div className="mb-6">
-                <h1 className="text-3xl font-bold text-gray-800 mb-2">Suggestions IA</h1>
-                <p className="text-gray-600">
-                  L'intelligence artificielle analyse vos données pour vous proposer des liens familiaux potentiels
-                </p>
-              </div>
+            <div className="animate-fade-in">
+              <h1 className="text-3xl font-bold mb-6 animate-slide-up">Suggestions IA</h1>
 
-              <Card className="bg-gradient-to-r from-purple-50 to-blue-50">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center space-x-2">
-                    <Sparkles className="h-6 w-6 text-purple-600" />
-                    <CardTitle className="text-purple-800">Nouvelles suggestions</CardTitle>
-                  </div>
-                  <CardDescription>L'IA a analysé vos données et trouvé des liens potentiels</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {suggestions.length === 0 ? (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Sparkles className="h-8 w-8 text-purple-600" />
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-1 card-hover">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">Connexions potentielles</CardTitle>
+                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">IA</Badge>
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2">Aucune nouvelle suggestion</h3>
-                      <p className="text-gray-600">
-                        L'IA analyse constamment vos données pour trouver de nouveaux liens familiaux.
-                      </p>
-                    </div>
-                  ) : (
-                    suggestions.map((suggestion) => (
-                      <Card
-                        key={suggestion.id}
-                        className={`bg-white transition-all duration-300 ease-in-out ${suggestion.isRemoving
-                            ? "transform translate-x-full opacity-0"
-                            : "transform translate-x-0 opacity-100"
-                          }`}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
-                            <div className="flex items-center space-x-4">
-                              <Avatar className="flex-shrink-0">
-                                <AvatarImage src={suggestion.avatar || "/placeholder.svg"} />
-                                <AvatarFallback>{suggestion.initials}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <h3 className="font-semibold mb-1">{suggestion.name}</h3>
-                                <p className="text-sm text-gray-600 mb-2">
-                                  {suggestion.relationship} - {suggestion.match}% de correspondance
-                                </p>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  {suggestion.badges.map((badge, index) => (
-                                    <Badge key={index} variant="secondary">
-                                      {badge}
-                                    </Badge>
-                                  ))}
+                      <CardDescription>
+                        Personnes qui pourraient être liées à votre arbre généalogique, basées sur l'analyse IA
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {suggestions.map((suggestion, index) => (
+                          <div
+                            key={suggestion.id}
+                            className={`bg-white border border-gray-100 rounded-lg p-4 transition-all duration-300 animate-slide-up ${
+                              suggestion.isRemoving ? "opacity-0 transform translate-x-full" : ""
+                            }`}
+                            style={{ animationDelay: `${index * 0.1}s` }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <Avatar className="animate-scale-in">
+                                  <AvatarImage src={suggestion.avatar || "/placeholder.svg"} />
+                                  <AvatarFallback>{suggestion.initials}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="font-semibold">{suggestion.name}</div>
+                                  <div className="text-xs text-gray-500 flex items-center">
+                                    <span>{suggestion.relationship}</span>
+                                    <span className="mx-2">•</span>
+                                    <span className="text-blue-600 font-medium">
+                                      {suggestion.match}% de correspondance
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-gray-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors duration-200 bg-transparent"
+                                  onClick={() => handleIgnoreSuggestion(suggestion.id)}
+                                >
+                                  Ignorer
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white transition-colors duration-200"
+                                  onClick={() => handleContactSuggestion(suggestion)}
+                                >
+                                  Contacter
+                                </Button>
+                              </div>
                             </div>
-                            <div className="flex space-x-2 w-full md:w-auto">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 md:flex-none bg-transparent hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                                onClick={() => handleIgnoreSuggestion(suggestion.id)}
-                                disabled={suggestion.isRemoving}
-                              >
-                                Ignorer
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-purple-600 hover:bg-purple-700 flex-1 md:flex-none"
-                                onClick={() => handleContactSuggestion(suggestion)}
-                                disabled={suggestion.isRemoving}
-                              >
-                                Contacter
-                              </Button>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {suggestion.badges.map((badge, i) => (
+                                <Badge
+                                  key={i}
+                                  variant="secondary"
+                                  className="text-xs bg-gray-100 text-gray-700 animate-scale-in"
+                                >
+                                  {badge}
+                                </Badge>
+                              ))}
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-2 card-hover">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">Informations manquantes</CardTitle>
+                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">IA</Badge>
+                      </div>
+                      <CardDescription>
+                        L'IA a identifié des informations qui pourraient compléter votre arbre généalogique
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="bg-white border border-gray-100 rounded-lg p-4 animate-slide-up animate-stagger-1">
+                          <div className="flex items-start space-x-3">
+                            <div className="bg-amber-100 p-2 rounded-full">
+                              <Calendar className="h-5 w-5 text-amber-600" />
+                            </div>
+                            <div>
+                              <div className="font-semibold">Date de naissance manquante</div>
+                              <div className="text-sm text-gray-600 mt-1">
+                                La date de naissance de <span className="font-medium">Sophie Dupont</span> est
+                                manquante. Basé sur d'autres informations, elle est probablement née entre 1975 et 1980.
+                              </div>
+                              <div className="mt-3">
+                                <Button size="sm" className="transition-colors duration-200">
+                                  Ajouter cette information
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-white border border-gray-100 rounded-lg p-4 animate-slide-up animate-stagger-2">
+                          <div className="flex items-start space-x-3">
+                            <div className="bg-blue-100 p-2 rounded-full">
+                              <MapPin className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <div className="font-semibold">Lieu de naissance manquant</div>
+                              <div className="text-sm text-gray-600 mt-1">
+                                Le lieu de naissance de <span className="font-medium">Lucas Dupont</span> est manquante.
+                                Basé sur les résidences familiales, il est probablement né à Paris ou Marseille.
+                              </div>
+                              <div className="mt-3">
+                                <Button size="sm" className="transition-colors duration-200">
+                                  Ajouter cette information
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="space-y-6">
+                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-1 card-hover">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">Statistiques IA</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between animate-slide-up animate-stagger-1">
+                          <div className="text-sm text-gray-600">Suggestions totales</div>
+                          <div className="font-semibold">24</div>
+                        </div>
+                        <div className="flex items-center justify-between animate-slide-up animate-stagger-2">
+                          <div className="text-sm text-gray-600">Suggestions acceptées</div>
+                          <div className="font-semibold">16</div>
+                        </div>
+                        <div className="flex items-center justify-between animate-slide-up animate-stagger-3">
+                          <div className="text-sm text-gray-600">Précision</div>
+                          <div className="font-semibold">87%</div>
+                        </div>
+                        <div className="flex items-center justify-between animate-slide-up animate-stagger-4">
+                          <div className="text-sm text-gray-600">Nouvelles suggestions</div>
+                          <div className="font-semibold text-blue-600">3</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-2 card-hover">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">Paramètres IA</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="space-y-2 animate-slide-up animate-stagger-1">
+                          <Label htmlFor="match-threshold">Seuil de correspondance minimum</Label>
+                          <Select defaultValue="70">
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sélectionner un seuil" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="50">50% (Plus de suggestions)</SelectItem>
+                              <SelectItem value="70">70% (Équilibré)</SelectItem>
+                              <SelectItem value="90">90% (Haute précision)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2 animate-slide-up animate-stagger-2">
+                          <Label htmlFor="suggestion-types">Types de suggestions</Label>
+                          <Select defaultValue="all">
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sélectionner les types" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Toutes les suggestions</SelectItem>
+                              <SelectItem value="connections">Connexions familiales uniquement</SelectItem>
+                              <SelectItem value="missing">Informations manquantes uniquement</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="pt-2 animate-slide-up animate-stagger-3">
+                          <Button className="w-full transition-colors duration-200">Appliquer les paramètres</Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-3 card-hover">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">Abonnement Premium</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center space-y-4">
+                        <div className="mx-auto w-12 h-12 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center animate-scale-in">
+                          <Crown className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="animate-slide-up animate-stagger-1">
+                          <h3 className="font-semibold">Débloquez toutes les fonctionnalités IA</h3>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Accédez à des suggestions illimitées et à des analyses avancées
+                          </p>
+                        </div>
+                        <Button className="w-full bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-white transition-colors duration-200 animate-slide-up animate-stagger-2">
+                          Passer à Premium
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
             </div>
           )}
 
           {activeTab === "search" && (
-            <div className="space-y-6">
+            <div className="animate-fade-in">
               <div className="mb-6">
                 <h1 className="text-3xl font-bold text-gray-800 mb-2">Recherche de familles</h1>
                 <p className="text-gray-600">Trouvez d'autres familles et découvrez des connexions potentielles</p>
@@ -1648,7 +2064,7 @@ export default function Dashboard() {
           )}
 
           {activeTab === "messages" && (
-            <div className="space-y-6">
+            <div className="animate-fade-in">
               <div className="mb-6">
                 <h1 className="text-3xl font-bold text-gray-800 mb-2">Messages</h1>
                 <p className="text-gray-600">Communiquez avec d'autres généalogistes et familles</p>
@@ -1740,7 +2156,7 @@ export default function Dashboard() {
           )}
 
           {activeTab === "notifications" && (
-            <div className="space-y-6">
+            <div className="animate-fade-in">
               <div className="mb-6">
                 <h1 className="text-3xl font-bold text-gray-800 mb-2">Notifications</h1>
                 <p className="text-gray-600">Restez informé des dernières activités sur votre arbre généalogique</p>
