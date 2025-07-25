@@ -10,7 +10,7 @@ import { TreePine, ArrowLeft, Eye, EyeOff, Check } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from 'next/navigation';
 import { signUpWithEmailAndPassword } from "@/lib/firebase/firebase-authentication"
-import { createUser } from "../controllers/usersControllers"
+import { createUser } from "../controllers/usersController"
 
 export default function SignupPage() {
   interface FormData {
