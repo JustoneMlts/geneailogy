@@ -7,7 +7,6 @@ import { TreePine, Users, MessageCircle, Search, Sparkles, ArrowRight, Heart } f
 import Link from "next/link"
 
 export default function LandingPage() {
-  const [isLogin, setIsLogin] = useState(true)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
