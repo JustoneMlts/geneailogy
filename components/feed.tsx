@@ -1,19 +1,12 @@
-import { Calendar, Camera, Crown, FileText, Globe, Heart, Link, MapPin, MessageCircle, MessageSquare, Plus, RotateCcw, Save, Search, Settings, Share2, Sparkles, Trash2, TreePine, User, X, ZoomIn, ZoomOut } from "lucide-react"
+import { Camera, FileText, Heart, Link, MessageSquare, Share2, TreePine} from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
-import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
-import { Label } from "./ui/label"
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Input } from "./ui/input"
-import { Textarea } from "./ui/textarea"
-import { useState } from "react"
 
 export const Feed = ({
-  activeTab,
   setActiveTab
 }: {
-  activeTab: string,
   setActiveTab: (tab: string) => void
 }) => {
   return (

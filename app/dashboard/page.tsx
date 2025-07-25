@@ -11,181 +11,25 @@ import {
   MessageCircle,
   Search,
   Sparkles,
-  Plus,
-  Heart,
-  MessageSquare,
-  Share2,
   Bell,
   Home,
   User,
-  Camera,
   MapPin,
   Calendar,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
   PinIcon,
   PinOffIcon,
   Menu,
   X,
-  Settings,
-  Save,
   Crown,
-  Globe,
-  FileText,
-  Trash2,
   Users
 } from "lucide-react"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Feed } from "@/components/feed"
 import { Notifications } from "@/components/notifications"
 import { Tree } from "@/components/tree"
-
-// Family Tree Data
-interface FamilyMember {
-  id: string
-  name: string
-  birthYear?: number
-  deathYear?: number
-  birthPlace?: string
-  avatar?: string
-  spouse?: string
-  children?: string[]
-  parents?: string[]
-  gender: "male" | "female"
-}
-
-const familyData: Record<string, FamilyMember> = {
-  "jean-dupont": {
-    id: "jean-dupont",
-    name: "Jean Dupont",
-    birthYear: 1950,
-    birthPlace: "Paris, France",
-    avatar: "/placeholder.svg?height=60&width=60",
-    spouse: "marie-martin",
-    children: ["pierre-dupont", "sophie-dupont"],
-    gender: "male",
-  },
-  "marie-martin": {
-    id: "marie-martin",
-    name: "Marie Martin",
-    birthYear: 1952,
-    birthPlace: "Lyon, France",
-    avatar: "/placeholder.svg?height=60&width=60",
-    spouse: "jean-dupont",
-    children: ["pierre-dupont", "sophie-dupont"],
-    gender: "female",
-  },
-  "pierre-dupont": {
-    id: "pierre-dupont",
-    name: "Pierre Dupont",
-    birthYear: 1975,
-    birthPlace: "Paris, France",
-    avatar: "/placeholder.svg?height=60&width=60",
-    parents: ["jean-dupont", "marie-martin"],
-    spouse: "claire-bernard",
-    children: ["lucas-dupont"],
-    gender: "male",
-  },
-  "sophie-dupont": {
-    id: "sophie-dupont",
-    name: "Sophie Dupont",
-    birthYear: 1978,
-    birthPlace: "Paris, France",
-    avatar: "/placeholder.svg?height=60&width=60",
-    parents: ["jean-dupont", "marie-martin"],
-    gender: "female",
-  },
-  "claire-bernard": {
-    id: "claire-bernard",
-    name: "Claire Bernard",
-    birthYear: 1977,
-    birthPlace: "Marseille, France",
-    avatar: "/placeholder.svg?height=60&width=60",
-    spouse: "pierre-dupont",
-    children: ["lucas-dupont"],
-    gender: "female",
-  },
-  "lucas-dupont": {
-    id: "lucas-dupont",
-    name: "Lucas Dupont",
-    birthYear: 2005,
-    birthPlace: "Paris, France",
-    avatar: "/placeholder.svg?height=60&width=60",
-    parents: ["pierre-dupont", "claire-bernard"],
-    gender: "male",
-  },
-  "robert-dupont": {
-    id: "robert-dupont",
-    name: "Robert Dupont",
-    birthYear: 1920,
-    deathYear: 1995,
-    birthPlace: "Bordeaux, France",
-    avatar: "/placeholder.svg?height=60&width=60",
-    spouse: "louise-petit",
-    children: ["jean-dupont"],
-    gender: "male",
-  },
-  "louise-petit": {
-    id: "louise-petit",
-    name: "Louise Petit",
-    birthYear: 1925,
-    deathYear: 2010,
-    birthPlace: "Toulouse, France",
-    avatar: "/placeholder.svg?height=60&width=60",
-    spouse: "robert-dupont",
-    children: ["jean-dupont"],
-    gender: "female",
-  },
-}
-
-function FamilyMemberCard({ member, onClick }: { member: FamilyMember; onClick: () => void }) {
-  return (
-    <Card
-      className={`w-48 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 ${member.gender === "male" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"
-        }`}
-      onClick={onClick}
-    >
-      <CardContent className="p-4 text-center">
-        <Avatar className="w-16 h-16 mx-auto mb-3">
-          <AvatarImage src={member.avatar || "/placeholder.svg"} />
-          <AvatarFallback className={member.gender === "male" ? "bg-blue-100" : "bg-pink-100"}>
-            {member.name
-              .split(" ")
-              .map((n) => n[0])
-              .join("")}
-          </AvatarFallback>
-        </Avatar>
-        <h3 className="font-semibold text-sm mb-2">{member.name}</h3>
-        <div className="space-y-1 text-xs text-gray-600">
-          {member.birthYear && (
-            <div className="flex items-center justify-center space-x-1">
-              <Calendar className="w-3 h-3" />
-              <span>
-                {member.birthYear}
-                {member.deathYear && ` - ${member.deathYear}`}
-              </span>
-            </div>
-          )}
-          {member.birthPlace && (
-            <div className="flex items-center justify-center space-x-1">
-              <MapPin className="w-3 h-3" />
-              <span className="truncate">{member.birthPlace}</span>
-            </div>
-          )}
-        </div>
-        {member.deathYear && (
-          <Badge variant="secondary" className="mt-2 text-xs">
-            Décédé(e)
-          </Badge>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
+import { Ai } from "@/components/ai"
 
 function DesktopSidebar({
   activeTab,
@@ -422,21 +266,8 @@ function MobileHeader({ activeTab, setActiveTab }: { activeTab: string; setActiv
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("feed")
-  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null)
-  const [zoom, setZoom] = useState(1)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isPinned, setIsPinned] = useState(false)
-  const [showFamilySettings, setShowFamilySettings] = useState(false)
-  const [origins, setOrigins] = useState([
-    { id: 1, country: "France", region: "Normandie", percentage: 60 },
-    { id: 2, country: "Italie", region: "Toscane", percentage: 30 },
-    { id: 3, country: "Espagne", region: "Andalousie", percentage: 10 },
-  ])
-  const [locations, setLocations] = useState([
-    { id: 1, place: "Paris, France", period: "1950 - Présent", type: "Résidence principale" },
-    { id: 2, place: "Lyon, France", period: "1920 - 1950", type: "Résidence familiale" },
-    { id: 3, place: "Bordeaux, France", period: "1890 - 1920", type: "Lieu de naissance" },
-  ])
 
   // Ajouter après les autres états
   const [suggestions, setSuggestions] = useState([
@@ -500,35 +331,6 @@ export default function Dashboard() {
 
   const [selectedConversation, setSelectedConversation] = useState(conversations[0])
 
-  // Ajouter ces fonctions helper
-  const addOrigin = () => {
-    const newOrigin = {
-      id: Date.now(),
-      country: "",
-      region: "",
-      percentage: 0,
-    }
-    setOrigins([...origins, newOrigin])
-  }
-
-  const removeOrigin = (id: number) => {
-    setOrigins(origins.filter((origin) => origin.id !== id))
-  }
-
-  const addLocation = () => {
-    const newLocation = {
-      id: Date.now(),
-      place: "",
-      period: "",
-      type: "",
-    }
-    setLocations([...locations, newLocation])
-  }
-
-  const removeLocation = (id: number) => {
-    setLocations(locations.filter((location) => location.id !== id))
-  }
-
   // Ajouter après les autres fonctions helper
   const handleIgnoreSuggestion = (suggestionId: number) => {
     // Marquer la suggestion comme en cours de suppression pour déclencher l'animation
@@ -582,32 +384,6 @@ export default function Dashboard() {
     }
   }
 
-  const countries = [
-    "France",
-    "Italie",
-    "Espagne",
-    "Allemagne",
-    "Royaume-Uni",
-    "Portugal",
-    "Brésil",
-    "Argentine",
-    "Mexique",
-    "États-Unis",
-    "Canada",
-    "Japon",
-    "Chine",
-    "Inde",
-    "Maroc",
-    "Algérie",
-    "Tunisie",
-    "Sénégal",
-    "Côte d'Ivoire",
-    "Cameroun",
-    "Autre",
-  ]
-
-  const locationTypes = ["Résidence principale", "Résidence familiale", "Lieu de naissance", "Lieu de travail", "Autre"]
-
   // Calculer la marge gauche dynamiquement
   const getLeftMargin = () => {
     if (isExpanded || isPinned) {
@@ -619,29 +395,6 @@ export default function Dashboard() {
   // Remplace les générations existantes par :
   const treeOwner = "Jean Dupont" // Nom du propriétaire de l'arbre
   const isOwner = true // À déterminer selon l'utilisateur connecté
-
-  const familySections = [
-    {
-      id: "great-grandparents",
-      title: isOwner ? "Vos arrière-grands-parents" : `Les arrière-grands-parents de ${treeOwner}`,
-      members: ["robert-dupont", "louise-petit"],
-    },
-    {
-      id: "grandparents",
-      title: isOwner ? "Vos grands-parents" : `Les grands-parents de ${treeOwner}`,
-      members: ["jean-dupont", "marie-martin"],
-    },
-    {
-      id: "parents-uncles",
-      title: isOwner ? "Vos parents et oncles/tantes" : `Les parents et oncles/tantes de ${treeOwner}`,
-      members: ["pierre-dupont", "sophie-dupont", "claire-bernard"],
-    },
-    {
-      id: "siblings-cousins",
-      title: isOwner ? "Vos frères/sœurs et cousins" : `Les frères/sœurs et cousins de ${treeOwner}`,
-      members: ["lucas-dupont"],
-    },
-  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
@@ -662,7 +415,7 @@ export default function Dashboard() {
       <div className={`min-h-screen transition-all duration-300 ease-in-out ${getLeftMargin()}`}>
         <div className="p-6">
           {activeTab === "feed" && (
-            <Feed activeTab={activeTab} setActiveTab={setActiveTab} />
+            <Feed setActiveTab={setActiveTab} />
           )}
 
           {activeTab === "tree" && (
@@ -670,231 +423,7 @@ export default function Dashboard() {
           )}
 
           {activeTab === "ai" && (
-            <div className="animate-fade-in">
-              <h1 className="text-3xl font-bold mb-6 animate-slide-up">Suggestions IA</h1>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-1 card-hover">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">Connexions potentielles</CardTitle>
-                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">IA</Badge>
-                      </div>
-                      <CardDescription>
-                        Personnes qui pourraient être liées à votre arbre généalogique, basées sur l'analyse IA
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {suggestions.map((suggestion, index) => (
-                          <div
-                            key={suggestion.id}
-                            className={`bg-white border border-gray-100 rounded-lg p-4 transition-all duration-300 animate-slide-up ${
-                              suggestion.isRemoving ? "opacity-0 transform translate-x-full" : ""
-                            }`}
-                            style={{ animationDelay: `${index * 0.1}s` }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <Avatar className="animate-scale-in">
-                                  <AvatarImage src={suggestion.avatar || "/placeholder.svg"} />
-                                  <AvatarFallback>{suggestion.initials}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="font-semibold">{suggestion.name}</div>
-                                  <div className="text-xs text-gray-500 flex items-center">
-                                    <span>{suggestion.relationship}</span>
-                                    <span className="mx-2">•</span>
-                                    <span className="text-blue-600 font-medium">
-                                      {suggestion.match}% de correspondance
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-gray-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors duration-200 bg-transparent"
-                                  onClick={() => handleIgnoreSuggestion(suggestion.id)}
-                                >
-                                  Ignorer
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white transition-colors duration-200"
-                                  onClick={() => handleContactSuggestion(suggestion)}
-                                >
-                                  Contacter
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {suggestion.badges.map((badge, i) => (
-                                <Badge
-                                  key={i}
-                                  variant="secondary"
-                                  className="text-xs bg-gray-100 text-gray-700 animate-scale-in"
-                                >
-                                  {badge}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-2 card-hover">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">Informations manquantes</CardTitle>
-                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">IA</Badge>
-                      </div>
-                      <CardDescription>
-                        L'IA a identifié des informations qui pourraient compléter votre arbre généalogique
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="bg-white border border-gray-100 rounded-lg p-4 animate-slide-up animate-stagger-1">
-                          <div className="flex items-start space-x-3">
-                            <div className="bg-amber-100 p-2 rounded-full">
-                              <Calendar className="h-5 w-5 text-amber-600" />
-                            </div>
-                            <div>
-                              <div className="font-semibold">Date de naissance manquante</div>
-                              <div className="text-sm text-gray-600 mt-1">
-                                La date de naissance de <span className="font-medium">Sophie Dupont</span> est
-                                manquante. Basé sur d'autres informations, elle est probablement née entre 1975 et 1980.
-                              </div>
-                              <div className="mt-3">
-                                <Button size="sm" className="transition-colors duration-200">
-                                  Ajouter cette information
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white border border-gray-100 rounded-lg p-4 animate-slide-up animate-stagger-2">
-                          <div className="flex items-start space-x-3">
-                            <div className="bg-blue-100 p-2 rounded-full">
-                              <MapPin className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div>
-                              <div className="font-semibold">Lieu de naissance manquant</div>
-                              <div className="text-sm text-gray-600 mt-1">
-                                Le lieu de naissance de <span className="font-medium">Lucas Dupont</span> est manquante.
-                                Basé sur les résidences familiales, il est probablement né à Paris ou Marseille.
-                              </div>
-                              <div className="mt-3">
-                                <Button size="sm" className="transition-colors duration-200">
-                                  Ajouter cette information
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="space-y-6">
-                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-1 card-hover">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Statistiques IA</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between animate-slide-up animate-stagger-1">
-                          <div className="text-sm text-gray-600">Suggestions totales</div>
-                          <div className="font-semibold">24</div>
-                        </div>
-                        <div className="flex items-center justify-between animate-slide-up animate-stagger-2">
-                          <div className="text-sm text-gray-600">Suggestions acceptées</div>
-                          <div className="font-semibold">16</div>
-                        </div>
-                        <div className="flex items-center justify-between animate-slide-up animate-stagger-3">
-                          <div className="text-sm text-gray-600">Précision</div>
-                          <div className="font-semibold">87%</div>
-                        </div>
-                        <div className="flex items-center justify-between animate-slide-up animate-stagger-4">
-                          <div className="text-sm text-gray-600">Nouvelles suggestions</div>
-                          <div className="font-semibold text-blue-600">3</div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-2 card-hover">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Paramètres IA</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="space-y-2 animate-slide-up animate-stagger-1">
-                          <Label htmlFor="match-threshold">Seuil de correspondance minimum</Label>
-                          <Select defaultValue="70">
-                            <SelectTrigger>
-                              <SelectValue placeholder="Sélectionner un seuil" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="50">50% (Plus de suggestions)</SelectItem>
-                              <SelectItem value="70">70% (Équilibré)</SelectItem>
-                              <SelectItem value="90">90% (Haute précision)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2 animate-slide-up animate-stagger-2">
-                          <Label htmlFor="suggestion-types">Types de suggestions</Label>
-                          <Select defaultValue="all">
-                            <SelectTrigger>
-                              <SelectValue placeholder="Sélectionner les types" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">Toutes les suggestions</SelectItem>
-                              <SelectItem value="connections">Connexions familiales uniquement</SelectItem>
-                              <SelectItem value="missing">Informations manquantes uniquement</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="pt-2 animate-slide-up animate-stagger-3">
-                          <Button className="w-full transition-colors duration-200">Appliquer les paramètres</Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="shadow-md border-0 animate-slide-up animate-stagger-3 card-hover">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Abonnement Premium</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-center space-y-4">
-                        <div className="mx-auto w-12 h-12 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center animate-scale-in">
-                          <Crown className="h-6 w-6 text-white" />
-                        </div>
-                        <div className="animate-slide-up animate-stagger-1">
-                          <h3 className="font-semibold">Débloquez toutes les fonctionnalités IA</h3>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Accédez à des suggestions illimitées et à des analyses avancées
-                          </p>
-                        </div>
-                        <Button className="w-full bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-white transition-colors duration-200 animate-slide-up animate-stagger-2">
-                          Passer à Premium
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </div>
+            <Ai setActiveTab={setActiveTab} />
           )}
 
           {activeTab === "search" && (
