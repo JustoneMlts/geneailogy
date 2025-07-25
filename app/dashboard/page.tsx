@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -26,6 +24,8 @@ import { Notifications } from "@/components/notifications"
 import { Tree } from "@/components/tree"
 import { Ai } from "@/components/ai"
 import { SearchPage } from "@/components/search"
+import { DirectMessages } from "@/components/directMessages"
+import { Connections } from "@/components/connections"
 
 function DesktopSidebar({
   activeTab,
@@ -50,7 +50,7 @@ function DesktopSidebar({
     { id: "tree", label: "Mon arbre", icon: TreePine },
     { id: "ai", label: "Suggestions IA", icon: Sparkles },
     { id: "search", label: "Recherche", icon: Search },
-    { id: "connections", label: "Connexions", icon: Users, href: "/connections" },
+    { id: "connections", label: "Connexions", icon: Users },
     { id: "messages", label: "Messages", icon: MessageCircle },
   ]
 
@@ -205,7 +205,7 @@ function MobileHeader({ activeTab, setActiveTab }: { activeTab: string; setActiv
     { id: "tree", label: "Mon arbre", icon: TreePine },
     { id: "ai", label: "Suggestions IA", icon: Sparkles },
     { id: "search", label: "Recherche", icon: Search },
-    { id: "connections", label: "Connexions", icon: Users, href: "/connections" },
+    { id: "connections", label: "Connexions", icon: Users },
     { id: "messages", label: "Messages", icon: MessageCircle },
   ]
 
@@ -265,121 +265,6 @@ export default function Dashboard() {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isPinned, setIsPinned] = useState(false)
 
-  // Ajouter après les autres états
-  const [suggestions, setSuggestions] = useState([
-    {
-      id: 1,
-      name: "Pierre Dupont",
-      avatar: "/placeholder.svg?height=40&width=40",
-      initials: "PD",
-      relationship: "Possible cousin",
-      match: 85,
-      badges: ["Même nom de famille", "Région similaire"],
-      isRemoving: false,
-    },
-    {
-      id: 2,
-      name: "Marie Dubois",
-      avatar: "/placeholder.svg?height=40&width=40",
-      initials: "MD",
-      relationship: "Possible tante",
-      match: 78,
-      badges: ["Même région", "Période similaire"],
-      isRemoving: false,
-    },
-    {
-      id: 3,
-      name: "Jean Martin",
-      avatar: "/placeholder.svg?height=40&width=40",
-      initials: "JM",
-      relationship: "Possible grand-oncle",
-      match: 72,
-      badges: ["Même ville", "Métier similaire"],
-      isRemoving: false,
-    },
-  ])
-
-  const [conversations, setConversations] = useState([
-    {
-      id: 1,
-      name: "Marie Dubois",
-      avatar: "/placeholder.svg?height=40&width=40",
-      initials: "MD",
-      lastMessage: "Merci pour les informations sur...",
-      unreadCount: 2,
-      isOnline: true,
-      messages: [
-        {
-          id: 1,
-          text: "Bonjour ! J'ai vu que nous avons des ancêtres communs à Lyon.",
-          sender: "other",
-          timestamp: "10:30",
-        },
-        {
-          id: 2,
-          text: "Oui, c'est fascinant ! Pouvez-vous me dire plus sur la famille Dupont ?",
-          sender: "me",
-          timestamp: "10:35",
-        },
-      ],
-    },
-  ])
-
-  const [selectedConversation, setSelectedConversation] = useState(conversations[0])
-
-  // Ajouter après les autres fonctions helper
-  const handleIgnoreSuggestion = (suggestionId: number) => {
-    // Marquer la suggestion comme en cours de suppression pour déclencher l'animation
-    setSuggestions((prev) =>
-      prev.map((suggestion) => (suggestion.id === suggestionId ? { ...suggestion, isRemoving: true } : suggestion)),
-    )
-
-    // Supprimer définitivement après l'animation
-    setTimeout(() => {
-      setSuggestions((prev) => prev.filter((suggestion) => suggestion.id !== suggestionId))
-    }, 300)
-  }
-
-  const handleContactSuggestion = (suggestion: any) => {
-    // Vérifier si une conversation existe déjà
-    const existingConversation = conversations.find((conv) => conv.name === suggestion.name)
-
-    if (existingConversation) {
-      // Si la conversation existe, la sélectionner et aller aux messages
-      setSelectedConversation(existingConversation)
-      setActiveTab("messages")
-    } else {
-      // Créer une nouvelle conversation
-      const newConversation = {
-        id: Date.now(),
-        name: suggestion.name,
-        avatar: suggestion.avatar,
-        initials: suggestion.initials,
-        lastMessage: "Nouvelle conversation",
-        unreadCount: 0,
-        isOnline: false,
-        messages: [
-          {
-            id: 1,
-            text: `Bonjour ${suggestion.name} ! J'ai vu votre profil dans les suggestions IA. Nous semblons avoir des liens familiaux potentiels (${suggestion.relationship.toLowerCase()}, ${suggestion.match}% de correspondance). J'aimerais en savoir plus sur votre famille.`,
-            sender: "me",
-            timestamp: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-          },
-        ],
-      }
-
-      // Ajouter la nouvelle conversation
-      setConversations((prev) => [newConversation, ...prev])
-      setSelectedConversation(newConversation)
-
-      // Supprimer la suggestion de la liste
-      setSuggestions((prev) => prev.filter((s) => s.id !== suggestion.id))
-
-      // Aller à l'onglet messages
-      setActiveTab("messages")
-    }
-  }
-
   // Calculer la marge gauche dynamiquement
   const getLeftMargin = () => {
     if (isExpanded || isPinned) {
@@ -387,10 +272,6 @@ export default function Dashboard() {
     }
     return "md:ml-16" // 64px
   }
-
-  // Remplace les générations existantes par :
-  const treeOwner = "Jean Dupont" // Nom du propriétaire de l'arbre
-  const isOwner = true // À déterminer selon l'utilisateur connecté
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
@@ -426,96 +307,12 @@ export default function Dashboard() {
             <SearchPage />
           )}
 
+          {activeTab === "connections" && (
+           <Connections />
+          )}
+
           {activeTab === "messages" && (
-            <div className="animate-fade-in">
-              <div className="mb-6">
-                <h1 className="text-3xl font-bold text-gray-800 mb-2">Messages</h1>
-                <p className="text-gray-600">Communiquez avec d'autres généalogistes et familles</p>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-1">
-                  <CardHeader className="pb-4">
-                    <CardTitle>Conversations</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {conversations.map((conv) => (
-                      <div
-                        key={conv.id}
-                        className={`p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${selectedConversation?.id === conv.id ? "bg-blue-50 border-blue-200" : ""
-                          }`}
-                        onClick={() => setSelectedConversation(conv)}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="relative">
-                            <Avatar className="flex-shrink-0">
-                              <AvatarImage src={conv.avatar || "/placeholder.svg"} />
-                              <AvatarFallback>{conv.initials}</AvatarFallback>
-                            </Avatar>
-                            {conv.isOnline && (
-                              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold">{conv.name}</h3>
-                            <p className="text-sm text-gray-600 truncate">{conv.lastMessage}</p>
-                          </div>
-                          {conv.unreadCount > 0 && (
-                            <Badge className="bg-blue-500 flex-shrink-0">{conv.unreadCount}</Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-
-                <Card className="lg:col-span-2">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
-                        <Avatar className="flex-shrink-0">
-                          <AvatarImage src={selectedConversation?.avatar || "/placeholder.svg"} />
-                          <AvatarFallback>{selectedConversation?.initials}</AvatarFallback>
-                        </Avatar>
-                        {selectedConversation?.isOnline && (
-                          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                        )}
-                      </div>
-                      <div>
-                        <CardTitle>{selectedConversation?.name}</CardTitle>
-                        <CardDescription>{selectedConversation?.isOnline ? "En ligne" : "Hors ligne"}</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="h-96 flex flex-col pt-0">
-                    <div className="flex-1 space-y-4 mb-4 overflow-y-auto">
-                      {selectedConversation?.messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={`flex ${message.sender === "me" ? "justify-end" : "justify-start"}`}
-                        >
-                          <div
-                            className={`rounded-lg p-3 max-w-xs ${message.sender === "me" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-800"
-                              }`}
-                          >
-                            <p className="text-sm">{message.text}</p>
-                            <p
-                              className={`text-xs mt-1 ${message.sender === "me" ? "text-blue-100" : "text-gray-500"}`}
-                            >
-                              {message.timestamp}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex space-x-2">
-                      <Input placeholder="Tapez votre message..." className="flex-1" />
-                      <Button>Envoyer</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+            <DirectMessages />
           )}
 
           {activeTab === "notifications" && (

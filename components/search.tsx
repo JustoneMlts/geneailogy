@@ -31,7 +31,7 @@ export const SearchPage = () => {
                 </CardContent>
               </Card>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
                 {[1, 2, 3, 4].map((family) => (
                   <Card key={family} className="hover:shadow-lg transition-shadow">
                     <CardHeader className="pb-4">
