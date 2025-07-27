@@ -43,6 +43,7 @@ import {
       body: JSON.stringify({ idToken }),
       credentials: 'include',
     });
+    return userCredential;
   };
   
   const signUpWithEmailAndPassword = async (

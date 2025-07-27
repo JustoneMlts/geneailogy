@@ -1,9 +1,9 @@
-export const COLLECTIONS = {
-  USERS: "users",
-  TREES: "trees",
-  MEMBERS: "members",
-  CONVERSATIONS: "conversations",
-  MESSAGES: "messages",
-  FEED: "feed",
-  NOTIFICATIONS: "notifications",
+export enum COLLECTIONS {
+  USERS = "Users",
+  TREES = "Trees",
+  MEMBERS = "Members",
+  CONVERSATIONS = "Conversations",
+  MESSAGES = "Messages",
+  FEED = "Feed",
+  NOTIFICATIONS = "Notifications",
 };

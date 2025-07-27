@@ -1,6 +1,6 @@
-import { collection } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
 import { doc, getDoc, getDocs, updateDoc , addDoc, deleteDoc } from "firebase/firestore";
-
+import { COLLECTIONS } from "./collections"
 import { db } from "./firebase";
 import { formatDate } from "../utils";
 
@@ -92,4 +92,20 @@ export const deleteDocumentFromCollection = async (
 ): Promise<void> => {
   const docRefToDelete = doc(db, collectionName, dataToDeleteId);
   await deleteDoc(docRefToDelete);
+};
+
+export const getAllDataFromCollectionWithWhereArray = async (collectionName: COLLECTIONS, whereArray: any) => {
+
+    let arrayData: any = []
+    const q = query(collection(db,collectionName), where(whereArray.property, '==', whereArray.propertyValue))
+    const querySnapshot = await getDocs(q)
+    querySnapshot.forEach((doc) => {
+        arrayData.push({...doc.data(), id: doc.id})
+    })
+    
+    if (arrayData.length === 1) {
+        return arrayData[0];
+    }
+
+    return arrayData
 };

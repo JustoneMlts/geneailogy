@@ -10,6 +10,9 @@ import { TreePine, ArrowLeft, Eye, EyeOff } from "lucide-react"
 import { useRouter } from 'next/navigation';
 import Link from "next/link"
 import { logInWithEmailAndPassword } from "@/lib/firebase/firebase-authentication"
+import { useDispatch } from "react-redux"
+import { getUserById } from "../controllers/usersController"
+import { setCurrentUser } from "@/lib/redux/slices/currentUserSlice"
 
 interface FormData {
   email: string;
@@ -22,6 +25,7 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState<boolean>(false);
   const route = useRouter()
+  const dispatch = useDispatch()
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
@@ -44,9 +48,13 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await logInWithEmailAndPassword(formData.email, formData.password).then(() => {
+        const userCredential = await logInWithEmailAndPassword(formData.email, formData.password)
+        const userId = userCredential.user.uid
+        const currentUser = await getUserById(userId);
+        console.log(currentUser)
+        dispatch(setCurrentUser(currentUser))
         route.push("/dashboard")
-      })
+
     } catch (err: any) {
       setError(err.message || 'An error occurred during login');
       console.error(err);

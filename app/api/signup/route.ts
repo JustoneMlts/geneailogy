@@ -1,7 +1,8 @@
 'use server'
 
-import { auth } from '@/lib/firebase/auth/firebase-admin';
-import { cookies } from 'next/headers';
+import { auth } from '@/lib/firebase/auth/firebase-admin'
+import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   const { idToken } = await req.json();

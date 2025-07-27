@@ -20,6 +20,7 @@ export default function SignupPage() {
     password: string;
     confirmPassword: string;
     agreeToTerms: boolean;
+    uid: string;
   }
 
   const [showPassword, setShowPassword] = useState(false)
@@ -32,7 +33,8 @@ export default function SignupPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    agreeToTerms: false
+    agreeToTerms: false,
+    uid: '',
   });
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -70,8 +72,8 @@ export default function SignupPage() {
     }
 
     try {
-      await signUpWithEmailAndPassword(formData.email, formData.password);
-      await createUser(formData);
+      const userCredential = await signUpWithEmailAndPassword(formData.email, formData.password);
+      await createUser({...formData, uid: userCredential.user.uid});
       route.push("/login")
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue lors de la création du compte');

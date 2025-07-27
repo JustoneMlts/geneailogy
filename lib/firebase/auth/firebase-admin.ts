@@ -1,5 +1,10 @@
 import { initializeApp, cert, getApps, getApp } from 'firebase-admin/app';
 
+var admin = require("firebase-admin");
+
+
+var serviceAccount = require("../geneailogyFirebaseAdmin.json");
+
 let privateKey;
 try {
   // Essayez d'abord de parser comme JSON (format pour Vercel)
@@ -14,13 +19,13 @@ try {
 privateKey = privateKey.replace(/\\n/g, '\n');
 
 const firebaseAdminConfig = {
-  projectId: process.env.FIREBASE_PROJECT_ID,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
   privateKey
 };
 
 export const adminApp = getApps().length === 0
-  ? initializeApp({ credential: cert(firebaseAdminConfig) })
+  ? initializeApp({ credential: cert(serviceAccount) })
   : getApp();
 
 

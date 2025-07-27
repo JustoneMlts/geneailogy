@@ -26,6 +26,8 @@ import { Ai } from "@/components/ai"
 import { SearchPage } from "@/components/search"
 import { DirectMessages } from "@/components/directMessages"
 import { Connections } from "@/components/connections"
+import { selectUser } from "@/lib/redux/slices/currentUserSlice"
+import { useSelector } from "react-redux"
 
 function DesktopSidebar({
   activeTab,
@@ -43,6 +45,7 @@ function DesktopSidebar({
   setIsPinned: (pinned: boolean) => void
 }) {
   const [showText, setShowText] = useState(isPinned)
+  const currentUser = useSelector(selectUser)
 
   const menuItems = [
     { id: "feed", label: "Feed", icon: Home },
@@ -99,6 +102,10 @@ function DesktopSidebar({
 
   // Condition pour afficher le texte : sidebar dépliée ET (épinglée OU texte activé)
   const shouldShowText = isExpanded && (isPinned || showText)
+
+  useEffect(() => {
+    console.log(currentUser)
+  }, [currentUser])
 
   return (
     <div
