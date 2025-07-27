@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, ChangeEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -33,6 +33,8 @@ import {
   Sparkles,
 } from "lucide-react"
 import Link from "next/link"
+import { useSelector } from "react-redux"
+import { selectUser, setCurrentUser } from "@/lib/redux/slices/currentUserSlice"
 
 function DesktopSidebar({
   activeTab,
@@ -59,7 +61,7 @@ function DesktopSidebar({
     { id: "search", label: "Recherche", icon: Search, href: "/dashboard" },
     { id: "messages", label: "Messages", icon: MessageCircle, href: "/dashboard" },
   ]
-
+  
   const handleMouseEnter = () => {
     if (!isPinned) {
       setIsExpanded(true)
@@ -250,12 +252,32 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("profile")
   const [isExpanded, setIsExpanded] = useState(false)
   const [isPinned, setIsPinned] = useState(false)
+  const currentUser = useSelector(selectUser);
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
     suggestions: true,
     messages: true,
   })
+
+   interface FormData {
+    firstName: string,
+    lastName: string,
+    email: string;
+  }
+  const [formData, setFormData] = useState<FormData>({
+    firstName: currentUser ? currentUser?.firstName : " ",
+    lastName: currentUser ? currentUser?.lastName : " ",
+    email: currentUser ? currentUser?.email : " ",
+  });
+
+    const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
+      const { name, value } = e.target;
+      setFormData(prevState => ({
+        ...prevState,
+        [name]: value
+      }));
+    };
 
   // Calculer la marge gauche dynamiquement
   const getLeftMargin = () => {
@@ -383,17 +405,17 @@ export default function ProfilePage() {
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="firstName">Prénom</Label>
-                        <Input id="firstName" defaultValue="Jean" />
+                        <Input id="firstName" name="firstName" value={formData.firstName} onChange={handleChange} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="lastName">Nom</Label>
-                        <Input id="lastName" defaultValue="Dupont" />
+                        <Input id="lastName" name="lastName" value={formData.lastName} onChange={handleChange} />
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" defaultValue="jean.dupont@email.com" />
+                      <Input id="email" type="email" name="email" value={formData.email} onChange={handleChange} />
                     </div>
 
                     <div className="space-y-2">

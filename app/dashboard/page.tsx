@@ -16,7 +16,8 @@ import {
   PinOffIcon,
   Menu,
   X,
-  Users
+  Users,
+  LogOutIcon
 } from "lucide-react"
 import Link from "next/link"
 import { Feed } from "@/components/feed"
@@ -26,8 +27,10 @@ import { Ai } from "@/components/ai"
 import { SearchPage } from "@/components/search"
 import { DirectMessages } from "@/components/directMessages"
 import { Connections } from "@/components/connections"
-import { selectUser } from "@/lib/redux/slices/currentUserSlice"
-import { useSelector } from "react-redux"
+import { selectUser, setCurrentUser } from "@/lib/redux/slices/currentUserSlice"
+import { useDispatch, useSelector } from "react-redux"
+import { logOut } from "@/lib/firebase/firebase-authentication"
+import { useRouter } from "next/navigation"
 
 function DesktopSidebar({
   activeTab,
@@ -46,7 +49,9 @@ function DesktopSidebar({
 }) {
   const [showText, setShowText] = useState(isPinned)
   const currentUser = useSelector(selectUser)
-
+  const dispatch = useDispatch();
+  const route = useRouter();
+  
   const menuItems = [
     { id: "feed", label: "Feed", icon: Home },
     { id: "notifications", label: "Notifications", icon: Bell, badge: 3 },
@@ -99,6 +104,12 @@ function DesktopSidebar({
       setIsExpanded(false)
     }
   }, [isPinned])
+
+  const handleLogout = () => {
+    dispatch(setCurrentUser(null));
+    logOut();
+    route.push("/login");
+  }
 
   // Condition pour afficher le texte : sidebar dépliée ET (épinglée OU texte activé)
   const shouldShowText = isExpanded && (isPinned || showText)
@@ -172,14 +183,25 @@ function DesktopSidebar({
               </button>
             </Link>
           ))}
-        </nav>
+        </nav>       
       </div>
-
+      <div>
+        <button className="w-full flex items-center space-x-3 px-5 py-2 rounded-lg transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900" onClick={() => { handleLogout() }}>
+          <LogOutIcon className="h-5 w-5 flex-shrink-0" />
+          <span
+            className={`whitespace-nowrap transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
+              }`}
+          >
+            Déconnexion
+          </span>
+        </button>
+      </div>
+     
       {/* Profile */}
       <div className="p-4 border-t border-gray-200">
         <Link href="/profile">
           <button
-            className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ${activeTab === "profile"
+            className={`w-full flex items-center space-x-3 px-1 py-2 rounded-lg transition-all duration-200 ${activeTab === "profile"
                 ? "bg-blue-100 text-blue-700"
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
               }`}

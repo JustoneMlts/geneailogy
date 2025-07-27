@@ -3,11 +3,13 @@ import { RootState } from '../store'
 import { UserType } from '@/lib/firebase/models'
 
 interface UserState {
-  user: UserType | null
+  user: UserType | null,
+  isLoading: boolean
 }
 
 const initialState: UserState = {
   user: null,
+  isLoading: true, 
 };
 
 const currentUserSlice = createSlice({
@@ -24,5 +26,5 @@ const currentUserSlice = createSlice({
 })
 
 export const { setCurrentUser, clearCurrentUser } = currentUserSlice.actions
-export const selectUser = (state: RootState) => state.user
+export const selectUser = (state: RootState) => state.user.user
 export default currentUserSlice.reducer
