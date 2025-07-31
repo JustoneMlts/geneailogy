@@ -5,8 +5,14 @@ export interface UserType {
   lastName: string
   birthDate?: number // timestamp
   nationality?: string
+  bio? : string,
+  phoneNumber?: string,
+  localisation?: string,
+  oldestAncestor?: string,
   avatarUrl?: string
   email: string
+  familyOrigin? : string
+  researchInterests?: string
   createdDate?: number
   updatedDate?: number
   isActive?: boolean

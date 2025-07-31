@@ -51,7 +51,6 @@ export default function LoginPage() {
         const userCredential = await logInWithEmailAndPassword(formData.email, formData.password)
         const userId = userCredential.user.uid
         const currentUser = await getUserById(userId);
-        console.log(currentUser)
         dispatch(setCurrentUser(currentUser))
         route.push("/dashboard")
 

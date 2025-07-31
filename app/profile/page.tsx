@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import Alert from '@mui/material/Alert';
+import Snackbar from '@mui/material/Snackbar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -33,8 +35,9 @@ import {
   Sparkles,
 } from "lucide-react"
 import Link from "next/link"
-import { useSelector } from "react-redux"
+import { useDispatch, useSelector } from "react-redux"
 import { selectUser, setCurrentUser } from "@/lib/redux/slices/currentUserSlice"
+import { updateUser } from "../controllers/usersController"
 
 function DesktopSidebar({
   activeTab,
@@ -61,7 +64,7 @@ function DesktopSidebar({
     { id: "search", label: "Recherche", icon: Search, href: "/dashboard" },
     { id: "messages", label: "Messages", icon: MessageCircle, href: "/dashboard" },
   ]
-  
+
   const handleMouseEnter = () => {
     if (!isPinned) {
       setIsExpanded(true)
@@ -103,9 +106,8 @@ function DesktopSidebar({
 
   return (
     <div
-      className={`hidden md:flex flex-col h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out ${
-        isExpanded ? "w-64" : "w-16"
-      } fixed left-0 top-0 z-40 shadow-lg`}
+      className={`hidden md:flex flex-col h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out ${isExpanded ? "w-64" : "w-16"
+        } fixed left-0 top-0 z-40 shadow-lg`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -115,9 +117,8 @@ function DesktopSidebar({
           <Link href="/dashboard" className="flex items-center space-x-3">
             <TreePine className="h-8 w-8 text-blue-600 flex-shrink-0" />
             <span
-              className={`text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap transition-all duration-200 ${
-                shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
-              }`}
+              className={`text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
+                }`}
             >
               GeneAIlogy
             </span>
@@ -126,9 +127,8 @@ function DesktopSidebar({
             variant="ghost"
             size="icon"
             onClick={handlePinToggle}
-            className={`h-6 w-6 flex-shrink-0 transition-all duration-200 ${
-              shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
-            }`}
+            className={`h-6 w-6 flex-shrink-0 transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
+              }`}
           >
             {isPinned ? <PinOffIcon className="h-4 w-4" /> : <PinIcon className="h-4 w-4" />}
           </Button>
@@ -141,25 +141,22 @@ function DesktopSidebar({
           {menuItems.map((item) => (
             <Link key={item.id} href={item.href || "/dashboard"}>
               <button
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ${
-                  activeTab === item.id
-                    ? "bg-blue-100 text-blue-700"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                }`}
+                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ${activeTab === item.id
+                  ? "bg-blue-100 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  }`}
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span
-                  className={`whitespace-nowrap transition-all duration-200 ${
-                    shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
-                  }`}
+                  className={`whitespace-nowrap transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
+                    }`}
                 >
                   {item.label}
                 </span>
                 {item.badge && (
                   <Badge
-                    className={`ml-auto bg-red-500 text-white text-xs transition-all duration-200 ${
-                      shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
-                    }`}
+                    className={`ml-auto bg-red-500 text-white text-xs transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
+                      }`}
                   >
                     {item.badge}
                   </Badge>
@@ -182,9 +179,8 @@ function DesktopSidebar({
             </Avatar>
           </div>
           <span
-            className={`whitespace-nowrap transition-all duration-200 ${
-              shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
-            }`}
+            className={`whitespace-nowrap transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
+              }`}
           >
             Jean Dupont
           </span>
@@ -253,6 +249,13 @@ export default function ProfilePage() {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isPinned, setIsPinned] = useState(false)
   const currentUser = useSelector(selectUser);
+  const [openAlert, setOpenAlert] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const dispatch = useDispatch();
+
+  const [vertical, setVertical] = useState<"top" | "bottom">("bottom")
+  const [horizontal, setHorizontal] = useState<"left" | "center" | "right">("center")
+
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
@@ -260,24 +263,82 @@ export default function ProfilePage() {
     messages: true,
   })
 
-   interface FormData {
+  interface FormData {
     firstName: string,
     lastName: string,
-    email: string;
+    email: string,
+    avatarUrl: string | undefined,
+    birthDate: number | undefined,
+    bio: string | undefined,
+    phoneNumber: string | undefined,
+    localisation: string | undefined,
+    familyOrigin: string | undefined,
+    oldestAncestor: string | undefined,
+    researchInterests: string | undefined,
   }
+
   const [formData, setFormData] = useState<FormData>({
-    firstName: currentUser ? currentUser?.firstName : " ",
-    lastName: currentUser ? currentUser?.lastName : " ",
-    email: currentUser ? currentUser?.email : " ",
+    firstName: currentUser?.firstName ?? "",
+    lastName: currentUser?.lastName ?? "",
+    email: currentUser?.email ?? "",
+    birthDate: currentUser?.birthDate ?? undefined,
+    avatarUrl: currentUser?.avatarUrl ?? undefined,
+    bio: currentUser?.bio ?? undefined,
+    phoneNumber: currentUser?.phoneNumber ?? undefined,
+    localisation: currentUser?.localisation ?? undefined,
+    familyOrigin: currentUser?.familyOrigin ?? undefined,
+    oldestAncestor: currentUser?.oldestAncestor ?? undefined,
+    researchInterests: currentUser?.researchInterests ?? undefined,
   });
 
-    const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
-      const { name, value } = e.target;
-      setFormData(prevState => ({
-        ...prevState,
-        [name]: value
-      }));
-    };
+  const handleSubmit = async () => {
+    if (!currentUser?.id) {
+      console.error("L'utilisateur n'est pas identifié ou n'a pas d'ID Firestore.")
+      return
+    }
+
+    const updatedUser = {
+      id: currentUser.id, // requis pour cibler le bon document
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
+      email: formData.email.trim(),
+      avatarUrl: formData.avatarUrl || '',
+      bio: formData.bio || '',
+      phoneNumber: formData.phoneNumber || '',
+      localisation: formData.localisation || '',
+      familyOrigin: formData.familyOrigin || "",
+      oldestAncestor: formData.oldestAncestor || '',
+      researchInterests: formData.researchInterests || '',
+      updatedDate: Date.now(),
+    }
+
+    const success = await updateUser(updatedUser)
+    dispatch(setCurrentUser(updatedUser))
+    setOpenAlert(true);
+  }
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  };
+  const handleClose = (
+    event: React.SyntheticEvent<any> | Event,
+    reason: string
+  ) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setOpenAlert(false);
+  };
+
+  const handleAlertClose = (event: React.SyntheticEvent) => {
+    setOpenAlert(false);
+  };
 
   // Calculer la marge gauche dynamiquement
   const getLeftMargin = () => {
@@ -332,7 +393,7 @@ export default function ProfilePage() {
                     </Avatar>
                     <Button
                       size="icon"
-                      className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 bg-blue-600 hover:bg-blue-700"
+                      className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 bg-blue-600 hover:from-blue-700 hover:to-purple-700"
                     >
                       <Camera className="w-4 h-4" />
                     </Button>
@@ -420,13 +481,13 @@ export default function ProfilePage() {
 
                     <div className="space-y-2">
                       <Label htmlFor="phone">Téléphone</Label>
-                      <Input id="phone" defaultValue="+33 1 23 45 67 89" />
+                      <Input id="phone" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} />
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="birthDate">Date de naissance</Label>
-                        <Input id="birthDate" type="date" defaultValue="1980-05-15" />
+                        <Input id="birthDate" type="date" name="birthDate" value={formData.birthDate} onChange={handleChange} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="location">Lieu de résidence</Label>
@@ -436,11 +497,7 @@ export default function ProfilePage() {
 
                     <div className="space-y-2">
                       <Label htmlFor="bio">Biographie</Label>
-                      <Textarea
-                        id="bio"
-                        placeholder="Parlez-nous de votre passion pour la généalogie..."
-                        defaultValue="Passionné de généalogie depuis plus de 10 ans, je recherche mes origines familiales et aide d'autres familles à découvrir leur histoire."
-                      />
+                      <Textarea id="bio" name="bio" value={formData.bio} onChange={handleChange} />
                     </div>
                   </CardContent>
                 </Card>
@@ -454,21 +511,18 @@ export default function ProfilePage() {
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="familyOrigin">Région d'origine principale</Label>
-                        <Input id="familyOrigin" defaultValue="Normandie, France" />
+                        <Input id="familyOrigin" name="familyOrigin" value={formData.familyOrigin} onChange={handleChange} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="oldestAncestor">Ancêtre le plus ancien</Label>
-                        <Input id="oldestAncestor" defaultValue="Pierre Dupont (1750)" />
+                        <Input id="oldestAncestor" name="oldestAncestor" value={formData.oldestAncestor} onChange={handleChange} />
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="researchInterests">Centres d'intérêt de recherche</Label>
                       <Textarea
-                        id="researchInterests"
-                        placeholder="Quelles branches de votre famille vous intéressent le plus ?"
-                        defaultValue="Recherche sur la branche maternelle, origines bretonnes, métiers d'artisans au 19ème siècle"
-                      />
+                        id="researchInterests" name="researchInterests" value={formData.researchInterests} onChange={handleChange} />
                     </div>
                   </CardContent>
                 </Card>
@@ -615,15 +669,13 @@ export default function ProfilePage() {
                       {achievements.map((achievement, index) => (
                         <div
                           key={index}
-                          className={`p-4 rounded-lg border-2 ${
-                            achievement.earned ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"
-                          }`}
+                          className={`p-4 rounded-lg border-2 ${achievement.earned ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"
+                            }`}
                         >
                           <div className="flex items-center space-x-3">
                             <div
-                              className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                                achievement.earned ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
-                              }`}
+                              className={`w-12 h-12 rounded-full flex items-center justify-center ${achievement.earned ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
+                                }`}
                             >
                               {achievement.earned ? <Star className="w-6 h-6" /> : <Trophy className="w-6 h-6" />}
                             </div>
@@ -645,11 +697,21 @@ export default function ProfilePage() {
 
             {/* Save Button */}
             <div className="flex justify-end mt-8">
-              <Button className="bg-gradient-to-r from-blue-600 to-purple-600">
+              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700" onClick={handleSubmit}>
                 <Save className="mr-2 h-4 w-4" />
                 Enregistrer les modifications
               </Button>
             </div>
+            <Snackbar open={openAlert} autoHideDuration={3000} onClose={handleClose} anchorOrigin={{ vertical, horizontal }} key={vertical + horizontal}>
+              <Alert
+                onClose={handleAlertClose}
+                severity={!isError ? "success" : "error"}
+                variant="filled"
+                sx={{ width: '100%' }}
+              >
+                {!isError ? "Les modifications ont bien été enregistrées" : "Une erreur s'est produite, veuillez réessayer."}
+              </Alert>
+            </Snackbar>
           </div>
         </div>
       </div>
