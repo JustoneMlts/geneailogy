@@ -82,9 +82,9 @@ export interface FeedPostType {
   authorId: string
   text?: string
   mediaUrls?: string[]
-  createdDate: number
+  createdAt: number
   updatedDate?: number
-  likes?: string[] // userIds
+  likesId?: string[] // userIds
   comments?: CommentType[]
   isActive?: boolean
 }

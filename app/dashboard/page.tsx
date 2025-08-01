@@ -52,7 +52,7 @@ function DesktopSidebar({
   const currentUser = useSelector(selectUser)
   const dispatch = useDispatch();
   const route = useRouter();
-  
+
   const menuItems = [
     { id: "feed", label: "Feed", icon: Home },
     { id: "notifications", label: "Notifications", icon: Bell, badge: 3 },
@@ -158,8 +158,8 @@ function DesktopSidebar({
                   }
                 }}
                 className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ${activeTab === item.id
-                    ? "bg-blue-100 text-blue-700"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  ? "bg-blue-100 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                   }`}
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
@@ -180,7 +180,7 @@ function DesktopSidebar({
               </button>
             </Link>
           ))}
-        </nav>       
+        </nav>
       </div>
       <div>
         <button className="w-full flex items-center space-x-3 px-5 py-2 rounded-lg transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900" onClick={() => { handleLogout() }}>
@@ -193,14 +193,14 @@ function DesktopSidebar({
           </span>
         </button>
       </div>
-     
+
       {/* Profile */}
       <div className="p-4 border-t border-gray-200">
         <Link href="/profile">
           <button
             className={`w-full flex items-center space-x-3 px-1 py-2 rounded-lg transition-all duration-200 ${activeTab === "profile"
-                ? "bg-blue-100 text-blue-700"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              ? "bg-blue-100 text-blue-700"
+              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
               }`}
           >
             <div className="flex justify-center w-5">
@@ -264,8 +264,8 @@ function MobileHeader({ activeTab, setActiveTab }: { activeTab: string; setActiv
                 key={item.id}
                 onClick={() => handleMenuItemClick(item.id)}
                 className={`w-full flex items-center space-x-3 px-4 py-3 transition-colors ${activeTab === item.id
-                    ? "bg-blue-100 text-blue-700"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  ? "bg-blue-100 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                   }`}
               >
                 <item.icon className="h-5 w-5" />
@@ -300,8 +300,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
-       <Sidebar
+    <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
+      <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isExpanded={isExpanded}
@@ -330,7 +330,7 @@ export default function Dashboard() {
           )}
 
           {activeTab === "connections" && (
-           <Connections />
+            <Connections />
           )}
 
           {activeTab === "messages" && (
@@ -338,7 +338,7 @@ export default function Dashboard() {
           )}
 
           {activeTab === "notifications" && (
-           <Notifications />
+            <Notifications />
           )}
         </div>
       </div>

@@ -1,14 +1,62 @@
-import { Camera, FileText, Heart, Link, MessageSquare, Share2, TreePine} from "lucide-react"
+import { Camera, FileText, Heart, Link, MessageSquare, Share2, TreePine, Send } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Input } from "./ui/input"
+import { useSelector } from "react-redux"
+import { selectUser } from "@/lib/redux/slices/currentUserSlice"
+import { handleGetUserName, handleGetUserNameInitials } from "@/app/helpers/userHelper"
+import { useEffect, useState } from "react"
+import { createFeedPost, getPostsByUserId } from "@/app/controllers/feedController"
+import { FeedPostType } from "@/lib/firebase/models"
+import { getCommentsCount, getLikeCount } from "@/app/helpers/feedHelper"
 
 export const Feed = ({
   setActiveTab
 }: {
   setActiveTab: (tab: string) => void
 }) => {
+  const currentUser = useSelector(selectUser);
+  const [postMessage, setPostMessage] = useState<string>(""); // ✅ pas undefined
+  const [posts, setPosts] = useState<FeedPostType[]>([]);
+
+  const fetchPosts = async () => {
+    if (!currentUser?.id) return;
+
+    try {
+      const data = await getPostsByUserId(currentUser.id);
+      setPosts(data);
+    } catch (error) {
+      console.error("Erreur lors du chargement des posts :", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
+  }, [currentUser])
+
+  const handleSubmitInput = async () => {
+    if (!currentUser?.id) return;
+    const newPost: FeedPostType = {
+      authorId: currentUser?.id ?? "",
+      text: postMessage,
+      mediaUrls: [],
+      createdAt: Date.now(),
+      updatedDate: Date.now(),
+      likesId: [],
+      comments: [],
+      isActive: true,
+    }
+    try {
+      await createFeedPost(newPost)
+      setPostMessage("")
+      setPosts((prevPosts) => [newPost, ...prevPosts]);
+    } catch {
+      console.log("une erreur est survenue")
+    }
+
+  }
+
   return (
     <div className="animate-fade-in">
       <h1 className="text-3xl font-bold mb-6 animate-slide-up">Fil d'actualité</h1>
@@ -19,13 +67,26 @@ export const Feed = ({
             <CardContent className="p-4">
               <div className="flex items-center space-x-4">
                 <Avatar className="animate-scale-in">
-                  <AvatarImage src="/placeholder.svg?height=40&width=40" />
-                  <AvatarFallback>JD</AvatarFallback>
+                  <AvatarImage src={currentUser?.avatarUrl} />
+                  <AvatarFallback>{currentUser && handleGetUserNameInitials(currentUser)}</AvatarFallback>
                 </Avatar>
-                <Input
-                  placeholder="Partagez une découverte ou une histoire familiale..."
-                  className="bg-gray-100 border-0 focus-visible:ring-blue-500"
-                />
+                <div className="relative w-full">
+                  <Input
+                    placeholder="Partagez une découverte ou une histoire familiale..."
+                    className="bg-gray-100 pr-10" // Padding-right pour ne pas cacher le texte
+                    value={postMessage}
+                    onChange={(e) => setPostMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSubmitInput();
+                      }
+                    }}
+                  />
+                  <Send
+                    className="absolute w-5 h-5 right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-500 cursor-pointer transition-all duration-200 ease-in-out hover:scale-110"
+                    onClick={handleSubmitInput}
+                  />
+                </div>
               </div>
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
                 <Button
@@ -57,6 +118,87 @@ export const Feed = ({
           </Card>
 
           {/* Posts */}
+          {posts.map((post) => {
+            return (
+              <Card className="shadow-md border-0 overflow-hidden animate-slide-up animate-stagger-2 card-hover">
+                <CardContent className="p-0">
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="animate-scale-in">
+                          <AvatarImage src={currentUser?.avatarUrl} />
+                          <AvatarFallback>{currentUser && handleGetUserNameInitials(currentUser)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-semibold">{currentUser && handleGetUserName(currentUser)}</div>
+                          <div className="text-xs text-gray-500">Il y a 2 heures</div>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-4 w-4"
+                        >
+                          <circle cx="12" cy="12" r="1" />
+                          <circle cx="19" cy="12" r="1" />
+                          <circle cx="5" cy="12" r="1" />
+                        </svg>
+                      </Button>
+                    </div>
+                    <div className="mb-4">
+                      <p className="text-gray-700 mb-4">
+                        {post.text}
+                      </p>
+                      {post && post.mediaUrls?.length !== 0 &&
+                        <div className="rounded-lg overflow-hidden bg-gray-100 h-64 flex items-center justify-center animate-scale-in">
+                          <img
+                            src="/placeholder.svg?height=300&width=500"
+                            alt="Photo historique"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      }
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                      <div className="flex space-x-4">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                        >
+                          <Heart className="h-4 w-4 mr-2" />
+                          {getLikeCount(post.likesId)}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" /> {getCommentsCount(post.comments)}
+                        </Button>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                      >
+                        <Share2 className="h-4 w-4 mr-2" />
+                        Partager
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
           <Card className="shadow-md border-0 overflow-hidden animate-slide-up animate-stagger-2 card-hover">
             <CardContent className="p-0">
               <div className="p-4">

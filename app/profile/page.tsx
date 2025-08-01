@@ -176,8 +176,7 @@ export default function ProfilePage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
-      
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">   
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}

@@ -246,7 +246,6 @@ function MobileHeader({ activeTab, setActiveTab }: { activeTab: string; setActiv
                 </Button>
             </div>
 
-            {/* Mobile Menu Dropdown */}
             {isMenuOpen && (
                 <div className="md:hidden bg-white border-b border-gray-200 shadow-lg">
                     <nav className="py-2">
@@ -306,7 +305,6 @@ export const Sidebar = ({
                 setIsPinned={setIsPinned}
             />
 
-            {/* Mobile Header */}
             <MobileHeader activeTab={activeTab} setActiveTab={setActiveTab} />
         </>
     )
