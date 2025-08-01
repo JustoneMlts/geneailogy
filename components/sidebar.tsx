@@ -22,6 +22,7 @@ import { Button } from "./ui/button"
 import Link from "next/link"
 import { Badge } from "./ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
+import { handleGetUserName, handleGetUserNameInitials } from "@/app/helpers/userHelper"
 
 function DesktopSidebar({
     activeTab,
@@ -195,15 +196,15 @@ function DesktopSidebar({
                     >
                         <div className="flex justify-center w-5">
                             <Avatar className="h-6 w-6">
-                                <AvatarImage src="/placeholder.svg?height=24&width=24" />
-                                <AvatarFallback className="text-xs">JD</AvatarFallback>
+                                <AvatarImage src={currentUser?.avatarUrl} />
+                                <AvatarFallback className="text-xs">{currentUser && handleGetUserNameInitials(currentUser)}</AvatarFallback>
                             </Avatar>
                         </div>
                         <span
                             className={`whitespace-nowrap transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
                                 }`}
                         >
-                            Jean Dupont
+                            {currentUser && handleGetUserName(currentUser)}
                         </span>
                     </button>
                 </Link>

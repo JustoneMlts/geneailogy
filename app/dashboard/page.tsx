@@ -311,7 +311,7 @@ export default function Dashboard() {
       />
 
       {/* Main Content */}
-      <div className={`min-h-screen transition-all duration-300 ease-in-out ${getLeftMargin()}`}>
+      <div className={`min-h-screen p-6 w-full transition-all duration-300 ease-in-out ${getLeftMargin()}`}>
         <div className="p-6">
           {activeTab === "feed" && (
             <Feed setActiveTab={setActiveTab} />
