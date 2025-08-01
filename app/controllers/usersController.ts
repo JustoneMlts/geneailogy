@@ -1,31 +1,45 @@
 import { addDocumentToCollection, getAllDataFromCollectionWithWhereArray, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
 import { COLLECTIONS } from "@/lib/firebase/collections";
-import { collection, doc, getDocs, query, updateDoc, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { UserType } from "@/lib/firebase/models";
+import { createOrReplaceAvatar } from "./filesController";
 
-export const createUser = async ({ email, firstName, lastName, uid }: { email: string, firstName: string, lastName: string, uid: string }) => {
-    try {
-        await addDocumentToCollection(COLLECTIONS.USERS, { 
-          email: email, 
-          firstName: firstName, 
-          lastName: lastName, 
-          uid: uid,  
-          birthDate: null, 
-          nationality: null, 
-          avatarUrl: "", 
-          bio: "",
-          phoneNumber: "",
-          localisation: "",
-          origins: "",
-          oldestAncester: "",
-          createdDate: Date.now(), 
-          updatedDate: Date.now(), 
-          isActive: true 
-        });
-    } catch (error) {
-        console.log("Error createUser", error);
-    }
+
+export const createUser = async ({
+  email,
+  firstName,
+  lastName,
+  uid
+}: {
+  email: string;
+  firstName: string;
+  lastName: string;
+  uid: string;
+}) => {
+  try {
+    const userData = {
+      email,
+      firstName,
+      lastName,
+      uid,
+      birthDate: null,
+      nationality: null,
+      avatarUrl: "",
+      bio: "",
+      phoneNumber: "",
+      localisation: "",
+      origins: "",
+      oldestAncester: "",
+      createdDate: Date.now(),
+      updatedDate: Date.now(),
+      isActive: true,
+    };
+
+    await setDoc(doc(db, COLLECTIONS.USERS, uid), userData); // ← uid utilisé comme ID de doc
+  } catch (error) {
+    console.log("Error createUser", error);
+  }
 };
 
 
@@ -51,26 +65,25 @@ export const updateUser = async (user: UserType): Promise<boolean> => {
   }
 }
 
-export const getUserById = async (uid: string): Promise<UserType | null> => {
+export const getUserById = async (id: string): Promise<UserType | null> => {
   try {
-    const q = query(collection(db, "Users"), where("uid", "==", uid));
-    const querySnapshot = await getDocs(q);
+    const docRef = doc(db, "Users", id)
+    const docSnap = await getDoc(docRef)
 
-    if (querySnapshot.empty) {
-      console.warn("Aucun utilisateur trouvé avec cet uid :", uid);
-      return null;
+    if (!docSnap.exists()) {
+      console.warn("Aucun utilisateur trouvé avec cet ID :", id)
+      return null
     }
 
-    const userDoc = querySnapshot.docs[0];
-    const data = userDoc.data() as Omit<UserType, "id">;
+    const data = docSnap.data() as Omit<UserType, "id">
 
     return {
-      id: userDoc.id,
+      id: docSnap.id, 
       ...data,
-    };
+    }
   } catch (error) {
-    console.error("Erreur lors de la récupération de l'utilisateur :", error);
-    return null;
+    console.error("Erreur lors de la récupération de l'utilisateur :", error)
+    return null
   }
 }
 
@@ -85,15 +98,22 @@ export const updateUserEmail = async (userId: string, newEmail: string) => {
   }
 };
 
-export const updateUserAvatar = async (userId: string, avatarUrl: string) => {
-  try {
-    await updateDocumentToCollection(COLLECTIONS.USERS, userId, {
-      avatarUrl,
-      updatedDate: Date.now(),
-    });
-  } catch (error) {
-    console.error("❌ Error updating avatar:", error);
+export const updateUserAvatar = async (
+  file: File,
+  userId: string
+): Promise<string> => {
+  const user = await getUserById(userId);
+
+  if (!user) {
+    throw new Error("Utilisateur introuvable.");
   }
+
+  const newAvatarUrl = await createOrReplaceAvatar(file, user.avatarUrl);
+  user.avatarUrl = newAvatarUrl;
+
+  await updateUser(user);
+
+  return newAvatarUrl;
 };
 
 export const updateUserBirthDate = async (userId: string, birthDate: number) => {
@@ -129,4 +149,6 @@ export const updateUserStatus = async (userId: string, isActive: boolean) => {
     console.error("❌ Error updating isActive:", error);
   }
 };
+
+
 

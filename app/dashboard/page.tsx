@@ -17,7 +17,7 @@ import {
   Menu,
   X,
   Users,
-  LogOutIcon
+  LogOutIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { Feed } from "@/components/feed"
@@ -31,6 +31,7 @@ import { selectUser, setCurrentUser } from "@/lib/redux/slices/currentUserSlice"
 import { useDispatch, useSelector } from "react-redux"
 import { logOut } from "@/lib/firebase/firebase-authentication"
 import { useRouter } from "next/navigation"
+import { Sidebar } from "@/components/sidebar"
 
 function DesktopSidebar({
   activeTab,
@@ -113,10 +114,6 @@ function DesktopSidebar({
 
   // Condition pour afficher le texte : sidebar dépliée ET (épinglée OU texte activé)
   const shouldShowText = isExpanded && (isPinned || showText)
-
-  useEffect(() => {
-    console.log(currentUser)
-  }, [currentUser])
 
   return (
     <div
@@ -303,9 +300,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
-      {/* Desktop Sidebar */}
-      <DesktopSidebar
+    <div className="flex min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
+       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isExpanded={isExpanded}
@@ -313,9 +309,6 @@ export default function Dashboard() {
         isPinned={isPinned}
         setIsPinned={setIsPinned}
       />
-
-      {/* Mobile Header */}
-      <MobileHeader activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* Main Content */}
       <div className={`min-h-screen transition-all duration-300 ease-in-out ${getLeftMargin()}`}>

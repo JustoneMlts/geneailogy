@@ -1,9 +1,9 @@
 import { collection, query, where } from "firebase/firestore";
 import { doc, getDoc, getDocs, updateDoc , addDoc, deleteDoc } from "firebase/firestore";
 import { COLLECTIONS } from "./collections"
-import { db } from "./firebase";
+import { db, storage } from "./firebase";
 import { formatDate } from "../utils";
-
+import { getStorage, ref, listAll, uploadBytesResumable, getDownloadURL, deleteObject  } from "firebase/storage"
 
 export const getDataFromCollection = async (
   collectionName: string,
@@ -108,4 +108,15 @@ export const getAllDataFromCollectionWithWhereArray = async (collectionName: COL
     }
 
     return arrayData
+};
+
+export const uploadFileToStorage = async (file: any, folderName: string): Promise<string> => {
+    const storageRef = ref(storage, `/${folderName}/${file.name}`)
+    await uploadBytesResumable(storageRef, file)
+    return await getDownloadURL(storageRef)
+};
+
+export const deleteFileFromStorage = async (folderName: string, fileName: string): Promise<void> => {
+    const storageRef = ref(storage, `/${folderName}/${fileName}`)
+    return await deleteObject(storageRef)
 };

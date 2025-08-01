@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, ChangeEvent } from "react"
+import { useState, useEffect, ChangeEvent, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -37,212 +37,8 @@ import {
 import Link from "next/link"
 import { useDispatch, useSelector } from "react-redux"
 import { selectUser, setCurrentUser } from "@/lib/redux/slices/currentUserSlice"
-import { updateUser } from "../controllers/usersController"
-
-function DesktopSidebar({
-  activeTab,
-  setActiveTab,
-  isExpanded,
-  setIsExpanded,
-  isPinned,
-  setIsPinned,
-}: {
-  activeTab: string
-  setActiveTab: (tab: string) => void
-  isExpanded: boolean
-  setIsExpanded: (expanded: boolean) => void
-  isPinned: boolean
-  setIsPinned: (pinned: boolean) => void
-}) {
-  const [showText, setShowText] = useState(isPinned)
-
-  const menuItems = [
-    { id: "feed", label: "Feed", icon: Home, href: "/dashboard" },
-    { id: "notifications", label: "Notifications", icon: Bell, badge: 3, href: "/dashboard" },
-    { id: "tree", label: "Mon arbre", icon: TreePine, href: "/dashboard" },
-    { id: "ai", label: "Suggestions IA", icon: Sparkles, href: "/dashboard" },
-    { id: "search", label: "Recherche", icon: Search, href: "/dashboard" },
-    { id: "messages", label: "Messages", icon: MessageCircle, href: "/dashboard" },
-  ]
-
-  const handleMouseEnter = () => {
-    if (!isPinned) {
-      setIsExpanded(true)
-      setTimeout(() => setShowText(true), 200)
-    }
-  }
-
-  const handleMouseLeave = () => {
-    if (!isPinned) {
-      setShowText(false)
-      setTimeout(() => setIsExpanded(false), 150)
-    }
-  }
-
-  const handlePinToggle = () => {
-    const newPinnedState = !isPinned
-    setIsPinned(newPinnedState)
-
-    if (newPinnedState) {
-      setIsExpanded(true)
-      setTimeout(() => setShowText(true), 200)
-    } else {
-      setShowText(false)
-      setTimeout(() => setIsExpanded(false), 150)
-    }
-  }
-
-  useEffect(() => {
-    if (isPinned) {
-      setIsExpanded(true)
-      setShowText(true)
-    } else {
-      setShowText(false)
-      setIsExpanded(false)
-    }
-  }, [isPinned])
-
-  const shouldShowText = isExpanded && (isPinned || showText)
-
-  return (
-    <div
-      className={`hidden md:flex flex-col h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out ${isExpanded ? "w-64" : "w-16"
-        } fixed left-0 top-0 z-40 shadow-lg`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 min-h-[73px] flex items-center">
-        <div className="flex items-center justify-between w-full">
-          <Link href="/dashboard" className="flex items-center space-x-3">
-            <TreePine className="h-8 w-8 text-blue-600 flex-shrink-0" />
-            <span
-              className={`text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
-                }`}
-            >
-              GeneAIlogy
-            </span>
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handlePinToggle}
-            className={`h-6 w-6 flex-shrink-0 transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
-              }`}
-          >
-            {isPinned ? <PinOffIcon className="h-4 w-4" /> : <PinIcon className="h-4 w-4" />}
-          </Button>
-        </div>
-      </div>
-
-      {/* Menu Items */}
-      <div className="flex-1 py-4">
-        <nav className="space-y-2 px-2">
-          {menuItems.map((item) => (
-            <Link key={item.id} href={item.href || "/dashboard"}>
-              <button
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ${activeTab === item.id
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                  }`}
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span
-                  className={`whitespace-nowrap transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
-                    }`}
-                >
-                  {item.label}
-                </span>
-                {item.badge && (
-                  <Badge
-                    className={`ml-auto bg-red-500 text-white text-xs transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
-                      }`}
-                  >
-                    {item.badge}
-                  </Badge>
-                )}
-              </button>
-            </Link>
-          ))}
-        </nav>
-      </div>
-
-      {/* Profile */}
-      <div className="p-4 border-t border-gray-200">
-        <button
-          className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 bg-blue-100 text-blue-700`}
-        >
-          <div className="flex justify-center w-5">
-            <Avatar className="h-6 w-6">
-              <AvatarImage src="/placeholder.svg?height=24&width=24" />
-              <AvatarFallback className="text-xs">JD</AvatarFallback>
-            </Avatar>
-          </div>
-          <span
-            className={`whitespace-nowrap transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
-              }`}
-          >
-            Jean Dupont
-          </span>
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function MobileHeader() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-
-  const menuItems = [
-    { id: "feed", label: "Feed", icon: Home, href: "/dashboard" },
-    { id: "notifications", label: "Notifications", icon: Bell, badge: 3, href: "/dashboard" },
-    { id: "tree", label: "Mon arbre", icon: TreePine, href: "/dashboard" },
-    { id: "ai", label: "Suggestions IA", icon: Sparkles, href: "/dashboard" },
-    { id: "search", label: "Recherche", icon: Search, href: "/dashboard" },
-    { id: "messages", label: "Messages", icon: MessageCircle, href: "/dashboard" },
-  ]
-
-  return (
-    <>
-      {/* Mobile Header */}
-      <div className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
-        <Link href="/dashboard" className="flex items-center space-x-3">
-          <TreePine className="h-8 w-8 text-blue-600" />
-          <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            GeneAIlogy
-          </span>
-        </Link>
-        <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-          {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </Button>
-      </div>
-
-      {/* Mobile Menu Dropdown */}
-      {isMenuOpen && (
-        <div className="md:hidden bg-white border-b border-gray-200 shadow-lg">
-          <nav className="py-2">
-            {menuItems.map((item) => (
-              <Link key={item.id} href={item.href || "/dashboard"}>
-                <button
-                  onClick={() => setIsMenuOpen(false)}
-                  className="w-full flex items-center space-x-3 px-4 py-3 transition-colors text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.label}</span>
-                  {item.badge && <Badge className="ml-auto bg-red-500 text-white text-xs">{item.badge}</Badge>}
-                </button>
-              </Link>
-            ))}
-            <button className="w-full flex items-center space-x-3 px-4 py-3 transition-colors bg-blue-100 text-blue-700">
-              <User className="h-5 w-5" />
-              <span>Profil</span>
-            </button>
-          </nav>
-        </div>
-      )}
-    </>
-  )
-}
+import { updateUser, updateUserAvatar } from "../controllers/usersController"
+import { Sidebar } from "@/components/sidebar"
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("profile")
@@ -267,7 +63,6 @@ export default function ProfilePage() {
     firstName: string,
     lastName: string,
     email: string,
-    avatarUrl: string | undefined,
     birthDate: number | undefined,
     bio: string | undefined,
     phoneNumber: string | undefined,
@@ -282,7 +77,6 @@ export default function ProfilePage() {
     lastName: currentUser?.lastName ?? "",
     email: currentUser?.email ?? "",
     birthDate: currentUser?.birthDate ?? undefined,
-    avatarUrl: currentUser?.avatarUrl ?? undefined,
     bio: currentUser?.bio ?? undefined,
     phoneNumber: currentUser?.phoneNumber ?? undefined,
     localisation: currentUser?.localisation ?? undefined,
@@ -298,23 +92,41 @@ export default function ProfilePage() {
     }
 
     const updatedUser = {
-      id: currentUser.id, // requis pour cibler le bon document
+      id: currentUser.id, 
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
       email: formData.email.trim(),
-      avatarUrl: formData.avatarUrl || '',
+      avatarUrl: currentUser.avatarUrl || '',
       bio: formData.bio || '',
       phoneNumber: formData.phoneNumber || '',
       localisation: formData.localisation || '',
       familyOrigin: formData.familyOrigin || "",
       oldestAncestor: formData.oldestAncestor || '',
       researchInterests: formData.researchInterests || '',
+      birthDate: formData.birthDate || undefined,
       updatedDate: Date.now(),
     }
 
     const success = await updateUser(updatedUser)
     dispatch(setCurrentUser(updatedUser))
     setOpenAlert(true);
+  }
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleButtonClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file && currentUser && currentUser.id) {
+      const newAvatarUrl = await updateUserAvatar(file, currentUser?.id)
+      dispatch(setCurrentUser({
+        ...currentUser,
+        avatarUrl: newAvatarUrl, 
+      }));
+    }
   }
 
   const handleChange = (
@@ -365,18 +177,15 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
-      {/* Desktop Sidebar */}
-      <DesktopSidebar
-        activeTab="profile"
+      
+      <Sidebar
+        activeTab={activeTab}
         setActiveTab={setActiveTab}
         isExpanded={isExpanded}
         setIsExpanded={setIsExpanded}
         isPinned={isPinned}
         setIsPinned={setIsPinned}
       />
-
-      {/* Mobile Header */}
-      <MobileHeader />
 
       {/* Main Content */}
       <div className={`min-h-screen transition-all duration-300 ease-in-out ${getLeftMargin()}`}>
@@ -388,20 +197,29 @@ export default function ProfilePage() {
                 <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-6">
                   <div className="relative">
                     <Avatar className="w-24 h-24">
-                      <AvatarImage src="/placeholder.svg?height=96&width=96" />
-                      <AvatarFallback className="text-2xl">JD</AvatarFallback>
+                      <AvatarImage src={currentUser?.avatarUrl} />
+                      <AvatarFallback className="text-4xl"> {currentUser && currentUser?.firstName[0] + currentUser?.lastName[0]} </AvatarFallback>
                     </Avatar>
-                    <Button
-                      size="icon"
-                      className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 bg-blue-600 hover:from-blue-700 hover:to-purple-700"
-                    >
-                      <Camera className="w-4 h-4" />
-                    </Button>
+                    <>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                      <Button
+                        size="icon"
+                        onClick={handleButtonClick}
+                        className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Camera className="w-4 h-4 text-white" />
+                      </Button>
+                    </>
                   </div>
 
                   <div className="text-center md:text-left flex-1">
-                    <h1 className="text-3xl font-bold text-gray-800 mb-2">Jean Dupont</h1>
-                    <p className="text-gray-600 mb-4">Généalogiste passionné depuis 2020</p>
+                    <h1 className="text-3xl font-bold text-gray-800 mb-2">{currentUser && currentUser?.firstName + " " + currentUser?.lastName}</h1>
                     <div className="flex flex-wrap justify-center md:justify-start gap-2">
                       <Badge className="bg-blue-100 text-blue-800">Membre Premium</Badge>
                       <Badge className="bg-green-100 text-green-800">Vérifié</Badge>

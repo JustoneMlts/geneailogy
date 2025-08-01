@@ -107,3 +107,13 @@ export interface NotificationType {
   isRead: boolean
   createdDate: number
 }
+
+export interface Files {
+  id: string
+  associatedFolder: string
+  createdBy: string
+  fileUrl: string
+  fileName: string
+  fileType: string
+  size: number
+}

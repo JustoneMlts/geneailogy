@@ -5,5 +5,6 @@ export enum COLLECTIONS {
   CONVERSATIONS = "Conversations",
   MESSAGES = "Messages",
   FEED = "Feed",
+  FILES = 'Files',
   NOTIFICATIONS = "Notifications",
 };
