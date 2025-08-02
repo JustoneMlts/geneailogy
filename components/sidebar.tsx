@@ -15,7 +15,8 @@ import {
     Menu,
     X,
     Users,
-    LogOutIcon
+    LogOutIcon,
+    NotebookPen
 } from "lucide-react"
 import { logOut } from "@/lib/firebase/firebase-authentication"
 import { Button } from "./ui/button"
@@ -46,6 +47,7 @@ function DesktopSidebar({
 
     const menuItems = [
         { id: "feed", label: "Feed", icon: Home },
+        { id: "wall", label: "Mon Journal", icon: NotebookPen },
         { id: "notifications", label: "Notifications", icon: Bell, badge: 3 },
         { id: "tree", label: "Mon arbre", icon: TreePine },
         { id: "ai", label: "Suggestions IA", icon: Sparkles },
@@ -218,6 +220,7 @@ function MobileHeader({ activeTab, setActiveTab }: { activeTab: string; setActiv
 
     const menuItems = [
         { id: "feed", label: "Feed", icon: Home },
+        { id: "wall", label: "Wall", icon: NotebookPen },
         { id: "notifications", label: "Notifications", icon: Bell, badge: 3 },
         { id: "tree", label: "Mon arbre", icon: TreePine },
         { id: "ai", label: "Suggestions IA", icon: Sparkles },

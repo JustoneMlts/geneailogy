@@ -32,6 +32,7 @@ import { useDispatch, useSelector } from "react-redux"
 import { logOut } from "@/lib/firebase/firebase-authentication"
 import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
+import Wall from "@/components/wall"
 
 function DesktopSidebar({
   activeTab,
@@ -315,6 +316,10 @@ export default function Dashboard() {
         <div className="p-6">
           {activeTab === "feed" && (
             <Feed setActiveTab={setActiveTab} />
+          )}
+
+          {activeTab === "wall" && (
+            <Wall />
           )}
 
           {activeTab === "tree" && (
