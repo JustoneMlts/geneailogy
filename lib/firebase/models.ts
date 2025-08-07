@@ -13,9 +13,17 @@ export interface UserType {
   email: string
   familyOrigin? : string
   researchInterests?: string
+  links: UserLink
   createdDate?: number
   updatedDate?: number
   isActive?: boolean
+}
+
+export type LinkStatus = "pending" | "accepted"
+
+export interface UserLink {
+  userId: string
+  status: LinkStatus
 }
 
 // Tree (Arbre généalogique)
@@ -76,24 +84,39 @@ export interface MessageType {
   isRead?: boolean
 }
 
-// Feed post (publication de l’utilisateur)
-export interface FeedPostType {
-  id?: string
-  authorId: string
-  text?: string
-  mediaUrls?: string[]
-  createdAt: number
-  updatedDate?: number
-  likesId?: string[] // userIds
-  comments?: CommentType[]
-  isActive?: boolean
+export interface CommentDisplayType {
+  author: {
+    name: string
+    avatar: string
+  }
+  content: string
+  timeAgo: string
 }
 
-// Commentaire dans un post
-export interface CommentType {
-  userId: string
-  text: string
-  createdDate: number
+export interface FeedPostType {
+  id?: string
+  author: {
+    id: string
+    firstName: string
+    lastName: string
+    avatar: string
+  }
+  destinator: {
+    id: string
+    firstName: string
+    lastName: string
+    avatar: string
+  }
+  content: string
+  timeAgo: string
+  privacy: string
+  likesIds: []
+  isLiked?: boolean
+  isOnWall: boolean
+  image?: string
+  location?: string
+  comments: CommentDisplayType[]
+  createdAt: number
 }
 
 // Notification

@@ -1,8 +1,8 @@
 import { addDocumentToCollection, getAllDataFromCollectionWithWhereArray, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
 import { COLLECTIONS } from "@/lib/firebase/collections";
-import { collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { arrayUnion, collection, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
-import { UserType } from "@/lib/firebase/models";
+import { LinkStatus, UserLink, UserType } from "@/lib/firebase/models";
 import { createOrReplaceAvatar } from "./filesController";
 
 
@@ -78,7 +78,7 @@ export const getUserById = async (id: string): Promise<UserType | null> => {
     const data = docSnap.data() as Omit<UserType, "id">
 
     return {
-      id: docSnap.id, 
+      id: docSnap.id,
       ...data,
     }
   } catch (error) {
@@ -150,5 +150,89 @@ export const updateUserStatus = async (userId: string, isActive: boolean) => {
   }
 };
 
+export const sendLinkRequest = async (fromUserId: string, toUserId: string) => {
+  const fromUserRef = doc(db, "Users", fromUserId);
+  const toUserRef = doc(db, "Users", toUserId);
+
+  const link: UserLink = { userId: toUserId, status: "pending" };
+  const reverseLink: UserLink = { userId: fromUserId, status: "pending" };
+
+  await updateDoc(fromUserRef, {
+    links: arrayUnion(link),
+  });
+
+  await updateDoc(toUserRef, {
+    links: arrayUnion(reverseLink),
+  });
+};
+
+export const updateLinkStatus = async (userId: string, targetUserId: string, newStatus: LinkStatus) => {
+  const userRef = doc(db, "Users", userId);
+  const targetUserRef = doc(db, "Users", targetUserId);
+
+  const userSnap = await getDoc(userRef);
+  const targetSnap = await getDoc(targetUserRef);
+
+  if (!userSnap.exists() || !targetSnap.exists()) throw new Error("User not found");
+
+  const userLinks: UserLink[] = userSnap.data().links || [];
+  const targetLinks: UserLink[] = targetSnap.data().links || [];
+
+  const updatedUserLinks = userLinks.map(link =>
+    link.userId === targetUserId ? { ...link, status: newStatus } : link
+  );
+  const updatedTargetLinks = targetLinks.map(link =>
+    link.userId === userId ? { ...link, status: newStatus } : link
+  );
+
+  await updateDoc(userRef, { links: updatedUserLinks });
+  await updateDoc(targetUserRef, { links: updatedTargetLinks });
+};
+
+export const removeLink = async (userId: string, targetUserId: string) => {
+  const userRef = doc(db, "Users", userId);
+  const targetUserRef = doc(db, "Users", targetUserId);
+
+  const userSnap = await getDoc(userRef);
+  const targetSnap = await getDoc(targetUserRef);
+
+  if (!userSnap.exists() || !targetSnap.exists()) throw new Error("User not found");
+
+  const userLinks: UserLink[] = userSnap.data().links || [];
+  const targetLinks: UserLink[] = targetSnap.data().links || [];
+
+  const filteredUserLinks = userLinks.filter(link => link.userId !== targetUserId);
+  const filteredTargetLinks = targetLinks.filter(link => link.userId !== userId);
+
+  await updateDoc(userRef, { links: filteredUserLinks });
+  await updateDoc(targetUserRef, { links: filteredTargetLinks });
+};
+
+export const getUserLinks = async (userId: string): Promise<UserLink[]> => {
+  const userRef = doc(db, "Users", userId);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) throw new Error("User not found");
+
+  return userSnap.data().links || [];
+};
+
+export const getUsers = async (): Promise<UserType[]> => {
+  try {
+    const usersRef = collection(db, "Users");
+    const usersQuery = query(usersRef, limit(10)); // Limite à 10 utilisateurs
+    const querySnapshot = await getDocs(usersQuery);
+
+    const users: UserType[] = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as UserType[];
+
+    return users;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des utilisateurs :", error);
+    return [];
+  }
+};
 
 

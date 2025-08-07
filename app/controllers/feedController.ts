@@ -10,7 +10,7 @@ export const createFeedPost = async (postData: FeedPostType) => {
       ...postData,
       createdAt: Date.now(), // Timestamp généré côté serveur
       comments: [],
-      likesId: [],
+      likesIds: [],
     };
 
     const docRef = await addDoc(collection(db, "Feed"), dataToSave);
@@ -42,16 +42,15 @@ export const getPostsByUserId = async (userId: string): Promise<FeedPostType[]> 
   try {
     const q = query(
       collection(db, COLLECTIONS.FEED),
-      where("authorId", "==", userId)
+      where("author.id", "==", userId)
     );
-
     const querySnapshot = await getDocs(q);
     
     const posts: FeedPostType[] = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...(doc.data() as Omit<FeedPostType, "id">),
     }));
-
+    
     return posts;
   } catch (error) {
     console.error("Erreur lors de la récupération des posts :", error);

@@ -33,19 +33,33 @@ export const Feed = ({
 
   useEffect(() => {
     fetchPosts();
-  }, [currentUser])
+  }, [])
+
+  console.log(posts)
 
   const handleSubmitInput = async () => {
     if (!currentUser?.id) return;
     const newPost: FeedPostType = {
-      authorId: currentUser?.id ?? "",
-      text: postMessage,
-      mediaUrls: [],
+      author: {
+      id: currentUser?.id,
+      firstName: `${currentUser.firstName}`,
+      lastName: `${currentUser.lastName}`,
+      avatar: currentUser.avatarUrl || "/placeholder.svg",
+    },
+    destinator: {
+      id: currentUser?.id,
+      firstName: `${currentUser.firstName}`,
+      lastName: `${currentUser.lastName}`,
+      avatar: currentUser.avatarUrl || "/placeholder.svg",
+    },
+      content: postMessage,
+      image: "",
       createdAt: Date.now(),
-      updatedDate: Date.now(),
-      likesId: [],
+      timeAgo: "A l'instant",
+      likesIds: [],
       comments: [],
-      isActive: true,
+      privacy: "public",
+      isOnWall: true,
     }
     try {
       await createFeedPost(newPost)
@@ -155,9 +169,9 @@ export const Feed = ({
                     </div>
                     <div className="mb-4">
                       <p className="text-gray-700 mb-4">
-                        {post.text}
+                        {post.content}
                       </p>
-                      {post && post.mediaUrls?.length !== 0 &&
+                      {post && post.image &&
                         <div className="rounded-lg overflow-hidden bg-gray-100 h-64 flex items-center justify-center animate-scale-in">
                           <img
                             src="/placeholder.svg?height=300&width=500"
@@ -175,7 +189,7 @@ export const Feed = ({
                           className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
                         >
                           <Heart className="h-4 w-4 mr-2" />
-                          {getLikeCount(post.likesId)}
+                          {getLikeCount(post.likesIds)}
                         </Button>
                         <Button
                           variant="ghost"
