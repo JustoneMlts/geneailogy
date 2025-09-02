@@ -123,9 +123,6 @@ const mockConnections: Connection[] = [
 ]
 
 export const Connections = () => {
-    const [activeTab, setActiveTab] = useState("connections")
-    const [isExpanded, setIsExpanded] = useState(false)
-    const [isPinned, setIsPinned] = useState(false)
     const [searchTerm, setSearchTerm] = useState("")
     const [filterType, setFilterType] = useState("all")
     const [filterStatus, setFilterStatus] = useState("all")

@@ -134,7 +134,7 @@ export const Feed = ({
           {/* Posts */}
           {posts.map((post) => {
             return (
-              <Card className="shadow-md border-0 overflow-hidden animate-slide-up animate-stagger-2 card-hover">
+              <Card key={post.id} className="shadow-md border-0 overflow-hidden animate-slide-up animate-stagger-2 card-hover">
                 <CardContent className="p-0">
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-4">
