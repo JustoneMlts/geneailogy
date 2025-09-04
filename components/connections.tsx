@@ -160,7 +160,6 @@ export const Connections = () => {
                     const user = usersMap[conn.userId]
                     const isSender = conn.senderId === currentUser?.id 
                     const isReceiver = !isSender 
-                    console.log(conn.senderId)
                     return (
                         <Card key={conn.userId} className="p-6 hover:shadow-lg transition-shadow">
                             <div className="flex justify-between items-center mb-4">

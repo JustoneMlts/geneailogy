@@ -13,7 +13,7 @@ export interface UserType {
   email: string
   familyOrigin? : string
   researchInterests?: string
-  links: UserLink
+  links: UserLink[]
   createdDate?: number
   updatedDate?: number
   isActive?: boolean
@@ -125,11 +125,13 @@ export interface NotificationType {
   id?: string
   recipientId: string // userId
   senderId?: string // optional
-  type: "message" | "tree-invite" | "connexion" | "like" | "comment"
-  content: string
+  type: "suggestion" | "message" | "connection" | "update" | "like" | "comment"
+  title: string
+  message: string  
   relatedId?: string // postId, memberId, etc.
-  isRead: boolean
+  unread: boolean
   createdDate: number
+  timestamp: number
 }
 
 export interface ConnexionType {

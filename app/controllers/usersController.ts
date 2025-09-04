@@ -4,6 +4,7 @@ import { arrayUnion, collection, deleteField, doc, getDoc, getDocs, limit, query
 import { db } from "@/lib/firebase/firebase";
 import { LinkStatus, UserLink, UserType } from "@/lib/firebase/models";
 import { createOrReplaceAvatar } from "./filesController";
+import { createNotification } from "./notificationsController"
 
 
 export const createUser = async ({
@@ -42,6 +43,29 @@ export const createUser = async ({
   }
 };
 
+const removeUndefinedValues = (obj: any): any => {
+  const cleaned: any = {};
+  
+  Object.keys(obj).forEach(key => {
+    const value = obj[key];
+    
+    // Ne pas inclure les valeurs undefined
+    if (value !== undefined) {
+      // Si c'est un objet (mais pas un array ou une date), nettoyer récursivement
+      if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        const cleanedNested = removeUndefinedValues(value);
+        // Ne pas inclure les objets vides
+        if (Object.keys(cleanedNested).length > 0) {
+          cleaned[key] = cleanedNested;
+        }
+      } else {
+        cleaned[key] = value;
+      }
+    }
+  });
+  
+  return cleaned;
+};
 
 export const updateUser = async (user: UserType): Promise<boolean> => {
   try {
@@ -50,17 +74,25 @@ export const updateUser = async (user: UserType): Promise<boolean> => {
     }
 
     const userRef = doc(db, 'Users', user.id)
+    const { id, ...userData } = user
 
-    const { id, ...userData } = user // on retire l'ID pour ne pas le stocker dans les champs
+    // ✅ Construire l'objet de mise à jour en excluant les undefined
+    const updateData: any = {
+      updatedDate: Date.now(),
+    };
 
-    await updateDoc(userRef, {
-      ...userData,
-      updatedDate: Date.now(), // on met à jour la date de mise à jour
-    })
+    // Ajouter seulement les champs qui ne sont pas undefined
+    Object.keys(userData).forEach(key => {
+      const value = (userData as any)[key];
+      if (value !== undefined) {
+        updateData[key] = value;
+      }
+    });
 
+    await updateDoc(userRef, updateData)
     return true
   } catch (error) {
-    console.error('Erreur lors de la mise à jour de l’utilisateur :', error)
+    console.error("Erreur lors de la mise à jour de l'utilisateur :", error)
     return false
   }
 }
@@ -238,6 +270,20 @@ export const sendConnectionRequest = async (senderId: string, receiverId: string
     await updateDoc(senderRef, { [`links.${receiverId}`]: senderLink });
     await updateDoc(receiverRef, { [`links.${senderId}`]: receiverLink });
 
+    const senderName = await getUserDisplayName(senderId);
+    await createNotification({
+      recipientId: receiverId,
+      senderId: senderId,
+      type: "connection",
+      title: "Nouvelle demande de connexion",
+      message: `${senderName} souhaite se connecter avec vous`,
+      relatedId: senderId,
+      unread: true,
+      createdDate: Date.now(),
+      timestamp: Date.now()
+    });
+
+
     return receiverLink;
   } catch (error) {
     console.error("Erreur lors de l'envoi de la demande :", error);
@@ -257,6 +303,18 @@ export const updateConnectionStatus = async (userId: string, senderId: string, s
     // Si accepté, mise à jour côté sender pour symétrie
     if (status === "accepted") {
       await updateDoc(senderRef, { [`links.${userId}.status`]: status });
+      const accepterName = await getUserDisplayName(userId);
+      await createNotification({
+        recipientId: senderId, // L'expéditeur original reçoit la notification
+        senderId: userId,
+        type: "connection",
+        title: "Demande de connexion acceptée",
+        message: `${accepterName} a accepté votre demande de connexion`,
+        relatedId: userId,
+        unread: true,
+        createdDate: Date.now(),
+        timestamp: Date.now()
+      });
     }
   } catch (error) {
     console.error("Erreur lors de la mise à jour du statut :", error);
@@ -307,5 +365,19 @@ export const getConnexionsByUserId = async (userId: string): Promise<UserLink[]>
   } catch (error) {
     console.error("Erreur lors de la récupération des connexions :", error);
     return [];
+  }
+};
+
+const getUserDisplayName = async (userId: string): Promise<string> => {
+  try {
+    const userSnap = await getDoc(doc(db, COLLECTIONS.USERS, userId));
+    if (userSnap.exists()) {
+      const userData = userSnap.data() as UserType;
+      return userData.firstName + ' ' + userData.lastName || "Utilisateur";
+    }
+    return "Utilisateur";
+  } catch (error) {
+    console.error("Erreur lors de la récupération du nom utilisateur :", error);
+    return "Utilisateur";
   }
 };

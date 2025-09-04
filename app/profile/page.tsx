@@ -39,6 +39,7 @@ import { useDispatch, useSelector } from "react-redux"
 import { selectUser, setCurrentUser } from "@/lib/redux/slices/currentUserSlice"
 import { updateUser, updateUserAvatar } from "../controllers/usersController"
 import { Sidebar } from "@/components/sidebar"
+import { UserLink, UserType } from "@/lib/firebase/models"
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("profile")
@@ -59,58 +60,61 @@ export default function ProfilePage() {
     messages: true,
   })
 
-  interface FormData {
-    firstName: string,
-    lastName: string,
-    email: string,
-    birthDate: number | undefined,
-    bio: string | undefined,
-    phoneNumber: string | undefined,
-    localisation: string | undefined,
-    familyOrigin: string | undefined,
-    oldestAncestor: string | undefined,
-    researchInterests: string | undefined,
-  }
+ interface FormData {
+  firstName: string,
+  lastName: string,
+  email: string,
+  birthDate: number | undefined,
+  bio: string | undefined,
+  phoneNumber: string | undefined,
+  localisation: string | undefined,
+  links: UserLink[] | undefined, // ✅ Changé de UserLink à UserLink[]
+  familyOrigin: string | undefined,
+  oldestAncestor: string | undefined,
+  researchInterests: string | undefined,
+}
 
   const [formData, setFormData] = useState<FormData>({
-    firstName: currentUser?.firstName ?? "",
-    lastName: currentUser?.lastName ?? "",
-    email: currentUser?.email ?? "",
-    birthDate: currentUser?.birthDate ?? undefined,
-    bio: currentUser?.bio ?? undefined,
-    phoneNumber: currentUser?.phoneNumber ?? undefined,
-    localisation: currentUser?.localisation ?? undefined,
-    familyOrigin: currentUser?.familyOrigin ?? undefined,
-    oldestAncestor: currentUser?.oldestAncestor ?? undefined,
-    researchInterests: currentUser?.researchInterests ?? undefined,
-  });
+  firstName: currentUser?.firstName ?? "",
+  lastName: currentUser?.lastName ?? "",
+  email: currentUser?.email ?? "",
+  birthDate: currentUser?.birthDate ?? undefined,
+  bio: currentUser?.bio ?? undefined,
+  phoneNumber: currentUser?.phoneNumber ?? undefined,
+  localisation: currentUser?.localisation ?? undefined,
+  links: currentUser?.links ?? [], // ✅ Tableau vide au lieu de undefined
+  familyOrigin: currentUser?.familyOrigin ?? undefined,
+  oldestAncestor: currentUser?.oldestAncestor ?? undefined,
+  researchInterests: currentUser?.researchInterests ?? undefined,
+});
 
-  const handleSubmit = async () => {
-    if (!currentUser?.id) {
-      console.error("L'utilisateur n'est pas identifié ou n'a pas d'ID Firestore.")
-      return
-    }
-
-    const updatedUser = {
-      id: currentUser.id, 
-      firstName: formData.firstName.trim(),
-      lastName: formData.lastName.trim(),
-      email: formData.email.trim(),
-      avatarUrl: currentUser.avatarUrl || '',
-      bio: formData.bio || '',
-      phoneNumber: formData.phoneNumber || '',
-      localisation: formData.localisation || '',
-      familyOrigin: formData.familyOrigin || "",
-      oldestAncestor: formData.oldestAncestor || '',
-      researchInterests: formData.researchInterests || '',
-      birthDate: formData.birthDate || undefined,
-      updatedDate: Date.now(),
-    }
-
-    const success = await updateUser(updatedUser)
-    dispatch(setCurrentUser(updatedUser))
-    setOpenAlert(true);
+ const handleSubmit = async () => {
+  if (!currentUser?.id) {
+    console.error("L'utilisateur n'est pas identifié ou n'a pas d'ID Firestore.")
+    return
   }
+
+  const updatedUser: UserType = { // ✅ Typage explicite
+    id: currentUser.id,
+    firstName: formData.firstName.trim(),
+    lastName: formData.lastName.trim(),
+    email: formData.email.trim(),
+    avatarUrl: currentUser.avatarUrl || '',
+    bio: formData.bio || '',
+    phoneNumber: formData.phoneNumber || '',
+    localisation: formData.localisation || '',
+    familyOrigin: formData.familyOrigin || "",
+    links: formData.links || [], // ✅ Toujours un tableau
+    oldestAncestor: formData.oldestAncestor || '',
+    researchInterests: formData.researchInterests || '',
+    birthDate: formData.birthDate || undefined,
+    updatedDate: Date.now(),
+  }
+
+  const success = await updateUser(updatedUser)
+  dispatch(setCurrentUser(updatedUser))
+  setOpenAlert(true);
+}
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 

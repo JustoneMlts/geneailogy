@@ -1,11 +1,20 @@
 import { COLLECTIONS } from "@/lib/firebase/collections";
+import { db } from "@/lib/firebase/firebase";
 import { addDocumentToCollection, getAllDataFromCollection, getDataFromCollection, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
+import { NotificationType } from "@/lib/firebase/models";
+import { addDoc, collection, getDocs, orderBy, query, where } from "firebase/firestore";
 
-export const createNotification = async (notificationData: any) => {
+export const createNotification = async (notification: Omit<NotificationType, 'id'>) => {
   try {
-    await addDocumentToCollection(COLLECTIONS.NOTIFICATIONS, notificationData);
+    const notificationsRef = collection(db, "Notifications");
+    await addDoc(notificationsRef, {
+      ...notification,
+      createdDate: Date.now(),
+      timestamp: Date.now(),
+      unread: true
+    });
   } catch (error) {
-    console.log("Error createNotification", error);
+    console.error("Erreur lors de la création de la notification :", error);
   }
 };
 
@@ -22,5 +31,55 @@ export const markNotificationAsRead = async (notificationId: string) => {
     await updateDocumentToCollection(COLLECTIONS.NOTIFICATIONS, notificationId, { read: true });
   } catch (error) {
     console.log("Error markNotificationAsRead", error);
+  }
+};
+
+export const getMyNotifications = async (userId: string): Promise<NotificationType[]> => {
+  try {
+    const notificationsRef = collection(db, COLLECTIONS.NOTIFICATIONS);
+    
+    // Requête filtrée par recipientId et triée par timestamp DESC (plus récent en premier)
+    const q = query(
+      notificationsRef,
+      where("recipientId", "==", userId),
+      orderBy("timestamp", "desc")
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    const notifications: NotificationType[] = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as NotificationType[];
+    
+    return notifications;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des notifications utilisateur :", error);
+    return [];
+  }
+};
+
+export const getMyUnreadNotifications = async (userId: string): Promise<NotificationType[]> => {
+  try {
+    const notificationsRef = collection(db, COLLECTIONS.NOTIFICATIONS);
+    
+    const q = query(
+      notificationsRef,
+      where("recipientId", "==", userId),
+      where("unread", "==", true),
+      orderBy("timestamp", "desc")
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    const notifications: NotificationType[] = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as NotificationType[];
+    
+    return notifications;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des notifications non lues :", error);
+    return [];
   }
 };

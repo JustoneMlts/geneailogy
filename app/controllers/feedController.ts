@@ -50,7 +50,6 @@ export const getPostsByUserId = async (userId: string): Promise<FeedPostType[]> 
       id: doc.id,
       ...(doc.data() as Omit<FeedPostType, "id">),
     }));
-    console.log("back posts : ", posts)
     return posts;
   } catch (error) {
     console.error("Erreur lors de la récupération des posts :", error);

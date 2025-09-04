@@ -5,33 +5,25 @@ import { db } from "../lib/firebase/firebase" // ton init Firebase
 import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore"
 import { useSelector } from "react-redux" // si tu stockes ton user dans Redux
 import { selectUser } from "../lib/redux/slices/currentUserSlice"
-
-interface Notification {
-  id: string
-  type: "suggestion" | "message" | "connection" | "update"
-  title: string
-  message: string
-  time: number
-  unread: boolean
-}
+import { NotificationType } from "@/lib/firebase/models"
 
 export const Notifications = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [notifications, setNotifications] = useState<NotificationType[]>([])
   const user = useSelector(selectUser)
 
   useEffect(() => {
     if (!user?.id) return
 
     const q = query(
-      collection(db, "notifications"),
-      where("userId", "==", user.id),
-      orderBy("time", "desc")
+      collection(db, "Notifications"),
+      where("recipientId", "==", user.id),
+      orderBy("timestamp", "desc") // Changez "time" en "timestamp"
     )
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const notifs = snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...(doc.data() as Omit<Notification, "id">),
+        ...(doc.data() as Omit<NotificationType, "id">),
       }))
       setNotifications(notifs)
     })
@@ -64,7 +56,7 @@ export const Notifications = () => {
                   <h3 className="font-semibold mb-1">{notification.title}</h3>
                   <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
                   <p className="text-xs text-gray-500">
-                    {new Date(notification.time).toLocaleString()}
+                    {new Date(notification.timestamp).toLocaleString()} {/* timestamp au lieu de time */}
                   </p>
                 </div>
                 {notification.unread && (
