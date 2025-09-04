@@ -22,8 +22,9 @@ export interface UserType {
 export type LinkStatus = "pending" | "accepted"
 
 export interface UserLink {
-  userId: string
+  userId: string        // l'autre utilisateur
   status: LinkStatus
+  senderId: string      // qui a envoyé la demande
 }
 
 // Tree (Arbre généalogique)
@@ -124,11 +125,18 @@ export interface NotificationType {
   id?: string
   recipientId: string // userId
   senderId?: string // optional
-  type: "message" | "tree-invite" | "connection" | "like" | "comment"
+  type: "message" | "tree-invite" | "connexion" | "like" | "comment"
   content: string
   relatedId?: string // postId, memberId, etc.
   isRead: boolean
   createdDate: number
+}
+
+export interface ConnexionType {
+  id: string
+  senderId: string
+  receiverId: string
+  status: "pending" | "accepted" | "none"
 }
 
 export interface Files {

@@ -1,6 +1,6 @@
 import { addDocumentToCollection, getAllDataFromCollectionWithWhereArray, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
 import { COLLECTIONS } from "@/lib/firebase/collections";
-import { arrayUnion, collection, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { arrayUnion, collection, deleteField, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { LinkStatus, UserLink, UserType } from "@/lib/firebase/models";
 import { createOrReplaceAvatar } from "./filesController";
@@ -87,6 +87,14 @@ export const getUserById = async (id: string): Promise<UserType | null> => {
   }
 }
 
+export const getUsersByIds = async (userIds: string[]): Promise<UserType[]> => {
+  if (userIds.length === 0) return []
+
+  const q = query(collection(db, "users"), where("id", "in", userIds))
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map((doc) => doc.data() as UserType)
+}
+
 export const updateUserEmail = async (userId: string, newEmail: string) => {
   try {
     await updateDocumentToCollection(COLLECTIONS.USERS, userId, {
@@ -148,22 +156,6 @@ export const updateUserStatus = async (userId: string, isActive: boolean) => {
   } catch (error) {
     console.error("❌ Error updating isActive:", error);
   }
-};
-
-export const sendLinkRequest = async (fromUserId: string, toUserId: string) => {
-  const fromUserRef = doc(db, "Users", fromUserId);
-  const toUserRef = doc(db, "Users", toUserId);
-
-  const link: UserLink = { userId: toUserId, status: "pending" };
-  const reverseLink: UserLink = { userId: fromUserId, status: "pending" };
-
-  await updateDoc(fromUserRef, {
-    links: arrayUnion(link),
-  });
-
-  await updateDoc(toUserRef, {
-    links: arrayUnion(reverseLink),
-  });
 };
 
 export const updateLinkStatus = async (userId: string, targetUserId: string, newStatus: LinkStatus) => {
@@ -235,4 +227,85 @@ export const getUsers = async (): Promise<UserType[]> => {
   }
 };
 
+export const sendConnectionRequest = async (senderId: string, receiverId: string) => {
+  try {
+    const senderRef = doc(db, COLLECTIONS.USERS, senderId);
+    const receiverRef = doc(db, COLLECTIONS.USERS, receiverId);
 
+    const senderLink: UserLink = { userId: receiverId, status: "pending", senderId };
+    const receiverLink: UserLink = { userId: senderId, status: "pending", senderId };
+
+    await updateDoc(senderRef, { [`links.${receiverId}`]: senderLink });
+    await updateDoc(receiverRef, { [`links.${senderId}`]: receiverLink });
+
+    return receiverLink;
+  } catch (error) {
+    console.error("Erreur lors de l'envoi de la demande :", error);
+    throw error;
+  }
+};
+
+// Accepter/refuser une demande (récepteur)
+export const updateConnectionStatus = async (userId: string, senderId: string, status: LinkStatus) => {
+  try {
+    const userRef = doc(db, COLLECTIONS.USERS, userId);
+    const senderRef = doc(db, COLLECTIONS.USERS, senderId);
+
+    // Mise à jour du lien côté receiver
+    await updateDoc(userRef, { [`links.${senderId}.status`]: status });
+
+    // Si accepté, mise à jour côté sender pour symétrie
+    if (status === "accepted") {
+      await updateDoc(senderRef, { [`links.${userId}.status`]: status });
+    }
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du statut :", error);
+    throw error;
+  }
+};
+
+// Annuler une demande (uniquement par l'expéditeur)
+export const cancelConnectionRequest = async (senderId: string, receiverId: string) => {
+  try {
+    const senderRef = doc(db, COLLECTIONS.USERS, senderId);
+    const receiverRef = doc(db, COLLECTIONS.USERS, receiverId);
+
+    await Promise.all([
+      updateDoc(senderRef, { [`links.${receiverId}`]: deleteField() }),
+      updateDoc(receiverRef, { [`links.${senderId}`]: deleteField() }),
+    ]);
+  } catch (error) {
+    console.error("Erreur lors de l'annulation :", error);
+    throw error;
+  }
+};
+
+// Supprimer un ami
+export const deleteConnection = async (userId1: string, userId2: string) => {
+  try {
+    const user1Ref = doc(db, COLLECTIONS.USERS, userId1);
+    const user2Ref = doc(db, COLLECTIONS.USERS, userId2);
+
+    await Promise.all([
+      updateDoc(user1Ref, { [`links.${userId2}`]: deleteField() }),
+      updateDoc(user2Ref, { [`links.${userId1}`]: deleteField() }),
+    ]);
+  } catch (error) {
+    console.error("Erreur lors de la suppression :", error);
+    throw error;
+  }
+};
+
+// Récupérer toutes les connexions
+export const getConnexionsByUserId = async (userId: string): Promise<UserLink[]> => {
+  try {
+    const userSnap = await getDoc(doc(db, COLLECTIONS.USERS, userId));
+    if (!userSnap.exists()) return [];
+
+    const userData = userSnap.data() as UserType;
+    return Object.values(userData.links || {}) as UserLink[];
+  } catch (error) {
+    console.error("Erreur lors de la récupération des connexions :", error);
+    return [];
+  }
+};
