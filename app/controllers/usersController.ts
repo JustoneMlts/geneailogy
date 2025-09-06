@@ -45,10 +45,10 @@ export const createUser = async ({
 
 const removeUndefinedValues = (obj: any): any => {
   const cleaned: any = {};
-  
+
   Object.keys(obj).forEach(key => {
     const value = obj[key];
-    
+
     // Ne pas inclure les valeurs undefined
     if (value !== undefined) {
       // Si c'est un objet (mais pas un array ou une date), nettoyer récursivement
@@ -63,7 +63,7 @@ const removeUndefinedValues = (obj: any): any => {
       }
     }
   });
-  
+
   return cleaned;
 };
 
@@ -259,7 +259,7 @@ export const getUsers = async (): Promise<UserType[]> => {
   }
 };
 
-export const sendConnectionRequest = async (senderId: string, receiverId: string) => {
+export const sendConnectionRequest = async (senderId: string, receiverId: string, senderFirstName: string, senderLastName: string, senderAvatar?: string) => {
   try {
     const senderRef = doc(db, COLLECTIONS.USERS, senderId);
     const receiverRef = doc(db, COLLECTIONS.USERS, receiverId);
@@ -270,19 +270,28 @@ export const sendConnectionRequest = async (senderId: string, receiverId: string
     await updateDoc(senderRef, { [`links.${receiverId}`]: senderLink });
     await updateDoc(receiverRef, { [`links.${senderId}`]: receiverLink });
 
-    const senderName = await getUserDisplayName(senderId);
-    await createNotification({
-      recipientId: receiverId,
-      senderId: senderId,
-      type: "connection",
-      title: "Nouvelle demande de connexion",
-      message: `${senderName} souhaite se connecter avec vous`,
-      relatedId: senderId,
-      unread: true,
-      createdDate: Date.now(),
-      timestamp: Date.now()
-    });
-
+    const senderName = senderFirstName + " " + senderLastName;
+    if (senderAvatar !== "") {
+      await createNotification({
+        recipientId: receiverId,
+        senderId: senderId,
+        senderName: senderName,
+        senderAvatarUrl: senderAvatar,
+        type: "connection",
+        title: "Demande de connexion",
+        message: `${senderName} veut t'ajouter en ami !`,
+      })
+    }
+    else {
+      await createNotification({
+        recipientId: receiverId,
+        senderId: senderId,
+        senderName: senderName,
+        type: "connection",
+        title: "Demande de connexion",
+        message: `${senderName} veut t'ajouter en ami !`,
+      })
+    }
 
     return receiverLink;
   } catch (error) {
@@ -292,9 +301,9 @@ export const sendConnectionRequest = async (senderId: string, receiverId: string
 };
 
 // Accepter/refuser une demande (récepteur)
-export const updateConnectionStatus = async (userId: string, senderId: string, status: LinkStatus) => {
+export const updateConnectionStatus = async (senderId: string, receiverId: string, status: string, senderFirstName: string, senderLastName: string, senderAvatar?: string) => {
   try {
-    const userRef = doc(db, COLLECTIONS.USERS, userId);
+    const userRef = doc(db, COLLECTIONS.USERS, receiverId);
     const senderRef = doc(db, COLLECTIONS.USERS, senderId);
 
     // Mise à jour du lien côté receiver
@@ -302,19 +311,29 @@ export const updateConnectionStatus = async (userId: string, senderId: string, s
 
     // Si accepté, mise à jour côté sender pour symétrie
     if (status === "accepted") {
-      await updateDoc(senderRef, { [`links.${userId}.status`]: status });
-      const accepterName = await getUserDisplayName(userId);
-      await createNotification({
-        recipientId: senderId, // L'expéditeur original reçoit la notification
-        senderId: userId,
-        type: "connection",
-        title: "Demande de connexion acceptée",
-        message: `${accepterName} a accepté votre demande de connexion`,
-        relatedId: userId,
-        unread: true,
-        createdDate: Date.now(),
-        timestamp: Date.now()
-      });
+      await updateDoc(senderRef, { [`links.${receiverId}.status`]: status });
+      const senderName = senderFirstName + " " + senderLastName;
+      if (senderAvatar !== "") {
+        await createNotification({
+          recipientId: receiverId,
+          senderId: senderId,
+          senderName: senderName,
+          senderAvatarUrl: senderAvatar,
+          type: "connection",
+          title: "Demande de connexion",
+          message: `${senderName} à accepter ta demande !`,
+        })
+      }
+      else {
+        await createNotification({
+          recipientId: receiverId,
+          senderId: senderId,
+          senderName: senderName,
+          type: "connection",
+          title: "Demande de connexion",
+          message: `${senderName} à accepter ta demande !`,
+        })
+      }
     }
   } catch (error) {
     console.error("Erreur lors de la mise à jour du statut :", error);

@@ -125,6 +125,8 @@ export interface NotificationType {
   id?: string
   recipientId: string // userId
   senderId?: string // optional
+  senderName?: string // 🔹 "Prénom Nom"
+  senderAvatarUrl?: string // 🔹 photo du sender
   type: "suggestion" | "message" | "connection" | "update" | "like" | "comment"
   title: string
   message: string  

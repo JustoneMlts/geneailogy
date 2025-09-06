@@ -8,7 +8,6 @@ import {
     updateConnectionStatus,
     cancelConnectionRequest,
     deleteConnection,
-    sendConnectionRequest,
 } from "@/app/controllers/usersController"
 import { UserLink, LinkStatus, UserType } from "@/lib/firebase/models"
 import { Card, CardContent } from "./ui/card"
@@ -66,7 +65,7 @@ export const Connections = () => {
     // Accepter une connexion
     const handleAccept = async (userId: string) => {
         if (!currentUser?.id) return
-        await updateConnectionStatus(currentUser.id, userId, "accepted")
+        await updateConnectionStatus(currentUser.id, userId, "accepted", currentUser.firstName, currentUser.lastName, currentUser.avatarUrl)
         setConnections((prev) =>
             prev.map((c) => (c.userId === userId ? { ...c, status: "accepted" } : c))
         )

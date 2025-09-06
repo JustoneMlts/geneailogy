@@ -6,11 +6,11 @@ import { Input } from "./ui/input";
 import {
   Search,
 } from "lucide-react"
-import { use, useEffect, useState } from "react";
-import { getUserById, getUsers } from "@/app/controllers/usersController";
+import { JSX, useEffect, useState } from "react";
+import { getUserById, getUsers, updateConnectionStatus } from "@/app/controllers/usersController";
 import { ConnexionType, LinkStatus, UserLink, UserType } from "@/lib/firebase/models";
 import { useDispatch, useSelector } from "react-redux";
-import { selectUser } from "@/lib/redux/slices/currentUserSlice";
+import { selectUser, setCurrentUser } from "@/lib/redux/slices/currentUserSlice"; // ✅ Ajout de setUser
 import { handleGetUserNameInitials } from "@/app/helpers/userHelper";
 import { useRouter } from "next/navigation"
 import { getConnexionsByUserId, sendConnectionRequest } from "@/app/controllers/usersController";
@@ -23,77 +23,204 @@ export const SearchPage = () => {
   const router = useRouter()
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      const data = await getUsers();
-      setUsers(data);
+    const fetchUsers = async (): Promise<void> => {
+      try {
+        const data: UserType[] = await getUsers();
+        setUsers(data);
+      } catch (error) {
+        console.error("Erreur lors de la récupération des utilisateurs:", error);
+      }
     };
     fetchUsers();
   }, []);
 
   useEffect(() => {
-    const fetchConnexionsIds = async () => {
+    const fetchConnexionsIds = async (): Promise<void> => {
       if (currentUser?.id) {
-        const data = await getConnexionsByUserId(currentUser.id);
-        setConnectionRequests(data)
+        try {
+          const data: UserLink[] = await getConnexionsByUserId(currentUser.id);
+          setConnectionRequests(data)
+        } catch (error) {
+          console.error("Erreur lors de la récupération des connexions:", error);
+        }
       }
     }
     fetchConnexionsIds();
   }, [currentUser])
 
-  const handleConnectionRequest = async (userId: string) => {
-    if (!currentUser?.id) return;
-    
+  // ✅ Fonction de demande de connexion corrigée
+  const handleConnectionRequest = async (userId: string): Promise<void> => {
+    if (!currentUser?.id || !userId) {
+      console.warn("CurrentUser ID ou userId manquant");
+      return;
+    }
+
     try {
-      const newRequest = await sendConnectionRequest(currentUser.id, userId);
-      
+      const newRequest = await sendConnectionRequest(
+        currentUser.id,
+        userId,
+        currentUser.firstName,
+        currentUser.lastName,
+        currentUser.avatarUrl
+      );
+
       // Mise à jour optimiste de l'état local
       const updatedRequest: UserLink = {
-        userId: userId, // Utiliser l'userId passé en paramètre
-        status: "pending", // Status par défaut pour une nouvelle demande
+        userId: userId,
+        status: "pending" as LinkStatus,
         senderId: currentUser.id
       };
-      
-      setConnectionRequests((prev) => {
-        // Filtrer les anciennes connexions avec cet utilisateur
-        const filtered = prev.filter((c) => c.userId !== userId);
-        // Ajouter la nouvelle connexion
+
+      setConnectionRequests((prev: UserLink[]): UserLink[] => {
+        const filtered = prev.filter((c: UserLink) => c.userId !== userId);
         return [...filtered, updatedRequest];
       });
-      
+
+      // 🔹 Dispatcher l'utilisateur courant mis à jour
+      const newLink: UserLink = {
+        userId: userId,
+        status: "pending" as LinkStatus,
+        senderId: currentUser.id
+      };
+
+      const updatedLinks: UserLink[] = [
+        ...((Array.isArray(currentUser.links) ? currentUser.links : []).filter(
+          (link: UserLink) => link.userId !== userId
+        )),
+        newLink,
+      ];
+
+      const updatedCurrentUser: UserType = {
+        ...currentUser,
+        links: updatedLinks
+      };
+
+      // ✅ Dispatch du currentUser mis à jour
+      dispatch(setCurrentUser(updatedCurrentUser));
+
+      // 🔹 Mettre à jour l'utilisateur cible dans la liste locale
+      setUsers((prevUsers: UserType[]): UserType[] => {
+        return prevUsers.map((user: UserType): UserType => {
+          if (user.id === userId && currentUser.id) {
+            const newTargetLink: UserLink = {
+              userId: currentUser.id,
+              status: "pending" as LinkStatus,
+              senderId: currentUser.id
+            };
+
+            const updatedTargetLinks: UserLink[] = [
+              ...((Array.isArray(user.links) ? user.links : []).filter(
+                (link: UserLink) => link.userId !== currentUser.id
+              )),
+              newTargetLink,
+            ];
+            return {
+              ...user,
+              links: updatedTargetLinks
+            };
+          }
+          return user;
+        });
+      });
+
     } catch (error) {
       console.error("Erreur lors de l'envoi de la demande :", error);
-      // En cas d'erreur, on pourrait recharger les données
+      // Restaurer l'état en cas d'erreur
       if (currentUser?.id) {
-        const data = await getConnexionsByUserId(currentUser.id);
-        setConnectionRequests(data);
+        try {
+          const data: UserLink[] = await getConnexionsByUserId(currentUser.id);
+          setConnectionRequests(data);
+        } catch (restoreError) {
+          console.error("Erreur lors de la restauration:", restoreError);
+        }
       }
     }
   };
 
-  const handleAcceptRequest = async (userId: string) => {
-    if (!currentUser?.id) return;
-    
+  // ✅ Fonction d'acceptation corrigée (suppression du doublon)
+  const handleAcceptRequest = async (userId: string): Promise<void> => {
+    if (!currentUser?.id || !userId) {
+      console.warn("CurrentUser ID ou userId manquant");
+      return;
+    }
+
     try {
-      // Appeler votre fonction d'acceptation (à créer si elle n'existe pas)
-      // await acceptConnectionRequest(currentUser.id, userId);
-      
-      // Mise à jour optimiste
-      setConnectionRequests((prev) => 
-        prev.map((c) => 
-          c.userId === userId 
-            ? { ...c, status: "accepted" }
+      if (currentUser.avatarUrl) {
+        await updateConnectionStatus(currentUser.id, userId, currentUser.firstName, currentUser.lastName, currentUser.avatarUrl);
+      }
+      else {
+        await updateConnectionStatus(currentUser.id, userId, currentUser.firstName, currentUser.lastName, "");
+      }
+      // Mise à jour optimiste locale
+      setConnectionRequests((prev: UserLink[]): UserLink[] =>
+        prev.map((c: UserLink): UserLink =>
+          c.userId === userId
+            ? { ...c, status: "accepted" as LinkStatus }
             : c
         )
       );
-      
+
+      // 🔹 Dispatcher l'utilisateur courant mis à jour
+      const acceptedLink: UserLink = {
+        userId: userId,
+        status: "accepted" as LinkStatus,
+        senderId: userId // Le sender reste celui qui a envoyé la demande
+      };
+      const updatedCurrentUserLinks: UserLink[] = [
+        ...((Array.isArray(currentUser.links) ? currentUser.links : []).filter(
+          (link: UserLink) => link.userId !== userId
+        )),
+        acceptedLink,
+      ];
+      const updatedCurrentUser: UserType = {
+        ...currentUser,
+        links: updatedCurrentUserLinks
+      };
+
+      // ✅ Dispatch du currentUser mis à jour
+      dispatch(setCurrentUser(updatedCurrentUser));
+
+      // 🔹 Mettre à jour l'utilisateur cible dans la liste locale
+      setUsers((prevUsers: UserType[]): UserType[] => {
+        return prevUsers.map((user: UserType): UserType => {
+          if (user.id === userId && currentUser.id) {
+            const acceptedTargetLink: UserLink = {
+              userId: currentUser.id,
+              status: "accepted" as LinkStatus,
+              senderId: userId
+            };
+
+            const updatedTargetLinks: UserLink[] = [
+              ...(user.links || []).filter((link: UserLink) => link.userId !== currentUser.id),
+              acceptedTargetLink
+            ];
+
+            return {
+              ...user,
+              links: updatedTargetLinks
+            };
+          }
+          return user;
+        });
+      });
+
     } catch (error) {
       console.error("Erreur lors de l'acceptation :", error);
+      // Restaurer l'état en cas d'erreur
+      if (currentUser?.id) {
+        try {
+          const data: UserLink[] = await getConnexionsByUserId(currentUser.id);
+          setConnectionRequests(data);
+        } catch (restoreError) {
+          console.error("Erreur lors de la restauration:", restoreError);
+        }
+      }
     }
   };
 
   // Fonction helper pour obtenir le statut de connexion
-  const getConnectionStatus = (userId: string) => {
-    const connection = connectionRequests.find((c) => c.userId === userId);
+  const getConnectionStatus = (userId: string): { status: LinkStatus | "none", isSender: boolean } => {
+    const connection = connectionRequests.find((c: UserLink) => c.userId === userId);
     if (!connection) return { status: "none", isSender: false };
 
     return {
@@ -103,8 +230,10 @@ export const SearchPage = () => {
   };
 
   // Fonction pour rendre le bouton de connexion
-  const renderConnectionButton = (user: UserType) => {
-    const { status, isSender } = getConnectionStatus(user.id!);
+  const renderConnectionButton = (user: UserType): JSX.Element | null => {
+    if (!user.id) return null;
+
+    const { status, isSender } = getConnectionStatus(user.id);
 
     switch (status) {
       case "none":
@@ -181,7 +310,7 @@ export const SearchPage = () => {
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-        {users.map((user) =>
+        {users.map((user: UserType) =>
           user.id && user.id !== currentUser?.id ? (
             <Card key={user.id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-4">

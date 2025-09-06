@@ -4,19 +4,22 @@ import { addDocumentToCollection, getAllDataFromCollection, getDataFromCollectio
 import { NotificationType } from "@/lib/firebase/models";
 import { addDoc, collection, getDocs, orderBy, query, where } from "firebase/firestore";
 
-export const createNotification = async (notification: Omit<NotificationType, 'id'>) => {
+export const createNotification = async (
+  notification: Omit<NotificationType, "id" | "createdDate" | "timestamp" | "unread">
+) => {
   try {
-    const notificationsRef = collection(db, "Notifications");
+    const notificationsRef = collection(db, "Notifications")
+
     await addDoc(notificationsRef, {
       ...notification,
       createdDate: Date.now(),
       timestamp: Date.now(),
-      unread: true
-    });
+      unread: true,
+    })
   } catch (error) {
-    console.error("Erreur lors de la création de la notification :", error);
+    console.error("Erreur lors de la création de la notification :", error)
   }
-};
+}
 
 export const getNotifications = async () => {
   return await getAllDataFromCollection(COLLECTIONS.NOTIFICATIONS);
@@ -28,11 +31,13 @@ export const getNotificationById = async (notificationId: string) => {
 
 export const markNotificationAsRead = async (notificationId: string) => {
   try {
-    await updateDocumentToCollection(COLLECTIONS.NOTIFICATIONS, notificationId, { read: true });
+    await updateDocumentToCollection(COLLECTIONS.NOTIFICATIONS, notificationId, {
+      unread: false,
+    })
   } catch (error) {
-    console.log("Error markNotificationAsRead", error);
+    console.log("Error markNotificationAsRead", error)
   }
-};
+}
 
 export const getMyNotifications = async (userId: string): Promise<NotificationType[]> => {
   try {

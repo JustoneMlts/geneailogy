@@ -1,35 +1,12 @@
-import { useEffect, useState } from "react"
 import { MessageCircle, Sparkles, TreePine, User } from "lucide-react"
 import { Card, CardContent } from "./ui/card"
-import { db } from "../lib/firebase/firebase" // ton init Firebase
-import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore"
 import { useSelector } from "react-redux" // si tu stockes ton user dans Redux
 import { selectUser } from "../lib/redux/slices/currentUserSlice"
-import { NotificationType } from "@/lib/firebase/models"
+import { selectNotifications } from "@/lib/redux/slices/notificationSlice"
 
 export const Notifications = () => {
-  const [notifications, setNotifications] = useState<NotificationType[]>([])
+  const notifications = useSelector(selectNotifications)  
   const user = useSelector(selectUser)
-
-  useEffect(() => {
-    if (!user?.id) return
-
-    const q = query(
-      collection(db, "Notifications"),
-      where("recipientId", "==", user.id),
-      orderBy("timestamp", "desc") // Changez "time" en "timestamp"
-    )
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notifs = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<NotificationType, "id">),
-      }))
-      setNotifications(notifs)
-    })
-
-    return () => unsubscribe()
-  }, [user?.id])
 
   return (
     <div className="animate-fade-in">
