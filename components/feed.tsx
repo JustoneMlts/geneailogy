@@ -3,22 +3,20 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Input } from "./ui/input"
-import { useSelector } from "react-redux"
+import { useDispatch, useSelector } from "react-redux"
 import { selectUser } from "@/lib/redux/slices/currentUserSlice"
 import { handleGetUserName, handleGetUserNameInitials } from "@/app/helpers/userHelper"
 import { useEffect, useState } from "react"
 import { createFeedPost, getPostsByUserId } from "@/app/controllers/feedController"
 import { FeedPostType } from "@/lib/firebase/models"
 import { getCommentsCount, getLikeCount } from "@/app/helpers/feedHelper"
+import { setActiveTab } from "@/lib/redux/slices/uiSlice"
 
-export const Feed = ({
-  setActiveTab
-}: {
-  setActiveTab: (tab: string) => void
-}) => {
+export const Feed = () => {
   const currentUser = useSelector(selectUser);
   const [postMessage, setPostMessage] = useState<string>(""); // ✅ pas undefined
   const [posts, setPosts] = useState<FeedPostType[]>([]);
+  const dispatch = useDispatch()
 
   const fetchPosts = async () => {
     if (!currentUser?.id) return;
@@ -400,7 +398,7 @@ export const Feed = ({
                 </div>
               </div>
               <div className="mt-4 text-center">
-                <Link href="/dashboard" onClick={() => setActiveTab("ai")}>
+                <Link href="/dashboard" onClick={() => dispatch(setActiveTab("ai"))}>
                   <Button variant="link" size="sm" className="text-blue-600 transition-colors duration-200">
                     Voir toutes les suggestions
                   </Button>

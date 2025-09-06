@@ -1,16 +1,20 @@
 import { Card, CardContent } from "./ui/card"
-import { useSelector } from "react-redux"
+import { useDispatch, useSelector } from "react-redux"
 import { selectUser } from "../lib/redux/slices/currentUserSlice"
 import { selectNotifications } from "@/lib/redux/slices/notificationSlice"
 import { useEffect, useRef } from "react"
-import { markNotificationAsRead } from "@/app/controllers/notificationsController"
+import { markAllNotificationsAsRead, markNotificationAsRead } from "@/app/controllers/notificationsController"
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar"
 import { handleGetUserNameInitialsFromName } from "@/app/helpers/userHelper"
+import { Button } from "./ui/button"
+import { Check } from "lucide-react"
+import { setActiveTab } from "@/lib/redux/slices/uiSlice"
 
 export const Notifications = () => {
   const notifications = useSelector(selectNotifications)  
   const user = useSelector(selectUser)
   const notifRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const dispatch = useDispatch()
 
   // ✅ Observer uniquement en mobile
   useEffect(() => {
@@ -48,6 +52,25 @@ export const Notifications = () => {
       markNotificationAsRead(notifId)
     }
   }
+  
+  const handleNavigation = (notifType: string) => {
+    switch (notifType) {
+      case "connection" :
+        dispatch(setActiveTab("connections"))
+        break;
+      case "message" :
+        dispatch(setActiveTab("directMessages"))
+        break;
+      case "comment" :
+        dispatch(setActiveTab("feed"))
+        break;
+      default:
+        dispatch(setActiveTab("feed"))
+    }
+  }
+
+  //  type: "suggestion" | "message" | "connection" | "update" | "like" | "comment"
+
 
   return (
     <div className="animate-fade-in">
@@ -55,7 +78,17 @@ export const Notifications = () => {
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Notifications</h1>
         <p className="text-gray-600">Restez informé des dernières activités sur votre arbre généalogique</p>
       </div>
-
+     <div className="flex items-center justify-start my-6">
+      <Button
+        variant="outline"
+        size="sm"
+        className="flex items-center space-x-2"
+        onClick={() => markAllNotificationsAsRead(notifications)}
+      >
+        <Check className="h-4 w-4" />
+        <span>Tout marquer comme lu</span>
+      </Button>
+    </div>
       <div className="space-y-4">
         {notifications.map((notification) => (
           <Card
@@ -67,7 +100,10 @@ export const Notifications = () => {
             onMouseEnter={() => {
               if (notification?.id) handleHover(notification.id)
             }}
-            className={`${notification.unread ? "border-blue-200 bg-blue-50" : ""}`}
+            className={`cursor-pointer ${notification.unread ? "border-blue-200 bg-blue-50" : ""} hover:shadow-lg transition-shadow`}
+            onClick={() => {
+              handleNavigation(notification.type)
+            }}
           >
             <CardContent className="p-4">
               <div className="flex items-start space-x-4">

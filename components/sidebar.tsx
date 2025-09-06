@@ -25,17 +25,14 @@ import { Badge } from "./ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { handleGetUserName, handleGetUserNameInitials } from "@/app/helpers/userHelper"
 import { selectUnreadCount } from "@/lib/redux/slices/notificationSlice"
+import { selectActiveTab, setActiveTab } from "@/lib/redux/slices/uiSlice"
 
 function DesktopSidebar({
-	activeTab,
-	setActiveTab,
 	isExpanded,
 	setIsExpanded,
 	isPinned,
 	setIsPinned,
 }: {
-	activeTab: string
-	setActiveTab: (tab: string) => void
 	isExpanded: boolean
 	setIsExpanded: (expanded: boolean) => void
 	isPinned: boolean
@@ -109,6 +106,7 @@ function DesktopSidebar({
 
 	// Condition pour afficher le texte : sidebar dépliée ET (épinglée OU texte activé)
 	const shouldShowText = isExpanded && (isPinned || showText)
+	const activeTab = useSelector(selectActiveTab)
 
 	return (
 		<div
@@ -149,7 +147,7 @@ function DesktopSidebar({
 							<button
 								onClick={() => {
 									if (item.id !== "family-settings") {
-										setActiveTab(item.id)
+										dispatch(setActiveTab(item.id))
 									}
 								}}
 								className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 ${activeTab === item.id
@@ -217,10 +215,11 @@ function DesktopSidebar({
 	)
 }
 
-function MobileHeader({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) {
+function MobileHeader() {
 	const [isMenuOpen, setIsMenuOpen] = useState(false)
 	const unreadCount = useSelector(selectUnreadCount)
-
+	const dispatch = useDispatch();
+	const activeTab = useSelector(selectActiveTab)
 
 	const menuItems = [
 		{ id: "feed", label: "Feed", icon: Home },
@@ -234,7 +233,7 @@ function MobileHeader({ activeTab, setActiveTab }: { activeTab: string; setActiv
 	]
 
 	const handleMenuItemClick = (tabId: string) => {
-		setActiveTab(tabId)
+		dispatch(setActiveTab(tabId))
 		setIsMenuOpen(false)
 	}
 
@@ -284,8 +283,6 @@ function MobileHeader({ activeTab, setActiveTab }: { activeTab: string; setActiv
 }
 
 type SidebarProps = {
-	activeTab: string;
-	setActiveTab: (tab: string) => void;
 	isExpanded: boolean;
 	setIsExpanded: (expanded: boolean) => void;
 	isPinned: boolean;
@@ -293,8 +290,6 @@ type SidebarProps = {
 };
 
 export const Sidebar = ({
-	activeTab,
-	setActiveTab,
 	isExpanded,
 	setIsExpanded,
 	isPinned,
@@ -304,15 +299,13 @@ export const Sidebar = ({
 	return (
 		<>
 			<DesktopSidebar
-				activeTab={activeTab}
-				setActiveTab={setActiveTab}
 				isExpanded={isExpanded}
 				setIsExpanded={setIsExpanded}
 				isPinned={isPinned}
 				setIsPinned={setIsPinned}
 			/>
 
-			<MobileHeader activeTab={activeTab} setActiveTab={setActiveTab} />
+			<MobileHeader />
 		</>
 	)
 }

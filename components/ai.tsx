@@ -10,13 +10,11 @@ import {
     Crown,
 } from "lucide-react"
 import { useState } from "react"
+import { useDispatch } from "react-redux"
+import { setActiveTab } from "@/lib/redux/slices/uiSlice"
 
-export const Ai = ({
-    setActiveTab
-}: {
-    setActiveTab: (tab: string) => void
-}) => {
-
+export const Ai = () => {
+    const dispatch = useDispatch()
     const [conversations, setConversations] = useState([
         {
             id: 1,
@@ -99,7 +97,7 @@ export const Ai = ({
         if (existingConversation) {
             // Si la conversation existe, la sélectionner et aller aux messages
             setSelectedConversation(existingConversation)
-            setActiveTab("messages")
+            dispatch(setActiveTab("messages"))
         } else {
             // Créer une nouvelle conversation
             const newConversation = {

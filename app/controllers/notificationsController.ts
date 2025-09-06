@@ -88,3 +88,22 @@ export const getMyUnreadNotifications = async (userId: string): Promise<Notifica
     return [];
   }
 };
+
+export const markAllNotificationsAsRead = async (notifications: NotificationType[]) => {
+  try {
+    const unreadNotifs = notifications.filter((n) => n.unread)
+
+    await Promise.all(
+      unreadNotifs.map((notif) =>{
+        if (notif.id)
+        updateDocumentToCollection(COLLECTIONS.NOTIFICATIONS, notif.id, {
+          unread: false,
+        })}
+      )
+    )
+
+    console.log("✅ Toutes les notifications ont été marquées comme lues")
+  } catch (error) {
+    console.log("Error markAllNotificationsAsRead", error)
+  }
+}

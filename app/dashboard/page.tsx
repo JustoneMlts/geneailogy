@@ -14,9 +14,10 @@ import { Sidebar } from "@/components/sidebar"
 import Wall from "@/components/wall"
 import { getMyNotifications } from "../controllers/notificationsController"
 import { setNotifications } from "@/lib/redux/slices/notificationSlice"
+import { selectActiveTab } from "@/lib/redux/slices/uiSlice"
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState("feed")
+  const activeTab = useSelector(selectActiveTab)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isPinned, setIsPinned] = useState(false)
   const dispatch = useDispatch()
@@ -49,8 +50,6 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
       <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
         isExpanded={isExpanded}
         setIsExpanded={setIsExpanded}
         isPinned={isPinned}
@@ -61,7 +60,7 @@ export default function Dashboard() {
       <div className={`min-h-screen p-6 w-full transition-all duration-300 ease-in-out ${getLeftMargin()}`}>
         <div className="p-6">
           {activeTab === "feed" && (
-            <Feed setActiveTab={setActiveTab} />
+            <Feed />
           )}
 
           {activeTab === "wall" && (
@@ -73,7 +72,7 @@ export default function Dashboard() {
           )}
 
           {activeTab === "ai" && (
-            <Ai setActiveTab={setActiveTab} />
+            <Ai />
           )}
 
           {activeTab === "search" && (
