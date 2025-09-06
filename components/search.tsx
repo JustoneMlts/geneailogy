@@ -109,9 +109,9 @@ export const SearchPage = () => {
             };
 
             const updatedTargetLinks: UserLink[] = [
-              ...((Array.isArray(user.links) ? user.links : []).filter(
+              ...(Array.isArray(user.links) ? user.links : []).filter(
                 (link: UserLink) => link.userId !== currentUser.id
-              )),
+              ),
               newTargetLink,
             ];
             return {

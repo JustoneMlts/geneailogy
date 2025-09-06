@@ -164,14 +164,14 @@ function DesktopSidebar({
 								>
 									{item.label}
 								</span>
-								{item.badge && (
+								{(item.badge ?? 0) > 0 ? (
 									<Badge
 										className={`ml-auto bg-red-500 text-white text-xs transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
 											}`}
 									>
 										{item.badge}
 									</Badge>
-								)}
+								) : null}
 							</button>
 						</Link>
 					))}
