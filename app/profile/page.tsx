@@ -13,26 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
-  TreePine,
-  User,
-  Settings,
-  Shield,
-  Camera,
-  Save,
-  Users,
-  MessageCircle,
-  Heart,
-  Calendar,
-  Trophy,
-  Star,
-  PinIcon,
-  PinOffIcon,
-  Menu,
-  X,
-  Bell,
-  Home,
-  Search,
-  Sparkles,
+  TreePine, User, Settings, Shield, Camera, Save, Users,
+  MessageCircle, Heart, Calendar, Trophy, Star, PinIcon, PinOffIcon,
+  Menu, X, Bell, Home, Search, Sparkles
 } from "lucide-react"
 import Link from "next/link"
 import { useDispatch, useSelector } from "react-redux"
@@ -60,109 +43,108 @@ export default function ProfilePage() {
     messages: true,
   })
 
- interface FormData {
-  firstName: string,
-  lastName: string,
-  email: string,
-  birthDate: number | undefined,
-  bio: string | undefined,
-  phoneNumber: string | undefined,
-  localisation: string | undefined,
-  links: UserLink[] | undefined, // ✅ Changé de UserLink à UserLink[]
-  familyOrigin: string | undefined,
-  oldestAncestor: string | undefined,
-  researchInterests: string | undefined,
-}
+  interface FormData {
+    firstName: string
+    lastName: string
+    email: string
+    birthDate: string // ✅ date sous forme de string (ex: "1990-05-10")
+    bio?: string
+    phoneNumber?: string
+    localisation?: string
+    links: UserLink[]
+    familyOrigin?: string
+    oldestAncestor?: string
+    researchInterests?: string
+  }
 
   const [formData, setFormData] = useState<FormData>({
-  firstName: currentUser?.firstName ?? "",
-  lastName: currentUser?.lastName ?? "",
-  email: currentUser?.email ?? "",
-  birthDate: currentUser?.birthDate ?? undefined,
-  bio: currentUser?.bio ?? undefined,
-  phoneNumber: currentUser?.phoneNumber ?? undefined,
-  localisation: currentUser?.localisation ?? undefined,
-  links: currentUser?.links ?? [], // ✅ Tableau vide au lieu de undefined
-  familyOrigin: currentUser?.familyOrigin ?? undefined,
-  oldestAncestor: currentUser?.oldestAncestor ?? undefined,
-  researchInterests: currentUser?.researchInterests ?? undefined,
-});
+    firstName: currentUser?.firstName ?? "",
+    lastName: currentUser?.lastName ?? "",
+    email: currentUser?.email ?? "",
+    birthDate: currentUser?.birthDate
+      ? new Date(currentUser.birthDate).toISOString().split("T")[0]
+      : "",
+    bio: currentUser?.bio ?? "",
+    phoneNumber: currentUser?.phoneNumber ?? "",
+    localisation: currentUser?.localisation ?? "",
+    links: currentUser?.links ?? [],
+    familyOrigin: currentUser?.familyOrigin ?? "",
+    oldestAncestor: currentUser?.oldestAncestor ?? "",
+    researchInterests: currentUser?.researchInterests ?? "",
+  });
 
- const handleSubmit = async () => {
-  if (!currentUser?.id) {
-    console.error("L'utilisateur n'est pas identifié ou n'a pas d'ID Firestore.")
-    return
+  const handleSubmit = async () => {
+    if (!currentUser?.id) {
+      console.error("L'utilisateur n'est pas identifié ou n'a pas d'ID Firestore.")
+      return
+    }
+    try {
+      const updatedUser: UserType = {
+        id: currentUser.id,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
+        avatarUrl: currentUser.avatarUrl || '',
+        bio: formData.bio || undefined,
+        phoneNumber: formData.phoneNumber || undefined,
+        localisation: formData.localisation || undefined,
+        familyOrigin: formData.familyOrigin || undefined,
+        oldestAncestor: formData.oldestAncestor || undefined,
+        researchInterests: formData.researchInterests || undefined,
+        links: formData.links ?? [],
+        birthDate: formData.birthDate ? new Date(formData.birthDate).getTime() : undefined,
+        updatedDate: Date.now(),
+      }
+
+      await updateUser(updatedUser)
+      dispatch(setCurrentUser(updatedUser))
+      setIsError(false)
+      setOpenAlert(true)
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour :", error)
+      setIsError(true)
+      setOpenAlert(true)
+    }
   }
-
-  const updatedUser: UserType = { // ✅ Typage explicite
-    id: currentUser.id,
-    firstName: formData.firstName.trim(),
-    lastName: formData.lastName.trim(),
-    email: formData.email.trim(),
-    avatarUrl: currentUser.avatarUrl || '',
-    bio: formData.bio || '',
-    phoneNumber: formData.phoneNumber || '',
-    localisation: formData.localisation || '',
-    familyOrigin: formData.familyOrigin || "",
-    links: formData.links || [], // ✅ Toujours un tableau
-    oldestAncestor: formData.oldestAncestor || '',
-    researchInterests: formData.researchInterests || '',
-    birthDate: formData.birthDate || undefined,
-    updatedDate: Date.now(),
-  }
-
-  const success = await updateUser(updatedUser)
-  dispatch(setCurrentUser(updatedUser))
-  setOpenAlert(true);
-}
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleButtonClick = () => {
-    fileInputRef.current?.click()
-  }
+  const handleButtonClick = () => fileInputRef.current?.click()
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && currentUser && currentUser.id) {
-      const newAvatarUrl = await updateUserAvatar(file, currentUser?.id)
-      dispatch(setCurrentUser({
-        ...currentUser,
-        avatarUrl: newAvatarUrl, 
-      }));
+    const file = event.target.files?.[0];
+    if (file && currentUser?.id) {
+      try {
+        const newAvatarUrl = await updateUserAvatar(file, currentUser.id);
+        const updatedUser: UserType = {
+          ...currentUser,
+          avatarUrl: newAvatarUrl ?? undefined // ✅ Convertit null → undefined
+        };
+        dispatch(setCurrentUser(updatedUser));
+      } catch (err) {
+        console.error("Erreur lors de l'upload de l'avatar :", err);
+      }
     }
-  }
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const { name, value } = e.target;
+    const { name, value } = e.target
     setFormData((prevData) => ({
       ...prevData,
       [name]: value,
-    }));
-  };
-  const handleClose = (
-    event: React.SyntheticEvent<any> | Event,
-    reason: string
-  ) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setOpenAlert(false);
-  };
-
-  const handleAlertClose = (event: React.SyntheticEvent) => {
-    setOpenAlert(false);
-  };
-
-  // Calculer la marge gauche dynamiquement
-  const getLeftMargin = () => {
-    if (isExpanded || isPinned) {
-      return "md:ml-64" // 256px
-    }
-    return "md:ml-16" // 64px
+    }))
   }
+
+  const handleClose = (_: React.SyntheticEvent<any> | Event, reason: string) => {
+    if (reason === 'clickaway') return
+    setOpenAlert(false)
+  }
+
+  const handleAlertClose = () => setOpenAlert(false)
+
+  const getLeftMargin = () => (isExpanded || isPinned ? "md:ml-64" : "md:ml-16")
 
   const stats = [
     { label: "Membres de l'arbre", value: "24", icon: Users, color: "text-blue-600" },
@@ -180,10 +162,8 @@ export default function ProfilePage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">   
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
       <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
         isExpanded={isExpanded}
         setIsExpanded={setIsExpanded}
         isPinned={isPinned}
@@ -311,8 +291,14 @@ export default function ProfilePage() {
                         <Input id="birthDate" type="date" name="birthDate" value={formData.birthDate} onChange={handleChange} />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="location">Lieu de résidence</Label>
-                        <Input id="location" defaultValue="Paris, France" />
+                        <Label htmlFor="localisation">Lieu de résidence</Label>
+                        <Input
+                          id="localisation"
+                          name="localisation"
+                          value={formData.localisation}          // ✅ contrôlé par React
+                          onChange={handleChange}                // ✅ met à jour formData
+                          placeholder="Ex: Paris, France"
+                        />
                       </div>
                     </div>
 

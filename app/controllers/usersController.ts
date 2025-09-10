@@ -1,10 +1,11 @@
 import { addDocumentToCollection, getAllDataFromCollectionWithWhereArray, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
 import { COLLECTIONS } from "@/lib/firebase/collections";
 import { arrayUnion, collection, deleteField, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from "firebase/firestore";
-import { db } from "@/lib/firebase/firebase";
+import { db, storage  } from "@/lib/firebase/firebase";
 import { LinkStatus, UserLink, UserType } from "@/lib/firebase/models";
 import { createOrReplaceAvatar } from "./filesController";
 import { createNotification } from "./notificationsController"
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 
 export const createUser = async ({
@@ -69,30 +70,20 @@ const removeUndefinedValues = (obj: any): any => {
 
 export const updateUser = async (user: UserType): Promise<boolean> => {
   try {
-    if (!user.id) {
-      throw new Error("L'utilisateur n'a pas d'ID. Impossible de mettre à jour sans ID.")
-    }
+    if (!user.id) throw new Error("Aucun ID fourni.")
 
-    const userRef = doc(db, 'Users', user.id)
+    const userRef = doc(db, "Users", user.id)
     const { id, ...userData } = user
 
-    // ✅ Construire l'objet de mise à jour en excluant les undefined
-    const updateData: any = {
-      updatedDate: Date.now(),
-    };
-
-    // Ajouter seulement les champs qui ne sont pas undefined
-    Object.keys(userData).forEach(key => {
-      const value = (userData as any)[key];
-      if (value !== undefined) {
-        updateData[key] = value;
-      }
-    });
+    const updateData: Record<string, any> = { updatedDate: Date.now() }
+    Object.entries(userData).forEach(([k, v]) => {
+      if (v !== undefined) updateData[k] = v
+    })
 
     await updateDoc(userRef, updateData)
     return true
-  } catch (error) {
-    console.error("Erreur lors de la mise à jour de l'utilisateur :", error)
+  } catch (err) {
+    console.error("Erreur updateUser:", err)
     return false
   }
 }
@@ -138,23 +129,21 @@ export const updateUserEmail = async (userId: string, newEmail: string) => {
   }
 };
 
-export const updateUserAvatar = async (
-  file: File,
-  userId: string
-): Promise<string> => {
-  const user = await getUserById(userId);
+export const updateUserAvatar = async (file: File, userId: string): Promise<string | null> => {
+  try {
+    const storageRef = ref(storage, `avatars/${userId}`)
+    await uploadBytes(storageRef, file)
+    const url = await getDownloadURL(storageRef)
 
-  if (!user) {
-    throw new Error("Utilisateur introuvable.");
+    const userRef = doc(db, "Users", userId)
+    await updateDoc(userRef, { avatarUrl: url, updatedDate: Date.now() })
+
+    return url
+  } catch (err) {
+    console.error("Erreur updateUserAvatar:", err)
+    return null
   }
-
-  const newAvatarUrl = await createOrReplaceAvatar(file, user.avatarUrl);
-  user.avatarUrl = newAvatarUrl;
-
-  await updateUser(user);
-
-  return newAvatarUrl;
-};
+}
 
 export const updateUserBirthDate = async (userId: string, birthDate: number) => {
   try {

@@ -28,6 +28,7 @@ import {
     selectConnections,
 } from "../lib/redux/slices/connectionsSlice"
 import { markConnectionNotificationsAsRead, selectNotifications, setActivePage } from "@/lib/redux/slices/notificationSlice"
+import { markConnectionNotificationsAsReadInDB } from "@/app/controllers/notificationsController"
 
 export const Connections = () => {
     const currentUser = useSelector(selectUser)
@@ -51,10 +52,15 @@ export const Connections = () => {
 
     // 2️⃣ Marquer automatiquement les notifications "connection" comme lues
     useEffect(() => {
+        if (!currentUser?.id) return
+
+        // Marquer en lu côté client ET côté Firestore
         if (notifications.some(n => n.type === "connection" && n.unread)) {
             dispatch(markConnectionNotificationsAsRead())
+            markConnectionNotificationsAsReadInDB(currentUser.id)
+                .catch(err => console.error("Erreur update Firestore :", err))
         }
-    }, [notifications, dispatch])
+    }, [notifications, currentUser, dispatch])
 
     // Charger connexions + users
     useEffect(() => {

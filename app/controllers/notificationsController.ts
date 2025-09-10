@@ -2,7 +2,7 @@ import { COLLECTIONS } from "@/lib/firebase/collections";
 import { db } from "@/lib/firebase/firebase";
 import { addDocumentToCollection, getAllDataFromCollection, getDataFromCollection, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
 import { NotificationType } from "@/lib/firebase/models";
-import { addDoc, collection, getDocs, orderBy, query, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDocs, orderBy, query, where, writeBatch } from "firebase/firestore";
 
 export const createNotification = async (
   notification: Omit<NotificationType, "id" | "createdDate" | "timestamp" | "unread">
@@ -106,4 +106,22 @@ export const markAllNotificationsAsRead = async (notifications: NotificationType
   } catch (error) {
     console.log("Error markAllNotificationsAsRead", error)
   }
+}
+
+export const markConnectionNotificationsAsReadInDB = async (userId: string) => {
+  // Récupère toutes les notifications de type "connection" non lues pour cet utilisateur
+  const q = query(
+    collection(db, "Notifications"),
+    where("recipientId", "==", userId),
+    where("type", "==", "connection"),
+    where("unread", "==", true)
+  )
+  const snap = await getDocs(q)
+
+  const batch = writeBatch(db)
+  snap.forEach((docSnap) => {
+    batch.update(doc(db, "Notifications", docSnap.id), { unread: false })
+  })
+
+  await batch.commit()
 }
