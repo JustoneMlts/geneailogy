@@ -15,6 +15,8 @@ import Wall from "@/components/wall"
 import { getMyNotifications } from "../controllers/notificationsController"
 import { setNotifications } from "@/lib/redux/slices/notificationSlice"
 import { selectActiveTab } from "@/lib/redux/slices/uiSlice"
+import { getConnexionsByUserId } from "../controllers/usersController"
+import { setConnections } from "@/lib/redux/slices/connectionsSlice"
 
 export default function Dashboard() {
   const activeTab = useSelector(selectActiveTab)
@@ -38,6 +40,19 @@ export default function Dashboard() {
     fetchNotifications();
 
   }, [currentUser])
+
+  useEffect(() => {
+  if (!currentUser?.id) return
+
+  const fetchConnections = async () => {
+    if (currentUser.id) {
+      const data = await getConnexionsByUserId(currentUser.id)
+      dispatch(setConnections(data))
+    }  
+  }
+
+  fetchConnections()
+}, [currentUser, dispatch])
 
   // Calculer la marge gauche dynamiquement
   const getLeftMargin = () => {

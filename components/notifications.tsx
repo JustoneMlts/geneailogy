@@ -1,7 +1,7 @@
 import { Card, CardContent } from "./ui/card"
 import { useDispatch, useSelector } from "react-redux"
 import { selectUser } from "../lib/redux/slices/currentUserSlice"
-import { selectNotifications } from "@/lib/redux/slices/notificationSlice"
+import { selectActivePage, selectNotifications,setActivePage } from "@/lib/redux/slices/notificationSlice"
 import { useEffect, useRef } from "react"
 import { markAllNotificationsAsRead, markNotificationAsRead } from "@/app/controllers/notificationsController"
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar"
@@ -11,7 +11,7 @@ import { Check } from "lucide-react"
 import { setActiveTab } from "@/lib/redux/slices/uiSlice"
 
 export const Notifications = () => {
-  const notifications = useSelector(selectNotifications)  
+  const notifications = useSelector(selectNotifications)
   const user = useSelector(selectUser)
   const notifRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const dispatch = useDispatch()
@@ -45,6 +45,13 @@ export const Notifications = () => {
     return () => observer.disconnect()
   }, [notifications])
 
+  useEffect(() => {
+    dispatch(setActivePage("connections"))
+    return () => {
+      dispatch(setActivePage("")) // quand on quitte la page
+    }
+  }, [dispatch])
+
   // ✅ Desktop hover
   const handleHover = (notifId: string) => {
     const notif = notifications.find((n) => n.id === notifId)
@@ -52,16 +59,16 @@ export const Notifications = () => {
       markNotificationAsRead(notifId)
     }
   }
-  
+
   const handleNavigation = (notifType: string) => {
     switch (notifType) {
-      case "connection" :
+      case "connection":
         dispatch(setActiveTab("connections"))
         break;
-      case "message" :
+      case "message":
         dispatch(setActiveTab("directMessages"))
         break;
-      case "comment" :
+      case "comment":
         dispatch(setActiveTab("feed"))
         break;
       default:
@@ -78,17 +85,17 @@ export const Notifications = () => {
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Notifications</h1>
         <p className="text-gray-600">Restez informé des dernières activités sur votre arbre généalogique</p>
       </div>
-     <div className="flex items-center justify-start my-6">
-      <Button
-        variant="outline"
-        size="sm"
-        className="flex items-center space-x-2"
-        onClick={() => markAllNotificationsAsRead(notifications)}
-      >
-        <Check className="h-4 w-4" />
-        <span>Tout marquer comme lu</span>
-      </Button>
-    </div>
+      <div className="flex items-center justify-start my-6">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center space-x-2"
+          onClick={() => markAllNotificationsAsRead(notifications)}
+        >
+          <Check className="h-4 w-4" />
+          <span>Tout marquer comme lu</span>
+        </Button>
+      </div>
       <div className="space-y-4">
         {notifications.map((notification) => (
           <Card
@@ -100,7 +107,8 @@ export const Notifications = () => {
             onMouseEnter={() => {
               if (notification?.id) handleHover(notification.id)
             }}
-            className={`cursor-pointer ${notification.unread ? "border-blue-200 bg-blue-50" : ""} hover:shadow-lg transition-shadow`}
+            className={`relative cursor-pointer ${notification.unread ? "border-blue-200 bg-blue-50" : ""
+              } hover:shadow-lg transition-shadow`}
             onClick={() => {
               handleNavigation(notification.type)
             }}
@@ -112,7 +120,9 @@ export const Notifications = () => {
                     <AvatarImage src={notification.senderAvatarUrl} />
                   ) : (
                     <AvatarFallback>
-                      {handleGetUserNameInitialsFromName(notification.senderName ?? "Utilisateur inconnu")}
+                      {handleGetUserNameInitialsFromName(
+                        notification.senderName ?? "Utilisateur inconnu"
+                      )}
                     </AvatarFallback>
                   )}
                 </Avatar>
@@ -128,9 +138,19 @@ export const Notifications = () => {
                 )}
               </div>
             </CardContent>
+
+            {/* ✅ Icône check en bas à droite si notification lue */}
+            {!notification.unread && (
+              <div className="absolute bottom-2 right-2 text-green-600">
+                <Check className="h-4 w-4" />
+              </div>
+            )}
           </Card>
         ))}
+
       </div>
     </div>
   )
 }
+
+

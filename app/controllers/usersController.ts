@@ -320,7 +320,7 @@ export const updateConnectionStatus = async (senderId: string, receiverId: strin
           senderName: senderName,
           senderAvatarUrl: senderAvatar,
           type: "connection",
-          title: "Demande de connexion",
+          title: "Acceptation de connexion",
           message: `${senderName} à accepter ta demande !`,
         })
       }

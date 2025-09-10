@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useSelector } from "react-redux"
+import { useSelector, useDispatch } from "react-redux"
 import { selectUser } from "@/lib/redux/slices/currentUserSlice"
 import {
     getConnexionsByUserId,
@@ -17,33 +17,59 @@ import { Badge } from "./ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 import { UserPlus, Search } from "lucide-react"
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore"
+import { doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase"
+
+// Redux
+import {
+    setConnections,
+    updateConnectionStatusInStore,
+    removeConnectionFromStore,
+    selectConnections,
+} from "../lib/redux/slices/connectionsSlice"
+import { markConnectionNotificationsAsRead, selectNotifications, setActivePage } from "@/lib/redux/slices/notificationSlice"
 
 export const Connections = () => {
     const currentUser = useSelector(selectUser)
-    const [connections, setConnections] = useState<UserLink[]>([])
+    const connections = useSelector(selectConnections)
+    const notifications = useSelector(selectNotifications)
+    const dispatch = useDispatch()
     const [usersMap, setUsersMap] = useState<Record<string, UserType>>({})
     const [searchTerm, setSearchTerm] = useState("")
     const [filterStatus, setFilterStatus] = useState<"all" | LinkStatus>("all")
 
-    // Charger les connexions Firestore
+    // 1️⃣ Définir la page active et marquer les notifications comme lues
+    useEffect(() => {
+        // L'utilisateur est sur la page "connections"
+        dispatch(setActivePage("connections"))
+
+        // Au démontage, remettre à null
+        return () => {
+            dispatch(setActivePage(null))
+        }
+    }, [dispatch])
+
+    // 2️⃣ Marquer automatiquement les notifications "connection" comme lues
+    useEffect(() => {
+        if (notifications.some(n => n.type === "connection" && n.unread)) {
+            dispatch(markConnectionNotificationsAsRead())
+        }
+    }, [notifications, dispatch])
+
+    // Charger connexions + users
     useEffect(() => {
         if (!currentUser?.id) return
+
         const fetchConnections = async () => {
-            if (currentUser.id) {
-                try {
-                    // 1. Récupérer les connexions
+            try {
+                if (currentUser.id) {
                     const data = await getConnexionsByUserId(currentUser.id)
-                    setConnections(data)
+                    dispatch(setConnections(data))
 
-                    // 2. Charger les infos des users liés
                     const usersMapTemp: Record<string, UserType> = {}
-
                     for (const conn of data) {
                         try {
-                            // Ici on suppose que conn.userId correspond bien à l'UID Firebase du user
-                            const userDocRef = doc(db, "Users", conn.userId) // ⚡ Attention : "Users" avec majuscule
+                            const userDocRef = doc(db, "Users", conn.userId)
                             const snapshot = await getDoc(userDocRef)
                             if (snapshot.exists()) {
                                 const user = snapshot.data() as UserType
@@ -54,38 +80,63 @@ export const Connections = () => {
                         }
                     }
                     setUsersMap(usersMapTemp)
-                } catch (error) {
-                    console.error("Erreur lors du chargement des connexions :", error)
                 }
+
+            } catch (error) {
+                console.error("Erreur lors du chargement des connexions :", error)
             }
         }
-        fetchConnections()
-    }, [currentUser])
 
-    // Accepter une connexion
+        fetchConnections()
+    }, [currentUser, dispatch])
+
     const handleAccept = async (userId: string) => {
         if (!currentUser?.id) return
-        await updateConnectionStatus(currentUser.id, userId, "accepted", currentUser.firstName, currentUser.lastName, currentUser.avatarUrl)
-        setConnections((prev) =>
-            prev.map((c) => (c.userId === userId ? { ...c, status: "accepted" } : c))
+
+        await updateConnectionStatus(
+            currentUser.id, // receiver
+            userId,         // sender
+            "accepted",
+            currentUser.firstName,
+            currentUser.lastName,
+            currentUser.avatarUrl
+        )
+
+        dispatch(
+            updateConnectionStatusInStore({
+                userId,
+                senderId: userId,
+                status: "accepted",
+            })
         )
     }
 
-    // Annuler une demande
-    const handleCancel = async (userId: string) => {
+    const handleCancel = async (userId: string, senderId: string) => {
         if (!currentUser?.id) return
+
         await cancelConnectionRequest(currentUser.id, userId)
-        setConnections((prev) => prev.filter((c) => c.userId !== userId))
+
+        dispatch(
+            removeConnectionFromStore({
+                userId,
+                senderId,
+            })
+        )
     }
 
-    // Supprimer un ami
-    const handleRemove = async (userId: string) => {
+    const handleRemove = async (userId: string, senderId: string) => {
         if (!currentUser?.id) return
+
         await deleteConnection(currentUser.id, userId)
-        setConnections((prev) => prev.filter((c) => c.userId !== userId))
+
+        dispatch(
+            removeConnectionFromStore({
+                userId,
+                senderId,
+            })
+        )
     }
 
-    // Badge selon statut
     const getStatusBadge = (status: LinkStatus) => {
         switch (status) {
             case "accepted":
@@ -97,7 +148,6 @@ export const Connections = () => {
         }
     }
 
-    // Filtrage
     const filteredConnections = connections.filter((c) => {
         const user = usersMap[c.userId]
         const matchesSearch = user
@@ -155,31 +205,38 @@ export const Connections = () => {
 
             {/* Connections Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {connections.map((conn) => {
+                {filteredConnections.map((conn) => {
                     const user = usersMap[conn.userId]
-                    const isSender = conn.senderId === currentUser?.id 
-                    const isReceiver = !isSender 
+                    const isSender = conn.senderId === currentUser?.id
+                    const isReceiver = !isSender
                     return (
                         <Card key={conn.userId} className="p-6 hover:shadow-lg transition-shadow">
                             <div className="flex justify-between items-center mb-4">
                                 <div className="flex justify-between items-center space-x-2">
                                     <Avatar>
                                         <AvatarImage src={user?.avatarUrl} />
-                                        <AvatarFallback>{user ? user.firstName[0] + user.lastName[0] : "U"}</AvatarFallback>
+                                        <AvatarFallback>
+                                            {user ? user.firstName[0] + user.lastName[0] : "U"}
+                                        </AvatarFallback>
                                     </Avatar>
                                     <div>
-                                        <h3 className="font-bold text-lg">{user ? `${user.firstName} ${user.lastName}` : "Utilisateur"}</h3>
+                                        <h3 className="font-bold text-lg">
+                                            {user ? `${user.firstName} ${user.lastName}` : "Utilisateur"}
+                                        </h3>
                                     </div>
                                 </div>
-                                <div>
-                                    {getStatusBadge(conn.status)}
-                                </div>
+                                <div>{getStatusBadge(conn.status)}</div>
                             </div>
 
                             <div className="flex justify-between mt-4">
                                 {conn.status === "pending" && isReceiver && (
                                     <>
-                                        <Button size="sm" variant="outline" onClick={() => handleCancel(conn.userId)}>
+                                        <Button size="sm" variant="outline" onClick={() => {
+                                            if (currentUser && currentUser.id) {
+                                                handleCancel(currentUser.id, conn.userId)
+                                            }
+                                        }
+                                        }>
                                             Refuser
                                         </Button>
                                         <Button size="sm" onClick={() => handleAccept(conn.userId)}>
@@ -188,12 +245,17 @@ export const Connections = () => {
                                     </>
                                 )}
                                 {conn.status === "pending" && isSender && (
-                                    <Button size="sm" variant="outline" onClick={() => handleCancel(conn.userId)}>
+                                    <Button size="sm" variant="outline" onClick={() => {
+                                        if (currentUser && currentUser.id) {
+                                            handleCancel(currentUser.id, conn.userId)
+                                        }
+                                    }
+                                    }>
                                         Annuler la demande
                                     </Button>
                                 )}
                                 {conn.status === "accepted" && (
-                                    <Button size="sm" variant="outline" onClick={() => handleRemove(conn.userId)}>
+                                    <Button size="sm" variant="outline" onClick={() => handleRemove(conn.userId, conn.senderId)}>
                                         Supprimer
                                     </Button>
                                 )}

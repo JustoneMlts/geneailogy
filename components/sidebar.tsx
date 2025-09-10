@@ -24,8 +24,9 @@ import Link from "next/link"
 import { Badge } from "./ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { handleGetUserName, handleGetUserNameInitials } from "@/app/helpers/userHelper"
-import { selectUnreadCount } from "@/lib/redux/slices/notificationSlice"
+import { selectUnreadConnectionsCount, selectUnreadCount, selectUnreadMessagesCount } from "@/lib/redux/slices/notificationSlice"
 import { selectActiveTab, setActiveTab } from "@/lib/redux/slices/uiSlice"
+import { selectPendingRequestsCount } from "@/lib/redux/slices/connectionsSlice"
 
 function DesktopSidebar({
 	isExpanded,
@@ -40,7 +41,12 @@ function DesktopSidebar({
 }) {
 	const [showText, setShowText] = useState(isPinned)
 	const currentUser = useSelector(selectUser)
-	const unreadCount = useSelector(selectUnreadCount)
+	const unreadCount = useSelector(selectUnreadCount) // 🔔 toutes notifs
+	const unreadMessages = useSelector(selectUnreadMessagesCount) // 📩 messages
+	const unreadConnections = useSelector(selectUnreadConnectionsCount) // 👥 connexions
+	const pendingConnections = useSelector(
+		selectPendingRequestsCount(currentUser?.id ?? "")
+	)
 	const dispatch = useDispatch();
 	const route = useRouter();
 
@@ -51,8 +57,8 @@ function DesktopSidebar({
 		{ id: "tree", label: "Mon arbre", icon: TreePine },
 		{ id: "ai", label: "Suggestions IA", icon: Sparkles },
 		{ id: "search", label: "Recherche", icon: Search },
-		{ id: "connections", label: "Connexions", icon: Users },
-		{ id: "messages", label: "Messages", icon: MessageCircle },
+		{ id: "connections", label: "Connexions", icon: Users, badge: unreadConnections },
+		{ id: "messages", label: "Messages", icon: MessageCircle, badge: unreadMessages },
 	]
 
 	const handleMouseEnter = () => {
@@ -143,7 +149,10 @@ function DesktopSidebar({
 			<div className="flex-1 py-4">
 				<nav className="space-y-2 px-2">
 					{menuItems.map((item) => (
-						<Link key={item.id} href={item.id === "family-settings" ? "/family-settings" : "/dashboard"}>
+						<Link
+							key={item.id}
+							href={item.id === "family-settings" ? "/family-settings" : "/dashboard"}
+						>
 							<button
 								onClick={() => {
 									if (item.id !== "family-settings") {
@@ -155,21 +164,23 @@ function DesktopSidebar({
 									: "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
 									}`}
 							>
-								<item.icon className="h-5 w-5 flex-shrink-0" />
+								{/* Icône avec pastille */}
+								<div className="relative flex items-center">
+									<item.icon className="h-5 w-5 flex-shrink-0" />
+									{(item.badge ?? 0) > 0 && (
+										<span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+											{item.badge}
+										</span>
+									)}
+								</div>
+
+								{/* Texte (caché si sidebar repliée) */}
 								<span
 									className={`whitespace-nowrap transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"
 										}`}
 								>
 									{item.label}
 								</span>
-								{(item.badge ?? 0) > 0 ? (
-									<Badge
-										className={`ml-auto bg-red-500 text-white text-xs transition-all duration-200 ${shouldShowText ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
-											}`}
-									>
-										{item.badge}
-									</Badge>
-								) : null}
 							</button>
 						</Link>
 					))}
