@@ -156,10 +156,13 @@ export const Feed = () => {
                         <AvatarImage src={post.author.avatar} />
                         <AvatarFallback>{handleGetUserNameInitialsFromPartial(post.author)}</AvatarFallback>
                       </Avatar>
-                      <div>
-                        <div className="font-semibold">{handleGetUserNameFromPartial(post.author)}</div>
-                        <div className="text-xs text-gray-500">Il y a 2 heures</div>
-                      </div>
+                      <div className="font-semibold">
+  {handleGetUserNameFromPartial(post.author)}
+  {post.author.id !== post.destinator.id && (
+    <span className="text-gray-500 text-sm"> sur le mur de {handleGetUserNameFromPartial(post.destinator)}</span>
+  )}
+</div>
+<div className="text-xs text-gray-500">Il y a 2 heures</div>
                     </div>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500">
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
