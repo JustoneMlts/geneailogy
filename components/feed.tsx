@@ -283,7 +283,11 @@ export const Feed = () => {
                         </div>
                       )}
 
-                      <div className="flex items-center px-4 pt-2">
+                      <div className="flex items-center px-4 pt-2 space-x-2">
+                          <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0">
+                            <AvatarImage src={currentUser?.avatarUrl} />
+                            <AvatarFallback className="text-xs">{currentUser && handleGetUserNameInitials(currentUser)}</AvatarFallback>
+                          </Avatar>
                         <Input
                           placeholder="Écrire un commentaire..."
                           className="text-sm"
@@ -295,9 +299,13 @@ export const Feed = () => {
                             if (e.key === "Enter") handleAddComment(post.id!);
                           }}
                         />
+                        <Button size="sm" onClick={() => handleAddComment(post.id!)} disabled={!commentInputs[post.id!]} className="flex-shrink-0">
+                          <Send className="w-3 h-3 sm:w-4 sm:h-4" />
+                        </Button>
                       </div>
                     </>
                   )}
+                  
                 </div>
               </CardContent>
             </Card>
