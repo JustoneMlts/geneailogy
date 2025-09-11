@@ -1,4 +1,4 @@
-import { Camera, FileText, Heart, MessageSquare, Share2, TreePine, Send } from "lucide-react"
+import { Camera, FileText, Heart, MessageSquare, Share2, TreePine, Send, MessageCircle } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
@@ -14,6 +14,7 @@ import { setActiveTab } from "@/lib/redux/slices/uiSlice"
 import { collection, query, where, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase"
 import Link from "next/link"
+import { Separator } from "./ui/separator"
 
 export const Feed = () => {
   const currentUser = useSelector(selectUser)
@@ -207,31 +208,61 @@ export const Feed = () => {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                    <div className="flex space-x-4">
+                  <div className="flex justify-between items-center px-4  pb-2 sm:pb-3 text-sm text-gray-500">
+                    <span>{post.likesIds.length} j'aime</span>
+                    <button
+                      onClick={() =>
+                        setOpenComments((prev) => ({
+                          ...prev,
+                          [post.id!]: !prev[post.id!],
+                        }))
+                      }
+                      className="hover:underline"
+                    >
+                      {post.comments.length} commentaire{post.comments.length > 1 ? "s" : ""}
+                    </button>
+                  </div>
+                  <Separator />
+
+                  <div className="px-3 sm:px-4 lg:px-6 py-2 sm:py-2">
+                    <div className="flex space-x-1">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className={`text-gray-600 hover:text-blue-600 transition-colors duration-200 ${(currentUser && currentUser.id) && post.likesIds.includes(currentUser?.id) ? "text-blue-600" : ""}`}
                         onClick={() => handleToggleLike(post)}
+                        className={`flex-1 text-xs sm:text-sm ${(currentUser && currentUser.id) && post.likesIds.includes(currentUser.id)
+                          ? "text-blue-600 hover:text-blue-700"
+                          : "text-gray-600 hover:text-blue-600"
+                          }`}
                       >
-                        <Heart className="h-4 w-4 mr-2" /> {getLikeCount(post.likesIds)}
+                        <Heart
+                          className={`w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 sm:mr-2 ${(currentUser && currentUser.id) && post.likesIds.includes(currentUser.id)
+                            ? "fill-current"
+                            : ""
+                            }`}
+                        />
+                        J'aime
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setOpenComments((prev) => ({
+                            ...prev,
+                            [post.id!]: !prev[post.id!],
+                          }))
+                        }
+                        className="flex-1 text-gray-600 hover:text-green-600 text-xs sm:text-sm"
+                      >
+                        <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 sm:mr-2" />
+                        Commenter
                       </Button>
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
-                        onClick={() =>
-                          setOpenComments(prev => ({ ...prev, [post.id!]: !prev[post.id!] }))
-                        }
-                      >
-                        <MessageSquare className="h-4 w-4 mr-2" /> {getCommentsCount(post.comments)}
+                      <Button variant="ghost" size="sm" className="flex-1 text-gray-600 hover:text-purple-600 text-xs sm:text-sm">
+                        <Share2 className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 sm:mr-2" />
+                        Partager
                       </Button>
                     </div>
-                    <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600 transition-colors duration-200">
-                      <Share2 className="h-4 w-4 mr-2" /> Partager
-                    </Button>
                   </div>
                   {openComments[post.id!] && (
                     <>

@@ -27,7 +27,9 @@ import { handleGetUserNameInitials } from "@/app/helpers/userHelper"
 import { selectUser } from "@/lib/redux/slices/currentUserSlice"
 import { useSelector } from "react-redux"
 import { UserType, FeedPostType } from "@/lib/firebase/models"
-import { createFeedPost, getPostsByUserId } from "../app/controllers/feedController"
+import { createFeedPost, getPostsByUserId, toggleLikePost } from "../app/controllers/feedController"
+import { collection, onSnapshot, query, where } from "firebase/firestore"
+import { db } from "@/lib/firebase/firebase"
 
 interface CreatePostCardProps {
   user: UserType
@@ -105,7 +107,7 @@ function CreatePostCard({ user, wallOwner, onPostCreated }: CreatePostCardProps)
         )}
 
         <div className="flex space-x-2 sm:space-x-3 lg:space-x-4">
-          <Avatar className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 flex-shrink-0">
+          <Avatar className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 flex-shrink-0">
             <AvatarImage src={user?.avatarUrl} />
             <AvatarFallback className="text-lg sm:text-xl">
               {user && handleGetUserNameInitials(user)}
@@ -185,15 +187,22 @@ function CreatePostCard({ user, wallOwner, onPostCreated }: CreatePostCardProps)
   )
 }
 
-function PostCard({ post } : { post: any }) {
-  const [liked, setLiked] = useState(post.isLiked)
-  const [likeCount, setLikeCount] = useState(post.likes)
+function PostCard({ post }: { post: any }) {
+  const currentUser = useSelector(selectUser)
+  const [liked, setLiked] = useState(post.likesIds.includes(currentUser?.id || ""))
+  const [likeCount, setLikeCount] = useState(post.likesIds.length)
   const [showComments, setShowComments] = useState(false)
   const [newComment, setNewComment] = useState("")
+  const [showLikers, setShowLikers] = useState(false) // 🔥 Nouveau
 
   const handleLike = () => {
-    setLiked(!liked)
-    setLikeCount(liked ? likeCount - 1 : likeCount + 1)
+    if (!currentUser?.id) return
+    const alreadyLiked = post.likesIds.includes(currentUser.id)
+    setLiked(!alreadyLiked)
+    setLikeCount(alreadyLiked ? likeCount - 1 : likeCount + 1)
+
+    // Mise à jour Firestore
+    toggleLikePost(post.id!, currentUser.id, alreadyLiked)
   }
 
   const handleComment = () => {
@@ -210,7 +219,7 @@ function PostCard({ post } : { post: any }) {
         <div className="p-3 sm:p-4 lg:p-6 pb-2 sm:pb-3 lg:pb-4">
           <div className="flex items-start justify-between">
             <div className="flex space-x-2 sm:space-x-3 min-w-0 flex-1">
-              <Avatar className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 flex-shrink-0">
+              <Avatar className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 flex-shrink-0">
                 <AvatarImage src={post.author.avatar || "/placeholder.svg"} />
                 <AvatarFallback className="text-xs sm:text-sm">{post.author.initials}</AvatarFallback>
               </Avatar>
@@ -268,14 +277,17 @@ function PostCard({ post } : { post: any }) {
           <div className="px-3 sm:px-4 lg:px-6 pb-2 sm:pb-3">
             <div className="flex items-center justify-between text-xs sm:text-sm text-gray-500">
               {likeCount > 0 && (
-                <div className="flex items-center space-x-1">
+                <button
+                  onClick={() => setShowLikers(true)}
+                  className="flex items-center space-x-1 hover:underline"
+                >
                   <div className="flex -space-x-1">
                     <div className="w-4 h-4 sm:w-5 sm:h-5 bg-blue-500 rounded-full flex items-center justify-center">
                       <Heart className="w-2 h-2 sm:w-3 sm:h-3 text-white fill-current" />
                     </div>
                   </div>
                   <span>{likeCount} j'aime</span>
-                </div>
+                </button>
               )}
               {post.comments.length > 0 && (
                 <button onClick={() => setShowComments(!showComments)} className="hover:underline">
@@ -325,8 +337,8 @@ function PostCard({ post } : { post: any }) {
               {/* Nouveau commentaire */}
               <div className="flex space-x-2 sm:space-x-3">
                 <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0">
-                  <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                  <AvatarFallback className="text-xs">JD</AvatarFallback>
+                  <AvatarImage src={currentUser?.avatarUrl} />
+                  <AvatarFallback className="text-xs">{currentUser && handleGetUserNameInitials(currentUser)}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 flex space-x-2 min-w-0">
                   <Input
@@ -350,7 +362,7 @@ function PostCard({ post } : { post: any }) {
                     <AvatarFallback className="text-xs">{comment.author.initials}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <div className="bg-gray-100 rounded-lg px-2 sm:px-3 py-1 sm:py-2">
+                    <div className=" rounded-lg px-2">
                       <div className="font-semibold text-xs sm:text-sm text-gray-900">{comment.author.name}</div>
                       <p className="text-gray-800 text-xs sm:text-sm break-words">{comment.content}</p>
                     </div>
@@ -370,110 +382,104 @@ function PostCard({ post } : { post: any }) {
   )
 }
 
+
 interface WallPageProps {
-  wallOwner?: UserType // Le propriétaire du mur (optionnel, par défaut = currentUser)
+  wallOwner?: UserType
 }
 
 export default function WallPage({ wallOwner }: WallPageProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [isPinned, setIsPinned] = useState(false)
   const [wallPosts, setWallPosts] = useState<FeedPostType[]>([])
-  const [postMessage, setPostMessage] = useState<string>(""); // ✅ pas undefined
-
   const currentUser = useSelector(selectUser)
-  const effectiveWallOwner = wallOwner || currentUser // Par défaut, c'est le mur de l'utilisateur connecté
+  const effectiveWallOwner = wallOwner || currentUser
 
   useEffect(() => {
-    if (!currentUser) return;
-    const fetchPosts = async () => {
-      if (currentUser.id) {
-        const data = await getPostsByUserId(currentUser?.id);
-        setWallPosts(data);
-      }
-    };
-    fetchPosts();
-  }, []);
+    if (!effectiveWallOwner?.id) return
+    // 🔥 Requête Firestore temps réel uniquement pour ce mur
+    const q = query(
+      collection(db, "Feed"),
+      where("destinator.id", "==", effectiveWallOwner.id)
+    )
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched = snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as FeedPostType)
+      )
+      fetched.sort((a, b) => b.createdAt - a.createdAt)
+      setWallPosts(fetched)
+    })
+    return () => unsubscribe()
+  }, [effectiveWallOwner?.id])
 
-  // Calculer la marge gauche dynamiquement
-  const getLeftMargin = () => {
-    if (isExpanded || isPinned) {
-      return "lg:ml-64" // 256px
-    }
-    return "lg:ml-16" // 64px
+  const handlePostCreated = (newPost: FeedPostType) => {
+    // Inutile d’ajouter manuellement : onSnapshot gère déjà l’ajout en temps réel.
+    // Mais on peut faire une insertion optimiste pour la fluidité.
+    setWallPosts((prev) => [newPost, ...prev])
   }
 
-  const handlePostCreated = async (newPost: FeedPostType) => {
-    setWallPosts((prevPosts) => [newPost, ...prevPosts])
-  }
-
-  if (!currentUser || !effectiveWallOwner) {
-    return <div>Chargement...</div>
-  }
-
+  if (!currentUser || !effectiveWallOwner) return <div>Chargement…</div>
   const isOwnWall = currentUser.id === effectiveWallOwner.id
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
-      {/* Main Content */}
-      <div className={`min-h-screen transition-all duration-300 ease-in-out ${getLeftMargin()}`}>
-        <div className="p-3 sm:p-4 lg:p-6">
-          <div className="max-w-full sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl mx-auto">
-            {/* Page Header */}
-            <div className="mb-6 sm:mb-8">
-              <div className="flex items-center space-x-3 sm:space-x-4 mb-3 sm:mb-4">
-                <Avatar className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16">
-                  <AvatarImage src={effectiveWallOwner?.avatarUrl} />
-                  <AvatarFallback className="text-lg sm:text-xl">
-                    {effectiveWallOwner && handleGetUserNameInitials(effectiveWallOwner)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 truncate">
-                    {isOwnWall ? "Mon Journal" : `Mur de ${effectiveWallOwner.firstName} ${effectiveWallOwner.lastName}`}
-                  </h1>
-                  <p className="text-gray-600 text-sm sm:text-base">
-                    {isOwnWall ? "Vos publications et celles de vos connexions" : "Publications et interactions"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-3 sm:gap-4 lg:gap-6 text-xs sm:text-sm text-gray-600">
-                <div className="flex items-center space-x-1 sm:space-x-2">
-                  <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span>156 vues cette semaine</span>
-                </div>
-                <div className="flex items-center space-x-1 sm:space-x-2">
-                  <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span>89 j'aime au total</span>
-                </div>
-                <div className="flex items-center space-x-1 sm:space-x-2">
-                  <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span>23 commentaires</span>
-                </div>
-              </div>
-            </div>
+      <div className="p-4 max-w-3xl mx-auto">
+        {/* Header du mur */}
+        <div className="flex items-center space-x-4 mb-6">
+          <Avatar className="w-10 h-10">
+            <AvatarImage src={effectiveWallOwner.avatarUrl} />
+            <AvatarFallback>{handleGetUserNameInitials(effectiveWallOwner)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <h1 className="text-3xl font-bold">
+              {isOwnWall
+                ? "Mon Journal"
+                : `Mur de ${effectiveWallOwner.firstName} ${effectiveWallOwner.lastName}`}
+            </h1>
+            <p className="text-gray-600">
+              {isOwnWall
+                ? "Vos publications et celles de vos connexions"
+                : "Publications postées ici"}
+            </p>
+          </div>
+        </div>
 
-            {/* Create Post */}
-            <CreatePostCard
-              user={currentUser}
-              wallOwner={effectiveWallOwner}
-              onPostCreated={handlePostCreated}
+        {/* Créer un post */}
+        <CreatePostCard
+          user={currentUser}
+          wallOwner={effectiveWallOwner}
+          onPostCreated={handlePostCreated}
+        />
+
+        {/* Liste des posts */}
+        <div className="space-y-4">
+          {wallPosts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={{
+                ...post,
+                isOnWall: post.author.id !== post.destinator.id, // 🔄 pour affichage flèche
+              }}
             />
+          ))}
+        </div>
 
-            {/* Posts Feed */}
-            <div className="space-y-4 sm:space-y-6">
-              {wallPosts.map((post) => (
-                <div key={post.id} className="animate-slide-up">
-                  <PostCard post={post} />
-                </div>
-              ))}
-            </div>
+        {wallPosts.length === 0 && (
+          <div className="text-center text-gray-500 mt-6">
+            Aucun post sur ce mur pour le moment.
+          </div>
+        )}
 
-            {/* Load More */}
-            <div className="text-center mt-6 sm:mt-8">
-              <Button variant="outline" className="bg-white text-sm sm:text-base px-4 sm:px-6 py-2 sm:py-3">
-                Voir plus de publications
-              </Button>
-            </div>
+        {/* Stats fictives */}
+        <div className="flex items-center justify-around mt-8 text-sm text-gray-600">
+          <div className="flex items-center space-x-2">
+            <Eye className="w-4 h-4" />
+            <span>156 vues</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Heart className="w-4 h-4" />
+            <span>89 j'aime</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <MessageCircle className="w-4 h-4" />
+            <span>23 commentaires</span>
           </div>
         </div>
       </div>
