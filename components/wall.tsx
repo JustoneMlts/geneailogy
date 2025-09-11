@@ -137,22 +137,6 @@ function CreatePostCard({ user, wallOwner, onPostCreated }: CreatePostCardProps)
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-gray-600 hover:text-green-600 text-xs sm:text-sm p-1 sm:p-2"
-                >
-                  <Video className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Vidéo</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-600 hover:text-yellow-600 text-xs sm:text-sm p-1 sm:p-2"
-                >
-                  <Smile className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Humeur</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
                   className="text-gray-600 hover:text-red-600 text-xs sm:text-sm p-1 sm:p-2"
                 >
                   <MapPin className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 sm:mr-2" />
@@ -225,7 +209,7 @@ function PostCard({ post }: { post: any }) {
               </Avatar>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center space-x-2 flex-wrap">
-                  <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{post.author.name}</h3>
+                  <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{post.author.firstName + ' ' + post.author.lastName}</h3>
                   {post.author.verified && (
                     <Badge className="bg-blue-100 text-blue-800 text-xs flex-shrink-0">Vérifié</Badge>
                   )}

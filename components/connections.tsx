@@ -29,12 +29,14 @@ import {
 } from "../lib/redux/slices/connectionsSlice"
 import { markConnectionNotificationsAsRead, selectNotifications, setActivePage } from "@/lib/redux/slices/notificationSlice"
 import { markConnectionNotificationsAsReadInDB } from "@/app/controllers/notificationsController"
+import { useRouter } from "next/navigation"
 
 export const Connections = () => {
     const currentUser = useSelector(selectUser)
     const connections = useSelector(selectConnections)
     const notifications = useSelector(selectNotifications)
     const dispatch = useDispatch()
+    const router = useRouter()
     const [usersMap, setUsersMap] = useState<Record<string, UserType>>({})
     const [searchTerm, setSearchTerm] = useState("")
     const [filterStatus, setFilterStatus] = useState<"all" | LinkStatus>("all")
@@ -165,6 +167,10 @@ export const Connections = () => {
         return matchesSearch && matchesStatus
     })
 
+    const handleNavigate = (userId: string) => {
+        router.push(`/wall/${userId}`)
+    }
+
     return (
         <div className="animate-fade-in p-6 max-w-7xl mx-auto">
             {/* Header */}
@@ -261,9 +267,18 @@ export const Connections = () => {
                                     </Button>
                                 )}
                                 {conn.status === "accepted" && (
-                                    <Button size="sm" variant="outline" onClick={() => handleRemove(conn.userId, conn.senderId)}>
-                                        Supprimer
-                                    </Button>
+                                    <div className="flex justify-between w-full">
+                                        <Button size="sm" variant="outline" onClick={() => handleRemove(conn.userId, conn.senderId)}>
+                                            Supprimer
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => {
+                                            if (user && user.id)
+                                                handleNavigate(user.id)
+                                        }}
+                                        >
+                                            Voir le profil
+                                        </Button>
+                                    </div>
                                 )}
                             </div>
                         </Card>
