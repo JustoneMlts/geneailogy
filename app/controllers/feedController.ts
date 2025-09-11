@@ -2,7 +2,7 @@ import { COLLECTIONS } from "@/lib/firebase/collections";
 import { db } from "@/lib/firebase/firebase";
 import { addDocumentToCollection, getAllDataFromCollection, getDataFromCollection, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
 import { FeedPostType } from "@/lib/firebase/models";
-import { addDoc, collection, getDocs, onSnapshot, or, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, or, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 
 export const createFeedPost = async (postData: FeedPostType) => {
    try {
@@ -108,4 +108,24 @@ export const listenPostsByUserIds = (userIds: string[], callback: (posts: FeedPo
   });
 
   return unsubscribe;
+};
+
+
+/** Ajoute ou retire un like */
+export const toggleLikePost = async (postId: string, userId: string, liked: boolean) => {
+  const postRef = doc(db, "Feed", postId);
+  await updateDoc(postRef, {
+    likesIds: liked ? arrayRemove(userId) : arrayUnion(userId),
+  });
+};
+
+/** Ajoute un commentaire */
+export const addCommentToPost = async (
+  postId: string,
+  comment: { author: { name: string; avatar: string }; content: string; timeAgo: string }
+) => {
+  const postRef = doc(db, "Feed", postId);
+  await updateDoc(postRef, {
+    comments: arrayUnion(comment),
+  });
 };

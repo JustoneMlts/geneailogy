@@ -111,7 +111,7 @@ export interface FeedPostType {
   content: string
   timeAgo: string
   privacy: string
-  likesIds: []
+  likesIds: string []
   isLiked?: boolean
   isOnWall: boolean
   image?: string

@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from "react-redux"
 import { selectUser } from "@/lib/redux/slices/currentUserSlice"
 import { handleGetUserNameFromPartial, handleGetUserNameInitialsFromPartial, handleGetUserName, handleGetUserNameInitials } from "@/app/helpers/userHelper"
 import { useEffect, useState } from "react"
-import { createFeedPost } from "@/app/controllers/feedController"
+import { addCommentToPost, createFeedPost, toggleLikePost } from "@/app/controllers/feedController"
 import { FeedPostType, UserLink } from "@/lib/firebase/models"
 import { getCommentsCount, getLikeCount } from "@/app/helpers/feedHelper"
 import { setActiveTab } from "@/lib/redux/slices/uiSlice"
@@ -19,6 +19,8 @@ export const Feed = () => {
   const currentUser = useSelector(selectUser)
   const [postMessage, setPostMessage] = useState<string>("")
   const [posts, setPosts] = useState<FeedPostType[]>([])
+  const [commentInputs, setCommentInputs] = useState<{ [key: string]: string }>({});
+  const [openComments, setOpenComments] = useState<{ [key: string]: boolean }>({});
   const dispatch = useDispatch()
 
   // Fonction pour écouter les posts en temps réel
@@ -104,6 +106,31 @@ export const Feed = () => {
     }
   }
 
+  const handleToggleLike = (post: FeedPostType) => {
+    if (!currentUser?.id) return;
+    const alreadyLiked = post.likesIds.includes(currentUser.id);
+    toggleLikePost(post.id!, currentUser.id, alreadyLiked);
+  };
+
+  // Comment
+  const handleAddComment = async (postId: string) => {
+    if (!currentUser) return;
+    const content = commentInputs[postId]?.trim();
+    if (!content) return;
+
+    await addCommentToPost(postId, {
+      author: {
+        name: `${currentUser.firstName} ${currentUser.lastName}`,
+        avatar: currentUser.avatarUrl || "/placeholder.svg",
+      },
+      content,
+      timeAgo: "À l'instant",
+    });
+
+    // Réinitialise le champ
+    setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
+  };
+
   return (
     <div className="animate-fade-in">
       <h1 className="text-3xl font-bold mb-6 animate-slide-up">Fil d'actualité</h1>
@@ -182,10 +209,23 @@ export const Feed = () => {
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                     <div className="flex space-x-4">
-                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600 transition-colors duration-200">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={`text-gray-600 hover:text-blue-600 transition-colors duration-200 ${(currentUser && currentUser.id) && post.likesIds.includes(currentUser?.id) ? "text-blue-600" : ""}`}
+                        onClick={() => handleToggleLike(post)}
+                      >
                         <Heart className="h-4 w-4 mr-2" /> {getLikeCount(post.likesIds)}
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600 transition-colors duration-200">
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+                        onClick={() =>
+                          setOpenComments(prev => ({ ...prev, [post.id!]: !prev[post.id!] }))
+                        }
+                      >
                         <MessageSquare className="h-4 w-4 mr-2" /> {getCommentsCount(post.comments)}
                       </Button>
                     </div>
@@ -193,6 +233,40 @@ export const Feed = () => {
                       <Share2 className="h-4 w-4 mr-2" /> Partager
                     </Button>
                   </div>
+                  {openComments[post.id!] && (
+                    <>
+                      {post.comments?.length > 0 && (
+                        <div className="px-4 pt-2 space-y-2">
+                          {post.comments.map((comment, idx) => (
+                            <div key={idx} className="flex items-start space-x-2 text-sm">
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={comment.author.avatar} />
+                                <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <span className="font-semibold">{comment.author.name}</span> {comment.content}
+                                <div className="text-xs text-gray-400">{comment.timeAgo}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex items-center px-4 pt-2">
+                        <Input
+                          placeholder="Écrire un commentaire..."
+                          className="text-sm"
+                          value={commentInputs[post.id!] || ""}
+                          onChange={(e) =>
+                            setCommentInputs((prev) => ({ ...prev, [post.id!]: e.target.value }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleAddComment(post.id!);
+                          }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
