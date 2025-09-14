@@ -5,8 +5,12 @@ interface UiState {
   activeTab: string
 }
 
+// 🔄 Récupère la valeur persistée ou utilise "feed" par défaut
+const persistedTab =
+  typeof window !== "undefined" ? localStorage.getItem("activeTab") : null
+
 const initialState: UiState = {
-  activeTab: "feed", // tab par défaut
+  activeTab: persistedTab || "feed",
 }
 
 const uiSlice = createSlice({
@@ -15,6 +19,11 @@ const uiSlice = createSlice({
   reducers: {
     setActiveTab: (state, action: PayloadAction<string>) => {
       state.activeTab = action.payload
+
+      // 💾 Sauvegarde dans localStorage pour persister entre les refresh
+      if (typeof window !== "undefined") {
+        localStorage.setItem("activeTab", action.payload)
+      }
     },
   },
 })

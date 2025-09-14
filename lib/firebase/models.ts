@@ -72,6 +72,8 @@ export interface ConversationType {
   createdDate?: number
   updatedDate?: number
   isActive?: boolean
+  lastMessage?: string
+  lastMessageSenderId?: string
 }
 
 // Message
@@ -83,6 +85,7 @@ export interface MessageType {
   mediaUrl?: string
   createdDate: number
   isRead?: boolean
+  readBy?: string[] // userIds qui ont lu le message
 }
 
 export interface CommentDisplayType {

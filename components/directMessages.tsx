@@ -1,129 +1,331 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
+"use client"
+
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
-import { Input } from "./ui/input";
-import { useState } from "react";
+import { Input } from "./ui/input"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useSelector } from "react-redux"
+import { selectUser } from "@/lib/redux/slices/currentUserSlice"
+import {
+  listenUserConversations,
+  listenConversationMessages,
+  sendMessage as sendMessageCtrl,
+  markConversationAsRead,
+  createOrUpdateConversation,
+} from "@/app/controllers/messagesController"
+import { ConversationType, MessageType, UserType, UserLink } from "@/lib/firebase/models"
+import { format } from "date-fns"
+import { getConnexionsByUserId, getUserById } from "@/app/controllers/usersController"
 
 export const DirectMessages = () => {
+  const currentUser = useSelector(selectUser)
+  const [conversations, setConversations] = useState<ConversationType[]>([])
+  const [selectedConversation, setSelectedConversation] = useState<ConversationType | null>(null)
+  const [messages, setMessages] = useState<MessageType[]>([])
+  const [queryText, setQueryText] = useState("")
+  const [messageText, setMessageText] = useState("")
+  const [acceptedConnections, setAcceptedConnections] = useState<string[]>([])
+  const [acceptedFriends, setAcceptedFriends] = useState<UserType[]>([])
+  const scrollRef = useRef<HTMLDivElement | null>(null)
 
-    const [conversations, setConversations] = useState([
-            {
-                id: 1,
-                name: "Marie Dubois",
-                avatar: "/placeholder.svg?height=40&width=40",
-                initials: "MD",
-                lastMessage: "Merci pour les informations sur...",
-                unreadCount: 2,
-                isOnline: true,
-                messages: [
-                    {
-                        id: 1,
-                        text: "Bonjour ! J'ai vu que nous avons des ancêtres communs à Lyon.",
-                        sender: "other",
-                        timestamp: "10:30",
-                    },
-                    {
-                        id: 2,
-                        text: "Oui, c'est fascinant ! Pouvez-vous me dire plus sur la famille Dupont ?",
-                        sender: "me",
-                        timestamp: "10:35",
-                    },
-                ],
-            },
-    ])
+  // 1️⃣ Récupérer connexions acceptées et profils
+  useEffect(() => {
+    const fetchConnectionsAndProfiles = async () => {
+      if (!currentUser?.id) return
+      try {
+        const links: UserLink[] = await getConnexionsByUserId(currentUser.id)
+        const acceptedLinks = links.filter(l => l.status === "accepted")
+        const ids = acceptedLinks.map(l => l.userId)
+        setAcceptedConnections(ids)
 
-    const [selectedConversation, setSelectedConversation] = useState(conversations[0])
- 
-    return (
-        <div className="animate-fade-in">
-              <div className="mb-6">
-                <h1 className="text-3xl font-bold text-gray-800 mb-2">Messages</h1>
-                <p className="text-gray-600">Communiquez avec d'autres généalogistes et familles</p>
-              </div>
+        if (!ids.length) {
+          setAcceptedFriends([])
+          return
+        }
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-1">
-                  <CardHeader className="pb-4">
-                    <CardTitle>Conversations</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    {conversations.map((conv) => (
-                      <div
-                        key={conv.id}
-                        className={`p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${selectedConversation?.id === conv.id ? "bg-blue-50 border-blue-200" : ""
-                          }`}
-                        onClick={() => setSelectedConversation(conv)}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="relative">
-                            <Avatar className="flex-shrink-0">
-                              <AvatarImage src={conv.avatar || "/placeholder.svg"} />
-                              <AvatarFallback>{conv.initials}</AvatarFallback>
-                            </Avatar>
-                            {conv.isOnline && (
-                              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold">{conv.name}</h3>
-                            <p className="text-sm text-gray-600 truncate">{conv.lastMessage}</p>
-                          </div>
-                          {conv.unreadCount > 0 && (
-                            <Badge className="bg-blue-500 flex-shrink-0">{conv.unreadCount}</Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
+        const profiles = await Promise.all(ids.map(id => getUserById(id)))
+        const validProfiles = profiles.filter(Boolean) as UserType[]
+        setAcceptedFriends(validProfiles)
+      } catch (err) {
+        console.error("Erreur fetchConnectionsAndProfiles", err)
+      }
+    }
+    fetchConnectionsAndProfiles()
+  }, [currentUser?.id])
 
-                <Card className="lg:col-span-2">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
+  // 2️⃣ Écouter conversations en temps réel
+  useEffect(() => {
+    if (!currentUser?.id) return
+    const unsub = listenUserConversations(currentUser.id, (convs) => {
+      const filtered = acceptedConnections.length === 0
+        ? convs
+        : convs.filter(c =>
+            c.participantIds.some((id: string) => acceptedConnections.includes(id))
+          )
+      setConversations(filtered)
+
+      if (!selectedConversation && filtered.length > 0) {
+        setSelectedConversation(filtered[0])
+      } else if (selectedConversation) {
+        const updated = filtered.find(c => c.id === selectedConversation.id)
+        if (updated) setSelectedConversation(updated)
+      }
+    })
+    return () => unsub()
+  }, [currentUser?.id, acceptedConnections])
+
+  // 3️⃣ Écouter messages d'une conversation
+  useEffect(() => {
+    if (!selectedConversation) {
+      setMessages([])
+      return
+    }
+    const unsub = listenConversationMessages(selectedConversation.id!, (msgs) => {
+      setMessages(msgs)
+      setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50)
+    })
+    if (currentUser?.id) markConversationAsRead(selectedConversation.id!, currentUser.id)
+    return () => unsub()
+  }, [selectedConversation?.id, currentUser?.id])
+
+  // 4️⃣ Map participants pour avatars et noms
+  const participantsMap = useMemo(() => {
+    if (!selectedConversation) return {}
+    return selectedConversation.participantIds.reduce<Record<string, UserType>>((acc, id) => {
+      const user = acceptedFriends.find(f => f.id === id)
+      if (user) acc[id] = user
+      return acc
+    }, {})
+  }, [selectedConversation, acceptedFriends])
+
+  // 5️⃣ Messages avec flag pour avatar et read
+  const messagesWithAvatarFlag = useMemo(() => {
+    if (!messages.length) return []
+
+    return messages.map((m, idx) => {
+      const prev = messages[idx - 1]
+      const showAvatar = !prev || prev.senderId !== m.senderId
+      const isSeen = m.readBy?.includes(currentUser?.id!) ?? false
+      return { ...m, showAvatar, isSeen }
+    })
+  }, [messages, currentUser?.id])
+
+  // 6️⃣ Formattage heure
+  const formatTime = (ts: number) => {
+    try { return format(new Date(ts), "HH:mm") }
+    catch { return "" }
+  }
+
+  // 7️⃣ Nom des participants
+  const getParticipantDisplay = (conv: ConversationType) => {
+    if (!conv) return ""
+    return conv.participantIds
+      .filter(id => id !== currentUser?.id)
+      .map(id => acceptedFriends.find(f => f.id === id)?.firstName || "Utilisateur")
+      .join(", ")
+  }
+
+  // 8️⃣ Sélection ou création conversation
+  const handleClickFriend = async (friend: UserType) => {
+    if (!currentUser?.id || !friend.id) return;
+
+    const friendId = friend.id
+
+    const existing = conversations.find(c => c.participantIds.includes(friendId));
+    if (existing) {
+      setSelectedConversation(existing);
+      return;
+    }
+
+    const newConvId = await createOrUpdateConversation(undefined, {
+      participantIds: [currentUser.id, friendId],
+      createdDate: Date.now(),
+      updatedDate: Date.now(),
+      isActive: true,
+    });
+
+    if (!newConvId) return;
+
+    const newConv: ConversationType = { id: newConvId, participantIds: [currentUser.id, friendId] };
+    setSelectedConversation(newConv);
+  }
+
+  // 9️⃣ Envoi d'un message
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || !selectedConversation || !currentUser?.id) return
+    const msg: Omit<MessageType, "id"> = {
+      conversationId: selectedConversation.id!,
+      senderId: currentUser.id,
+      text: messageText.trim(),
+      createdDate: Date.now(),
+    }
+    try {
+      await sendMessageCtrl(msg)
+      setMessageText("")
+    } catch (err) {
+      console.error("send message failed", err)
+    }
+  }
+
+  // 10️⃣ Combinaison conversations + amis sans conversation
+  const combinedConversations = useMemo(() => {
+    if (!currentUser?.id) return []
+
+    const activeConversations = conversations
+      .filter(c => c.isActive)
+      .map(c => ({ type: "conversation" as const, data: c }))
+
+    const friendsWithoutConversation = acceptedFriends
+      .filter(friend => friend.id)
+      .filter(friend => !conversations.some(c =>
+        c.participantIds.some(id => id && id === friend.id)
+      ))
+      .map(friend => ({ type: "friend" as const, data: friend }))
+
+    return [...activeConversations, ...friendsWithoutConversation]
+  }, [conversations, acceptedFriends, currentUser?.id])
+
+  // 11️⃣ Filtrage recherche
+  const filteredConversations = useMemo(() => {
+    if (!queryText.trim()) return combinedConversations
+    const q = queryText.toLowerCase()
+    return combinedConversations.filter(item => {
+      if (item.type === "conversation") {
+        return getParticipantDisplay(item.data).toLowerCase().includes(q)
+      } else {
+        const friend = item.data
+        const fullName = `${friend.firstName} ${friend.lastName}`.toLowerCase()
+        return fullName.includes(q)
+      }
+    })
+  }, [combinedConversations, queryText])
+
+  return (
+    <div className="animate-fade-in">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">Messages</h1>
+        <p className="text-gray-600">Communiquez avec d'autres généalogistes et familles</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ---- Conversations ---- */}
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle>Conversations</CardTitle>
+            <div className="mt-3">
+              <Input placeholder="Rechercher..." value={queryText} onChange={(e) => setQueryText(e.target.value)} />
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0 max-h-[520px] overflow-auto">
+            {filteredConversations.length === 0 ? (
+              <p className="text-sm text-gray-500 px-4 py-2">Aucune conversation</p>
+            ) : (
+              filteredConversations.map(item => {
+                if (item.type === "conversation") {
+                  const conv = item.data;
+                  const otherName = getParticipantDisplay(conv);
+                  const isSelected = selectedConversation?.id === conv.id;
+                  const lastMessage = conv.lastMessage || ""
+                  const lastSenderId = conv.lastMessageSenderId
+
+                  return (
+                    <div key={conv.id}
+                      className={`p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50 border-blue-200" : ""}`}
+                      onClick={() => setSelectedConversation(conv)}
+                    >
+                      <div className="flex items-center space-x-3">
                         <Avatar className="flex-shrink-0">
-                          <AvatarImage src={selectedConversation?.avatar || "/placeholder.svg"} />
-                          <AvatarFallback>{selectedConversation?.initials}</AvatarFallback>
+                          <AvatarImage src={participantsMap[conv.participantIds.find(id => id !== currentUser?.id)!]?.avatarUrl || "/placeholder.svg"} />
+                          <AvatarFallback>{otherName?.[0]||"?"}</AvatarFallback>
                         </Avatar>
-                        {selectedConversation?.isOnline && (
-                          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                        )}
-                      </div>
-                      <div>
-                        <CardTitle>{selectedConversation?.name}</CardTitle>
-                        <CardDescription>{selectedConversation?.isOnline ? "En ligne" : "Hors ligne"}</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="h-96 flex flex-col pt-0">
-                    <div className="flex-1 space-y-4 mb-4 overflow-y-auto">
-                      {selectedConversation?.messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={`flex ${message.sender === "me" ? "justify-end" : "justify-start"}`}
-                        >
-                          <div
-                            className={`rounded-lg p-3 max-w-xs ${message.sender === "me" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-800"
-                              }`}
-                          >
-                            <p className="text-sm">{message.text}</p>
-                            <p
-                              className={`text-xs mt-1 ${message.sender === "me" ? "text-blue-100" : "text-gray-500"}`}
-                            >
-                              {message.timestamp}
-                            </p>
-                          </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm truncate">{otherName}</h3>
+                          <p className="text-sm text-gray-600 truncate">{lastMessage}</p>
                         </div>
-                      ))}
+                        <div className="flex items-center space-x-1">
+                          {(lastSenderId !== currentUser?.id) && <Badge className="bg-yellow-400 text-black text-xs">À ton tour</Badge>}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex space-x-2">
-                      <Input placeholder="Tapez votre message..." className="flex-1" />
-                      <Button>Envoyer</Button>
+                  );
+                } else {
+                  const friend = item.data;
+                  return (
+                    <div key={friend.id}
+                      className="p-4 border-b hover:bg-gray-50 cursor-pointer flex items-center space-x-3"
+                      onClick={() => handleClickFriend(friend)}
+                    >
+                      <Avatar className="flex-shrink-0">
+                        <AvatarImage src={friend.avatarUrl || "/placeholder.svg"} />
+                        <AvatarFallback>{(friend.firstName?.[0]||"?") + (friend.lastName?.[0]||"")}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm truncate">{friend.firstName} {friend.lastName}</div>
+                        <div className="text-xs text-gray-500 truncate">{friend.email}</div>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  );
+                }
+              })
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ---- Messages ---- */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <div className="flex items-center space-x-3">
+              <Avatar className="flex-shrink-0">
+                <AvatarImage src={selectedConversation ? participantsMap[selectedConversation.participantIds.find(id => id !== currentUser?.id)!]?.avatarUrl || "/placeholder.svg" : "/placeholder.svg"} />
+                <AvatarFallback>?</AvatarFallback>
+              </Avatar>
+              <div>
+                <CardTitle className="text-sm">{selectedConversation ? getParticipantDisplay(selectedConversation) : "Sélectionnez une conversation"}</CardTitle>
               </div>
             </div>
-    )
+          </CardHeader>
+
+          <CardContent className="h-96 flex flex-col pt-0">
+            <div ref={scrollRef} className="flex-1 space-y-4 mb-4 overflow-y-auto px-4 py-3">
+              {messagesWithAvatarFlag.map(m => (
+                <div key={m.id} className={`flex ${m.senderId === currentUser?.id ? "justify-end" : "justify-start"}`}>
+                  {m.showAvatar && m.senderId !== currentUser?.id && (
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage src={participantsMap[m.senderId]?.avatarUrl || "/placeholder.svg"} />
+                      <AvatarFallback>{participantsMap[m.senderId]?.firstName?.[0]||"?"}</AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div className="max-w-[70%] relative">
+                    <div className={`rounded-lg p-3 ${m.senderId === currentUser?.id ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-800"}`}>
+                      <p className="text-sm">{m.text}</p>
+                      <div className="flex justify-end items-center space-x-1 text-xs mt-1">
+                        <span>{formatTime(m.createdDate)}</span>
+                        {m.senderId === currentUser?.id && m.isSeen && <span>✓</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-4 py-3 border-t">
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="Tapez votre message..."
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage() }}
+                  className="flex-1"
+                />
+                <Button onClick={handleSendMessage}>Envoyer</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
 }
