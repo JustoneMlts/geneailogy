@@ -18,6 +18,7 @@ import {
 import { ConversationType, MessageType, UserType, UserLink } from "@/lib/firebase/models"
 import { format } from "date-fns"
 import { getConnexionsByUserId, getUserById } from "@/app/controllers/usersController"
+import { handleGetUserNameInitials } from "@/app/helpers/userHelper"
 
 export const DirectMessages = () => {
   const currentUser = useSelector(selectUser)
@@ -62,8 +63,8 @@ export const DirectMessages = () => {
       const filtered = acceptedConnections.length === 0
         ? convs
         : convs.filter(c =>
-            c.participantIds.some((id: string) => acceptedConnections.includes(id))
-          )
+          c.participantIds.some((id: string) => acceptedConnections.includes(id))
+        )
       setConversations(filtered)
 
       if (!selectedConversation && filtered.length > 0) {
@@ -123,9 +124,14 @@ export const DirectMessages = () => {
     if (!conv) return ""
     return conv.participantIds
       .filter(id => id !== currentUser?.id)
-      .map(id => acceptedFriends.find(f => f.id === id)?.firstName || "Utilisateur")
+      .map(id => {
+        const user = acceptedFriends.find(f => f.id === id)
+        if (!user) return "Utilisateur"
+        return `${user.firstName} ${user.lastName || ""}`.trim()
+      })
       .join(", ")
   }
+
 
   // 8️⃣ Sélection ou création conversation
   const handleClickFriend = async (friend: UserType) => {
@@ -228,8 +234,12 @@ export const DirectMessages = () => {
                   const conv = item.data;
                   const otherName = getParticipantDisplay(conv);
                   const isSelected = selectedConversation?.id === conv.id;
-                  const lastMessage = conv.lastMessage || ""
-                  const lastSenderId = conv.lastMessageSenderId
+                  const lastMsgObj = messages
+                    .filter(m => m.conversationId === conv.id)
+                    .sort((a, b) => b.createdDate - a.createdDate)[0] // dernier message
+                  const lastMessage = lastMsgObj?.text || ""
+                  const lastSenderId = lastMsgObj?.senderId
+
 
                   return (
                     <div key={conv.id}
@@ -239,14 +249,16 @@ export const DirectMessages = () => {
                       <div className="flex items-center space-x-3">
                         <Avatar className="flex-shrink-0">
                           <AvatarImage src={participantsMap[conv.participantIds.find(id => id !== currentUser?.id)!]?.avatarUrl || "/placeholder.svg"} />
-                          <AvatarFallback>{otherName?.[0]||"?"}</AvatarFallback>
+                          <AvatarFallback>{otherName?.[0] || "?"}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-sm truncate">{otherName}</h3>
                           <p className="text-sm text-gray-600 truncate">{lastMessage}</p>
                         </div>
                         <div className="flex items-center space-x-1">
-                          {(lastSenderId !== currentUser?.id) && <Badge className="bg-yellow-400 text-black text-xs">À ton tour</Badge>}
+                          {lastSenderId && lastSenderId !== currentUser?.id && (
+                            <Badge className="bg-yellow-400 text-black text-xs">À ton tour</Badge>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -260,7 +272,7 @@ export const DirectMessages = () => {
                     >
                       <Avatar className="flex-shrink-0">
                         <AvatarImage src={friend.avatarUrl || "/placeholder.svg"} />
-                        <AvatarFallback>{(friend.firstName?.[0]||"?") + (friend.lastName?.[0]||"")}</AvatarFallback>
+                        <AvatarFallback>{(friend.firstName?.[0] || "?") + (friend.lastName?.[0] || "")}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-sm truncate">{friend.firstName} {friend.lastName}</div>
@@ -291,22 +303,30 @@ export const DirectMessages = () => {
           <CardContent className="h-96 flex flex-col pt-0">
             <div ref={scrollRef} className="flex-1 space-y-4 mb-4 overflow-y-auto px-4 py-3">
               {messagesWithAvatarFlag.map(m => (
-                <div key={m.id} className={`flex ${m.senderId === currentUser?.id ? "justify-end" : "justify-start"}`}>
-                  {m.showAvatar && m.senderId !== currentUser?.id && (
-                    <Avatar className="w-8 h-8">
+                <div key={m.id} className={`flex items-center ${m.senderId === currentUser?.id ? "justify-end" : "justify-start"}`}>
+                  {m.senderId !== currentUser?.id && m.showAvatar && (
+                    <Avatar className="w-8 h-8 mr-2">
                       <AvatarImage src={participantsMap[m.senderId]?.avatarUrl || "/placeholder.svg"} />
-                      <AvatarFallback>{participantsMap[m.senderId]?.firstName?.[0]||"?"}</AvatarFallback>
+                      <AvatarFallback>{participantsMap[m.senderId] && handleGetUserNameInitials(participantsMap[m.senderId]) || "?"}</AvatarFallback>
                     </Avatar>
                   )}
-                  <div className="max-w-[70%] relative">
-                    <div className={`rounded-lg p-3 ${m.senderId === currentUser?.id ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-800"}`}>
+
+                  <div className={`max-w-[70%] relative`}>
+                    <div className={`flex items-center justify-center rounded-full px-3 py-2 ${m.senderId === currentUser?.id ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-800"}`}>
                       <p className="text-sm">{m.text}</p>
-                      <div className="flex justify-end items-center space-x-1 text-xs mt-1">
+                      {/* <div className="flex justify-end items-center space-x-1 text-xs mt-1">
                         <span>{formatTime(m.createdDate)}</span>
                         {m.senderId === currentUser?.id && m.isSeen && <span>✓</span>}
-                      </div>
+                      </div> */}
                     </div>
                   </div>
+
+                  {m.senderId === currentUser?.id && m.showAvatar && (
+                    <Avatar className="w-8 h-8 ml-2">
+                      <AvatarImage src={currentUser?.avatarUrl || "/placeholder.svg"} />
+                      <AvatarFallback>{handleGetUserNameInitials(currentUser) || "?"}</AvatarFallback>
+                    </Avatar>
+                  )}
                 </div>
               ))}
             </div>
