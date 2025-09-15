@@ -17,6 +17,7 @@ export interface UserType {
   createdDate?: number
   updatedDate?: number
   isActive?: boolean
+  treesIds?: string[]
 }
 
 export type LinkStatus = "pending" | "accepted"
@@ -54,7 +55,7 @@ export interface MemberType {
   nationality?: string
   treeId: string
   mariageId?: string
-  isMarried: boolean
+  isMarried?: boolean
 
   parentsIds?: string[]
   childrenIds?: string[]

@@ -1,0 +1,391 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TreePine, Upload, CalendarIcon, Save, User, Heart, FileText, Globe } from "lucide-react";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { addDoc, arrayUnion, collection, doc, getDoc, updateDoc, getDocs, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase/firebase";
+import { useSelector } from "react-redux";
+import { selectUser } from "@/lib/redux/slices/currentUserSlice";
+import { MemberType } from "@/lib/firebase/models";
+import { getMembersByTreeId } from "@/app/controllers/treesController";
+
+type AddMemberModalProps = {
+    treeId: string;
+    isOpen: boolean;
+    onClose: () => void;
+};
+
+export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberModalProps) {
+    if (!isOpen) return null;
+
+    type Gender = "male" | "female" | "other";
+
+    const [birthDate, setBirthDate] = useState<Date>();
+    const [deathDate, setDeathDate] = useState<Date>();
+    const [isDeceased, setIsDeceased] = useState(false);
+    const [isMarried, setIsMarried] = useState(false);
+    const [selectedGender, setSelectedGender] = useState<Gender>("male");
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
+    const [birthPlace, setBirthPlace] = useState("");
+    const [deathPlace, setDeathPlace] = useState("");
+    const [nationality, setNationality] = useState("");
+    const [bio, setBio] = useState("");
+
+    const [selectedParents, setSelectedParents] = useState<string[]>([]);
+    const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
+    const [selectedSiblings, setSelectedSiblings] = useState<string[]>([]);
+
+    const [familyMembers, setFamilyMembers] = useState<{ id: string; firstName?: string; lastName?: string }[]>([]);
+    const [loadingMembers, setLoadingMembers] = useState(false);
+
+    const currentUser = useSelector(selectUser);
+    const [members, setMembers] = useState<MemberType[]>([]); // ✅ tableau vide initial
+
+    useEffect(() => {
+        console.log("treeId", treeId)
+        if (!treeId) return;
+
+        const fetchMembers = async () => {
+            try {
+                const data = await getMembersByTreeId(treeId)
+                setMembers(data)
+            } catch {
+                console.log("une erreur est survenue lors de la récupération des membres de la famille")
+            }
+        };
+
+        fetchMembers();
+    }, [treeId]);
+
+    console.log("familyMembers", familyMembers)
+
+    const handleToggle = (id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => (checked: boolean | "indeterminate") => {
+        if (checked === true) setter(prev => prev.includes(id) ? prev : [...prev, id]);
+        else setter(prev => prev.filter(i => i !== id));
+    };
+
+const handleSave = async () => {
+  const memberData = {
+    firstName,
+    lastName,
+    birthDate: birthDate?.getTime(),
+    deathDate: isDeceased ? deathDate?.getTime() : undefined,
+    birthPlace: birthPlace || undefined,
+    deathPlace: deathPlace || undefined,
+    gender: selectedGender,
+    nationality: nationality || undefined,
+    bio: bio || undefined,
+    treeId,
+    isMarried,
+    parentsIds: selectedParents,
+    childrenIds: selectedChildren,
+    brothersIds: selectedSiblings,
+    createdDate: Date.now(),
+    updatedDate: Date.now(),
+    isActive: true,
+  };
+
+  // Supprimer les undefined pour Firebase
+  const cleanedData = Object.fromEntries(
+    Object.entries(memberData).filter(([_, v]) => v !== undefined)
+  );
+
+  try {
+    const newMemberRef = await addDoc(collection(db, "Members"), cleanedData);
+    await updateDoc(doc(db, "Trees", treeId), { memberIds: arrayUnion(newMemberRef.id) });
+    onClose();
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+    const renderMemberCheckboxes = (selectedList: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) => {
+        if (loadingMembers) return <p className="text-sm text-gray-500">Chargement des membres...</p>;
+        if (!members.length) return <p className="text-sm text-gray-500">Aucun membre disponible</p>;
+
+        return (
+            <div className="grid gap-2 max-h-48 overflow-auto pr-2">
+                {members
+                    .filter(m => m.id) // on ne garde que les membres avec un id
+                    .map(m => {
+                        const isSelected = selectedList.includes(m.id!); // ! indique que ce n'est pas undefined
+                        const isCurrentUser = m.id === currentUser?.id;
+                        return (
+                            <label key={m.id} className="flex items-center space-x-2 cursor-pointer">
+                                <Checkbox checked={isSelected} onCheckedChange={handleToggle(m.id!, setter)} />
+                                <span className="text-sm">
+                                    {m.firstName} {m.lastName}{isCurrentUser && " (Vous)"}
+                                </span>
+                            </label>
+                        );
+                    })}
+            </div>
+        );
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 overflow-auto bg-black/50 flex justify-center items-start pt-12">
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-5xl p-6">
+                {/* Header */}
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold">Ajouter un membre</h2>
+                    <Button variant="ghost" onClick={onClose}>Fermer</Button>
+                </div>
+
+                <div className="grid lg:grid-cols-3 gap-8">
+                    {/* Photo */}
+                    <div className="lg:col-span-1">
+                        <Card className=" top-24">
+                            <CardHeader>
+                                <CardTitle className="flex items-center space-x-2">
+                                    <User className="h-5 w-5" /> Photo
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="flex flex-col items-center space-y-4">
+                                    <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center border-2 border-dashed border-gray-300">
+                                        <User className="h-12 w-12 text-gray-400" />
+                                    </div>
+                                    <Button variant="outline" className="w-full bg-transparent">
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Télécharger une photo
+                                    </Button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <Label className="text-sm font-medium flex items-center space-x-2 mb-3">
+                                            <FileText className="h-4 w-4" />
+                                            <span>Documents</span>
+                                        </Label>
+                                        <div className="space-y-3">
+                                            <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Acte de naissance
+                                            </Button>
+                                            <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Acte de mariage
+                                            </Button>
+                                            <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Autre document
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Formulaire */}
+                    <div className="lg:col-span-2 space-y-6">
+                        {/* Informations personnelles */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center space-x-2">
+                                    <User className="h-5 w-5" />
+                                    <span>Informations personnelles</span>
+                                </CardTitle>
+                                <CardDescription>Informations de base sur la personne</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="firstName">Prénom *</Label>
+                                        <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Jean" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="lastName">
+                                            {selectedGender === "female" ? "Nom de jeune fille *" : "Nom de famille *"}
+                                        </Label>
+                                        <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder={selectedGender === "female" ? "Martin" : "Dupont"} />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="gender">Genre</Label>
+                                    <Select
+                                        value={selectedGender}
+                                        onValueChange={(value) => setSelectedGender(value as Gender)}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Sélectionner le genre" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="male">Homme</SelectItem>
+                                            <SelectItem value="female">Femme</SelectItem>
+                                            <SelectItem value="other">Autre</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center space-x-2">
+                                    <User className="h-5 w-5" /> Informations personnelles
+                                </CardTitle>
+                                <CardDescription>Informations de base sur la personne</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Date de naissance</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full justify-start text-left font-normal bg-transparent"
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {birthDate ? format(birthDate, "PPP", { locale: fr }) : "Sélectionner une date"}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                                <Calendar mode="single" selected={birthDate} onSelect={setBirthDate} initialFocus />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="birthPlace">Lieu de naissance</Label>
+                                        <Input id="birthPlace" value={birthPlace} onChange={(e) => setBirthPlace(e.target.value)} placeholder="Paris, France" />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox checked={isDeceased} onCheckedChange={(checked) => setIsDeceased(checked === true)} className="mt-1" />
+                                    <Label>Cette personne est décédée</Label>
+                                </div>
+
+                                {isDeceased && (
+                                    <div className="grid md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                                        <div className="space-y-2">
+                                            <Label>Date de décès</Label>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        className="w-full justify-start text-left font-normal bg-transparent"
+                                                    >
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {deathDate ? format(deathDate, "PPP", { locale: fr }) : "Sélectionner une date"}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0">
+                                                    <Calendar mode="single" selected={deathDate} onSelect={setDeathDate} initialFocus />
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="deathPlace">Lieu de décès</Label>
+                                            <Input id="deathPlace" value={deathPlace} onChange={(e) => setDeathPlace(e.target.value)} placeholder="Lyon, France" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="nationality" className="flex items-center space-x-2">
+                                        <Globe className="h-4 w-4" />
+                                        <span>Nationalité</span>
+                                    </Label>
+                                    <Input id="nationality" value={nationality} onChange={(e) => setNationality(e.target.value)} placeholder="Française" />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Dates et lieux */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center space-x-2">
+                                    <CalendarIcon className="h-5 w-5" /> Dates et lieux
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div>
+                                    <Label className="mb-2 block font-medium">Parents</Label>
+                                    <div className="text-xs text-gray-500 mb-2">
+                                        Sélectionnez jusqu'à 2 parents
+                                    </div>
+                                    {renderMemberCheckboxes(selectedParents, setSelectedParents)}
+                                </div>
+
+                                <div>
+                                    <Label className="mb-2 block font-medium">Frères et sœurs</Label>
+                                    <div className="text-xs text-gray-500 mb-2">
+                                        Sélectionnez les frères et sœurs de ce membre
+                                    </div>
+                                    {renderMemberCheckboxes(selectedSiblings, setSelectedSiblings)}
+                                </div>
+
+                                <div>
+                                    <Label className="mb-2 block font-medium">Enfants</Label>
+                                    <div className="text-xs text-gray-500 mb-2">
+                                        Sélectionnez les enfants de ce membre
+                                    </div>
+                                    {renderMemberCheckboxes(selectedChildren, setSelectedChildren)}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Relations */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center space-x-2">
+                                    <Heart className="h-5 w-5" /> Relations familiales
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div>
+                                    <Label>Parents</Label>
+                                    {renderMemberCheckboxes(selectedParents, setSelectedParents)}
+                                </div>
+                                <div>
+                                    <Label>Frères et sœurs</Label>
+                                    {renderMemberCheckboxes(selectedSiblings, setSelectedSiblings)}
+                                </div>
+                                <div>
+                                    <Label>Enfants</Label>
+                                    {renderMemberCheckboxes(selectedChildren, setSelectedChildren)}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Notes */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center space-x-2">
+                                    <FileText className="h-5 w-5" /> Notes supplémentaires
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Écrivez ici toute information supplémentaire..." className="min-h-[120px]" />
+                            </CardContent>
+                        </Card>
+
+                        {/* Actions */}
+                        <div className="flex justify-end space-x-4 pt-4">
+                            <Button variant="outline" onClick={onClose}>Annuler</Button>
+                            <Button onClick={handleSave} className="bg-gradient-to-r from-blue-600 to-purple-600">
+                                <Save className="mr-2 h-4 w-4" /> Enregistrer
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,13 +14,215 @@ import { TreePine, Upload, CalendarIcon, ArrowLeft, Save, User, Heart, FileText,
 import Link from "next/link"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
+import { addMember } from "../controllers/membersController";
+import { useRouter } from "next/navigation";
 
-export default function AddMember() {
-  const [birthDate, setBirthDate] = useState<Date>()
-  const [deathDate, setDeathDate] = useState<Date>()
-  const [isDeceased, setIsDeceased] = useState(false)
-  const [isMarried, setIsMarried] = useState(false)
-  const [selectedGender, setSelectedGender] = useState("")
+import { db } from "@/lib/firebase/firebase"
+import { addDoc, arrayUnion, doc, getDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore"
+import { useSelector } from "react-redux"
+import { selectUser } from "@/lib/redux/slices/currentUserSlice"
+
+export default function AddMember({ treeId }: { treeId: string }) {
+  const [birthDate, setBirthDate] = useState<Date>();
+  const [deathDate, setDeathDate] = useState<Date>();
+  const [isDeceased, setIsDeceased] = useState(false);
+  const [isMarried, setIsMarried] = useState(false);
+
+  type Gender = "male" | "female" | "other";
+  const [selectedGender, setSelectedGender] = useState<Gender>("male");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [birthPlace, setBirthPlace] = useState("");
+  const [deathPlace, setDeathPlace] = useState("");
+  const [nationality, setNationality] = useState("");
+  const [bio, setBio] = useState("");
+  const currentUser = useSelector(selectUser);
+
+  // relations selections (IDs)
+  const [selectedParents, setSelectedParents] = useState<string[]>([]);
+  const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
+  const [selectedSiblings, setSelectedSiblings] = useState<string[]>([]);
+
+  // members options loaded from the tree (keeps order from tree.memberIds when possible)
+  const [familyMembers, setFamilyMembers] = useState<{ id: string; firstName?: string; lastName?: string }[]>([]);
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+
+  const router = useRouter();
+
+  // --- fetch tree doc and load members (by memberIds) ---
+
+useEffect(() => {
+  if (!treeId) return; // <-- sécuriser l'appel
+
+  const fetchMembers = async () => {
+    setLoadingMembers(true);
+
+    try {
+      // 1. Récupérer le document de l'arbre
+      const treeRef = doc(db, "Trees", treeId);
+      const treeSnap = await getDoc(treeRef);
+
+      if (!treeSnap.exists()) {
+        console.error("Arbre non trouvé !");
+        setLoadingMembers(false);
+        return;
+      }
+
+      const treeData = treeSnap.data();
+      setOwnerId(treeData.ownerId || null);
+
+      const memberIds: string[] = treeData.memberIds || [];
+      if (memberIds.length === 0) {
+        setFamilyMembers([]);
+        setLoadingMembers(false);
+        return;
+      }
+
+      // 2. Récupérer tous les membres par batch Firestore (max 10 IDs par "in")
+      const batches: { firstName?: string; lastName?: string; id: string }[] = [];
+      for (let i = 0; i < memberIds.length; i += 10) {
+        const batchIds = memberIds.slice(i, i + 10);
+        const membersQuery = query(
+          collection(db, "members"),
+          where("__name__", "in", batchIds)
+        );
+        const memberSnaps = await getDocs(membersQuery);
+        batches.push(
+          ...memberSnaps.docs.map(docSnap => ({
+            id: docSnap.id,
+            ...(docSnap.data() as { firstName?: string; lastName?: string }),
+          }))
+        );
+      }
+
+      // 3. Maintenir l'ordre original
+      const sortedMembers = memberIds
+        .map(id => batches.find(m => m.id === id))
+        .filter(Boolean) as { id: string; firstName?: string; lastName?: string }[];
+
+      setFamilyMembers(sortedMembers);
+    } catch (error) {
+      console.error("Erreur lors du chargement des membres :", error);
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
+  fetchMembers();
+}, [treeId]);
+
+  const handleToggle = (id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => 
+  (checked: boolean | "indeterminate") => {
+    console.log(`Toggle called for ID: ${id}, checked: ${checked}`); // Debug
+    
+    if (checked === true) {
+      setter(prev => {
+        if (!prev.includes(id)) {
+          console.log(`Adding ${id} to selection`); // Debug
+          return [...prev, id];
+        }
+        return prev;
+      });
+    } else {
+      setter(prev => {
+        console.log(`Removing ${id} from selection`); // Debug
+        return prev.filter(i => i !== id);
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    const memberData = {
+      firstName,
+      lastName,
+      birthDate: birthDate ? birthDate.getTime() : undefined,
+      deathDate: isDeceased && deathDate ? deathDate.getTime() : undefined,
+      birthPlace: birthPlace || undefined,
+      deathPlace: deathPlace || undefined,
+      gender: selectedGender,
+      nationality: nationality || undefined,
+      bio: bio || undefined,
+      treeId,
+      isMarried,
+      parentsIds: selectedParents,
+      childrenIds: selectedChildren,
+      brothersIds: selectedSiblings,
+      createdDate: Date.now(),
+      updatedDate: Date.now(),
+      isActive: true,
+      avatar: undefined,
+      mariageId: undefined,
+    };
+    try {
+      const newMemberRef = await addDoc(collection(db, "members"), memberData);
+      // Ajoute le nouveau membre dans l'arbre
+      const treeRef = doc(db, "trees", treeId);
+      await updateDoc(treeRef, {
+        memberIds: arrayUnion(newMemberRef.id),
+      });
+
+      router.push("/dashboard");
+    } catch (e) {
+      console.error("Erreur lors de l'ajout du membre :", e);
+    }
+  };
+
+const renderMemberCheckboxes = (selectedList: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) => {
+  console.log("renderMemberCheckboxes - familyMembers:", familyMembers);
+  console.log("renderMemberCheckboxes - selectedList:", selectedList);
+  
+  if (loadingMembers) {
+    return <p className="text-sm text-gray-500">Chargement des membres...</p>;
+  }
+
+  if (!familyMembers.length) {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-gray-500">
+          Aucun membre disponible pour établir des relations.
+        </p>
+        <div className="text-xs text-red-500 p-2 bg-red-50 rounded">
+          Debug: currentUser = {JSON.stringify(currentUser)}<br/>
+          familyMembers.length = {familyMembers.length}
+        </div>
+      </div>
+    );
+  }
+
+  // RETURN manquant dans votre code original !
+  return (
+    <div className="grid gap-2 max-h-48 overflow-auto pr-2">
+      {familyMembers.map(member => {
+        const isSelected = selectedList.includes(member.id);
+        const isCurrentUser = member.id === currentUser?.id;
+        
+        return (
+          <label key={member.id} className="flex items-center space-x-2 cursor-pointer">
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={(checked) => {
+                console.log(`Checkbox clicked for ${member.id}, checked:`, checked);
+                if (checked === true) {
+                  setter(prev => [...prev.filter(id => id !== member.id), member.id]);
+                } else {
+                  setter(prev => prev.filter(id => id !== member.id));
+                }
+              }}
+            />
+            <span className="text-sm">
+              {member.firstName} {member.lastName}
+              {isCurrentUser && <span className="ml-2 text-xs text-blue-600 font-medium">(Vous)</span>}
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  );
+};
+
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
@@ -42,8 +244,8 @@ export default function AddMember() {
           </div>
 
           <div className="flex items-center space-x-4">
-            <Button variant="outline">Annuler</Button>
-            <Button className="bg-gradient-to-r from-blue-600 to-purple-600">
+            <Button variant="outline" onClick={() => router.push("/dashboard")}>Annuler</Button>
+            <Button onClick={handleSave} className="bg-gradient-to-r from-blue-600 to-purple-600">
               <Save className="mr-2 h-4 w-4" />
               Enregistrer
             </Button>
@@ -61,7 +263,7 @@ export default function AddMember() {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Photo Section */}
+            {/* ---- Photo Section (conservé) ---- */}
             <div className="lg:col-span-1">
               <Card className="sticky top-24">
                 <CardHeader>
@@ -107,7 +309,7 @@ export default function AddMember() {
               </Card>
             </div>
 
-            {/* Form Section */}
+            {/* ---- Form Section (conservé + bindings) ---- */}
             <div className="lg:col-span-2 space-y-6">
               {/* Informations personnelles */}
               <Card>
@@ -122,19 +324,22 @@ export default function AddMember() {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">Prénom *</Label>
-                      <Input id="firstName" placeholder="Jean" />
+                      <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Jean" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lastName">
                         {selectedGender === "female" ? "Nom de jeune fille *" : "Nom de famille *"}
                       </Label>
-                      <Input id="lastName" placeholder={selectedGender === "female" ? "Martin" : "Dupont"} />
+                      <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder={selectedGender === "female" ? "Martin" : "Dupont"} />
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="gender">Genre</Label>
-                    <Select onValueChange={setSelectedGender}>
+                    <Select
+                      value={selectedGender}
+                      onValueChange={(value) => setSelectedGender(value as Gender)}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Sélectionner le genre" />
                       </SelectTrigger>
@@ -177,17 +382,13 @@ export default function AddMember() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="birthPlace">Lieu de naissance</Label>
-                      <Input id="birthPlace" placeholder="Paris, France" />
+                      <Input id="birthPlace" value={birthPlace} onChange={(e) => setBirthPlace(e.target.value)} placeholder="Paris, France" />
                     </div>
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="terms"
-                      checked={isDeceased}
-                      onCheckedChange={(checked) => setIsDeceased(checked === true)}
-                      className="mt-1"
-                    />                    <Label htmlFor="deceased">Cette personne est décédée</Label>
+                    <Checkbox checked={isDeceased} onCheckedChange={(checked) => setIsDeceased(checked === true)} className="mt-1" />
+                    <Label>Cette personne est décédée</Label>
                   </div>
 
                   {isDeceased && (
@@ -211,7 +412,7 @@ export default function AddMember() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="deathPlace">Lieu de décès</Label>
-                        <Input id="deathPlace" placeholder="Lyon, France" />
+                        <Input id="deathPlace" value={deathPlace} onChange={(e) => setDeathPlace(e.target.value)} placeholder="Lyon, France" />
                       </div>
                     </div>
                   )}
@@ -221,7 +422,7 @@ export default function AddMember() {
                       <Globe className="h-4 w-4" />
                       <span>Nationalité</span>
                     </Label>
-                    <Input id="nationality" placeholder="Française" />
+                    <Input id="nationality" value={nationality} onChange={(e) => setNationality(e.target.value)} placeholder="Française" />
                   </div>
                 </CardContent>
               </Card>
@@ -233,71 +434,34 @@ export default function AddMember() {
                     <Heart className="h-5 w-5" />
                     <span>Relations familiales</span>
                   </CardTitle>
+                  <CardDescription>
+                    Sélectionnez les relations de ce membre avec les autres personnes de l'arbre
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="relationship">Lien de parenté avec vous</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner le lien de parenté" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="parent">Parent</SelectItem>
-                        <SelectItem value="child">Enfant</SelectItem>
-                        <SelectItem value="sibling">Frère/Sœur</SelectItem>
-                        <SelectItem value="grandparent">Grand-parent</SelectItem>
-                        <SelectItem value="grandchild">Petit-enfant</SelectItem>
-                        <SelectItem value="uncle-aunt">Oncle/Tante</SelectItem>
-                        <SelectItem value="cousin">Cousin(e)</SelectItem>
-                        <SelectItem value="spouse">Conjoint(e)</SelectItem>
-                        <SelectItem value="other">Autre</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="terms"
-                      checked={isMarried}
-                      onCheckedChange={(checked) => setIsMarried(checked === true)}
-                      className="mt-1"
-                    />                    <Label htmlFor="married">Cette personne est/était mariée</Label>
-                  </div>
-
-                  {isMarried && (
-                    <div className="p-4 bg-pink-50 rounded-lg space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="spouse">Conjoint(e)</Label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner le conjoint dans l'arbre" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="add-new">+ Ajouter un nouveau conjoint</SelectItem>
-                            <SelectItem value="marie-martin">Marie Martin</SelectItem>
-                            <SelectItem value="pierre-dubois">Pierre Dubois</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Date de mariage</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start text-left font-normal bg-transparent"
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              Sélectionner une date
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar mode="single" initialFocus />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
+                  <div>
+                    <Label className="mb-2 block font-medium">Parents</Label>
+                    <div className="text-xs text-gray-500 mb-2">
+                      Sélectionnez jusqu'à 2 parents
                     </div>
-                  )}
+                    {renderMemberCheckboxes(selectedParents, setSelectedParents)}
+                  </div>
+
+                  <div>
+                    <Label className="mb-2 block font-medium">Frères et sœurs</Label>
+                    <div className="text-xs text-gray-500 mb-2">
+                      Sélectionnez les frères et sœurs de ce membre
+                    </div>
+                    {renderMemberCheckboxes(selectedSiblings, setSelectedSiblings)}
+                  </div>
+
+                  <div>
+                    <Label className="mb-2 block font-medium">Enfants</Label>
+                    <div className="text-xs text-gray-500 mb-2">
+                      Sélectionnez les enfants de ce membre
+                    </div>
+                    {renderMemberCheckboxes(selectedChildren, setSelectedChildren)}
+                  </div>
                 </CardContent>
               </Card>
 
@@ -308,15 +472,10 @@ export default function AddMember() {
                     <FileText className="h-5 w-5" />
                     <span>Notes supplémentaires</span>
                   </CardTitle>
-                  <CardDescription>
-                    Ajoutez des informations complémentaires, anecdotes, profession, etc.
-                  </CardDescription>
+                  <CardDescription>Ajoutez des informations complémentaires.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Textarea
-                    placeholder="Écrivez ici toute information supplémentaire sur cette personne..."
-                    className="min-h-[120px]"
-                  />
+                  <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Écrivez ici toute information supplémentaire..." className="min-h-[120px]" />
                 </CardContent>
               </Card>
 
@@ -325,7 +484,7 @@ export default function AddMember() {
                 <Link href="/dashboard">
                   <Button variant="outline">Annuler</Button>
                 </Link>
-                <Button className="bg-gradient-to-r from-blue-600 to-purple-600">
+                <Button onClick={handleSave} className="bg-gradient-to-r from-blue-600 to-purple-600">
                   <Save className="mr-2 h-4 w-4" />
                   Enregistrer le membre
                 </Button>

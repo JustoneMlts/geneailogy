@@ -73,15 +73,21 @@ export default function SignupPage() {
 
     try {
       const userCredential = await signUpWithEmailAndPassword(formData.email, formData.password);
-      await createUser({...formData, uid: userCredential.user.uid});
-      route.push("/login")
+
+      const result = await createUser({
+        ...formData,
+        uid: userCredential.user.uid
+      });
+
+      console.log('Utilisateur, famille et membre créés avec succès:', result);
+      route.push("/login");
+
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue lors de la création du compte');
       console.error(err);
     } finally {
       setLoading(false);
     }
-    console.log(error)
   };
 
   return (

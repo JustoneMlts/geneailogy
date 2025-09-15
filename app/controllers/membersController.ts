@@ -1,26 +1,58 @@
 import { COLLECTIONS } from "@/lib/firebase/collections";
-import { addDocumentToCollection, getAllDataFromCollection, getDataFromCollection, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
+import {
+  addDocumentToCollection,
+  updateDocumentToCollection,
+  getAllDataFromCollection,
+  getDataFromCollection
+} from "@/lib/firebase/firebase-functions";
+import { MemberType } from "../../lib/firebase/models"; // ton interface
+import { collection, doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase/firebase";
 
-export const addMember = async (memberData: any) => {
+// Ajouter un membre
+export const addMember = async (
+  memberData: Omit<MemberType, "id">,
+  customId?: string
+): Promise<string> => {
   try {
-    await addDocumentToCollection(COLLECTIONS.MEMBERS, memberData);
+    const docRef = customId
+      ? doc(db, COLLECTIONS.MEMBERS, customId) // impose l'ID
+      : doc(collection(db, COLLECTIONS.MEMBERS));
+
+    await setDoc(docRef, {
+      ...memberData,
+      createdDate: Date.now(),
+      updatedDate: Date.now(),
+      isActive: true,
+    });
+
+    return docRef.id;
   } catch (error) {
-    console.log("Error addMember", error);
+    console.error("❌ Error addMember:", error);
+    throw error;
   }
 };
 
-export const updateMember = async (memberId: string, memberData: any) => {
+// Mettre à jour un membre
+export const updateMember = async (memberId: string, memberData: Partial<MemberType>) => {
   try {
-    await updateDocumentToCollection(COLLECTIONS.MEMBERS, memberId, memberData);
+    await updateDocumentToCollection(COLLECTIONS.MEMBERS, memberId, {
+      ...memberData,
+      updatedDate: Date.now(),
+    });
   } catch (error) {
-    console.log("Error updateMember", error);
+    console.error("❌ Error updateMember:", error);
+    throw error;
   }
 };
 
+// Récupérer tous les membres
 export const getMembers = async () => {
   return await getAllDataFromCollection(COLLECTIONS.MEMBERS);
 };
 
+// Récupérer un membre par ID
 export const getMemberById = async (memberId: string) => {
   return await getDataFromCollection(COLLECTIONS.MEMBERS, memberId);
 };
+

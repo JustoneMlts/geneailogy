@@ -1,3 +1,5 @@
+"use client";
+
 import { Calendar, Camera, Crown, FileText, Globe, Heart, MapPin, Plus, RotateCcw, Save, Search, Settings, Trash2, User, X, ZoomIn, ZoomOut } from "lucide-react"
 import { Button } from "./ui/button"
 import Link from "next/link"
@@ -9,7 +11,10 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { UserType, TreeType, MemberType } from "../lib/firebase/models"
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import AddMemberModal from "./addMember";
+import { useSelector } from "react-redux";
+import { selectUser } from "@/lib/redux/slices/currentUserSlice";
 
 const getYearFromADate = (timestamp: number): number => {
     const date = new Date(timestamp)
@@ -127,7 +132,7 @@ export const renderFullFamilyTree = (
 
                 return (
                     <div key={index}>
-                         {reversedIndex !== 1 && (
+                        {reversedIndex !== 1 && (
                             <Section
                                 title={title}
                                 members={generation}
@@ -238,6 +243,22 @@ function FamilyMemberCard({ member, onClick, highlight }: { member: MemberType; 
 }
 
 export const Tree = () => {
+    const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
+    const [treeId, setTreeId] = useState("")
+    const currentUser = useSelector(selectUser)
+
+    useEffect(() => {
+        if (currentUser && currentUser.treesIds && currentUser.treesIds?.length) {
+            setTreeId(currentUser.treesIds[0])
+        }
+    }, [currentUser])
+
+    useEffect(() => {
+        console.log("currentUser", currentUser)
+        if (currentUser && currentUser.treesIds && currentUser.treesIds[0])
+            console.log("treeId", currentUser.treesIds[0])
+    }, [treeId])
+
     const familyData: Record<string, MemberType> = {
         "0": {
             id: "id-jean",
@@ -447,12 +468,19 @@ export const Tree = () => {
                         <Settings className="mr-2 h-4 w-4" />
                         Paramètres famille
                     </Button>
-                    <Link href="/add-member">
-                        <Button className="bg-gradient-to-r from-blue-600 to-purple-600 w-full sm:w-auto">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Ajouter membre
+                    <div>
+                        <Button onClick={() => setIsAddMemberOpen(true)} className="bg-gradient-to-r from-blue-600 to-purple-600">
+                            <Plus className="mr-2 h-4 w-4" /> Ajouter membre
                         </Button>
-                    </Link>
+
+                        <div>
+                            <AddMemberModal
+                                treeId={treeId}
+                                isOpen={isAddMemberOpen}
+                                onClose={() => setIsAddMemberOpen(false)}
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
 

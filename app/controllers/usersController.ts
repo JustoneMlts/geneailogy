@@ -2,11 +2,34 @@ import { addDocumentToCollection, getAllDataFromCollectionWithWhereArray, update
 import { COLLECTIONS } from "@/lib/firebase/collections";
 import { arrayUnion, collection, deleteField, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db, storage  } from "@/lib/firebase/firebase";
-import { LinkStatus, UserLink, UserType } from "@/lib/firebase/models";
+import { LinkStatus, MemberType, TreeType, UserLink, UserType } from "@/lib/firebase/models";
 import { createOrReplaceAvatar } from "./filesController";
 import { createNotification } from "./notificationsController"
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { addMember } from "./membersController";
+import { createTree } from "./treesController";
 
+const removeUndefinedValues = (obj: any): any => {
+  const cleaned: any = {};
+
+  Object.keys(obj).forEach(key => {
+    const value = obj[key];
+
+    if (value !== undefined) {
+      // Nettoyage récursif pour les objets imbriqués
+      if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        const cleanedNested = removeUndefinedValues(value);
+        if (Object.keys(cleanedNested).length > 0) {
+          cleaned[key] = cleanedNested;
+        }
+      } else {
+        cleaned[key] = value;
+      }
+    }
+  });
+
+  return cleaned;
+};
 
 export const createUser = async ({
   email,
@@ -20,53 +43,82 @@ export const createUser = async ({
   uid: string;
 }) => {
   try {
-    const userData = {
+    // 1. Créer les données utilisateur selon UserType
+    let userData: Omit<UserType, 'id'> = {
       email,
       firstName,
       lastName,
-      uid,
-      birthDate: null,
-      nationality: null,
+      birthDate: undefined,
+      nationality: undefined,
       avatarUrl: "",
       bio: "",
       phoneNumber: "",
       localisation: "",
-      origins: "",
-      oldestAncester: "",
+      oldestAncestor: "",
+      familyOrigin: "",
+      researchInterests: "",
+      links: [],
+      treesIds: [],
       createdDate: Date.now(),
       updatedDate: Date.now(),
       isActive: true,
     };
 
-    await setDoc(doc(db, COLLECTIONS.USERS, uid), userData); // ← uid utilisé comme ID de doc
+    userData = removeUndefinedValues(userData); // Supprime tous les undefined
+
+    // 2. Créer l'utilisateur avec son id
+    await setDoc(doc(db, COLLECTIONS.USERS, uid), userData);
+
+    // 3. Créer une famille pour cet utilisateur
+    let treeData: Omit<TreeType, 'id'> = {
+      name: `Famille ${lastName}`,
+      description: `Arbre généalogique de la famille ${lastName}`,
+      ownerId: uid,
+      memberIds: [uid],
+      origin: [],
+      createdDate: Date.now(),
+      updatedDate: Date.now(),
+      isActive: true,
+    };
+
+    treeData = removeUndefinedValues(treeData);
+
+    const familyId = await createTree(treeData);
+
+    // 4. Créer un membre dans cette famille avec le même id que le User
+    let memberData: Omit<MemberType, 'id'> = {
+      firstName,
+      lastName,
+      birthDate: undefined,
+      deathDate: undefined,
+      birthPlace: undefined,
+      gender: undefined,
+      avatar: "",
+      bio: "",
+      nationality: undefined,
+      treeId: familyId,
+      mariageId: undefined,
+      isMarried: false,
+      parentsIds: [],
+      childrenIds: [],
+      brothersIds: [],
+      createdDate: Date.now(),
+      updatedDate: Date.now(),
+      isActive: true,
+    };
+
+    memberData = removeUndefinedValues(memberData);
+
+    // 🔹 Ici on force le member.id à être le même que uid
+    await addMember(memberData, uid);
+
+    return { userId: uid, familyId };
   } catch (error) {
     console.log("Error createUser", error);
+    throw error;
   }
 };
 
-const removeUndefinedValues = (obj: any): any => {
-  const cleaned: any = {};
-
-  Object.keys(obj).forEach(key => {
-    const value = obj[key];
-
-    // Ne pas inclure les valeurs undefined
-    if (value !== undefined) {
-      // Si c'est un objet (mais pas un array ou une date), nettoyer récursivement
-      if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
-        const cleanedNested = removeUndefinedValues(value);
-        // Ne pas inclure les objets vides
-        if (Object.keys(cleanedNested).length > 0) {
-          cleaned[key] = cleanedNested;
-        }
-      } else {
-        cleaned[key] = value;
-      }
-    }
-  });
-
-  return cleaned;
-};
 
 export const updateUser = async (user: UserType): Promise<boolean> => {
   try {
@@ -387,5 +439,31 @@ const getUserDisplayName = async (userId: string): Promise<string> => {
   } catch (error) {
     console.error("Erreur lors de la récupération du nom utilisateur :", error);
     return "Utilisateur";
+  }
+};
+
+export const findUserByInfo = async (
+  firstName: string,
+  lastName: string,
+  birthDate: number
+): Promise<UserType | null> => {
+  try {
+    const usersRef = collection(db, COLLECTIONS.USERS);
+
+    const q = query(
+      usersRef,
+      where("firstName", "==", firstName),
+      where("lastName", "==", lastName),
+      where("birthDate", "==", birthDate)
+    );
+
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+
+    const docSnap = snapshot.docs[0];
+    return { id: docSnap.id, ...docSnap.data() } as UserType;
+  } catch (error) {
+    console.error("❌ Erreur findUserByInfo:", error);
+    return null;
   }
 };
