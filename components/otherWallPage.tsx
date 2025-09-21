@@ -43,7 +43,10 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
     }, [wallOwner?.id])
 
     const handlePostCreated = (newPost: FeedPostType) => {
-        setWallPosts((prev) => [newPost, ...prev])
+        setWallPosts((prev) => {
+            if (prev.some((post) => post.id === newPost.id)) return prev // ⚡ skip doublon
+            return [newPost, ...prev]
+        })
     }
 
     if (!wallOwner) return <div className="p-6">Utilisateur introuvable.</div>
@@ -96,6 +99,7 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
                             key={post.id}
                             post={{
                                 ...post,
+                                comments: post.comments || [], // ✅ jamais undefined
                                 isOnWall: post.author.id !== post.destinator.id,
                             }}
                         />

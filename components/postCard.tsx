@@ -1,4 +1,4 @@
-import { toggleLikePost } from "@/app/controllers/feedController"
+import { addCommentToPost, toggleLikePost } from "@/app/controllers/feedController"
 import { handleGetUserNameInitials } from "@/app/helpers/userHelper"
 import { selectUser } from "@/lib/redux/slices/currentUserSlice"
 import { Globe, Users, MoreHorizontal, MapPin, Heart, MessageCircle, Share2, Send, Lock } from "lucide-react"
@@ -31,16 +31,26 @@ export function PostCard({ post }: { post: any }) {
     toggleLikePost(post.id!, currentUser.id, alreadyLiked)
   }
 
-  const handleComment = () => {
-    if (newComment.trim()) {
-      // Ajouter le commentaire
-      setNewComment("")
-    }
+  const handleComment = async () => {
+    if (!currentUser) return
+    const content = newComment.trim()
+      if (!content) return
+
+    await addCommentToPost(post.id!, {
+      author: {
+        name: `${currentUser.firstName} ${currentUser.lastName}`,
+        avatar: currentUser.avatarUrl || "/placeholder.svg",
+      },
+      content,
+      timeAgo: "À l'instant",
+    })
+
+    setNewComment("") // ✅ on reset l’input
   }
 
   const handleNavigate = (userId: string) => {
-        router.push(`/wall/${userId}`)
-    }
+    router.push(`/wall/${userId}`)
+  }
 
   return (
     <Card className="mb-4 sm:mb-6 transition-shadow hover:shadow-lg">
@@ -49,13 +59,13 @@ export function PostCard({ post }: { post: any }) {
         <div className="p-3 sm:p-4 lg:p-6 pb-2 sm:pb-3 lg:pb-4">
           <div className="flex items-start justify-between">
             <div className="flex space-x-2 sm:space-x-3 min-w-0 flex-1">
-              <Avatar className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 flex-shrink-0 cursor-pointer" onClick={() => {handleNavigate(post.author.id)}}>
+              <Avatar className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 flex-shrink-0 cursor-pointer" onClick={() => { handleNavigate(post.author.id) }}>
                 <AvatarImage src={post.author.avatar || "/placeholder.svg"} />
                 <AvatarFallback className="text-xs sm:text-sm">{post.author.initials}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center space-x-2 flex-wrap">
-                  <h3 className="font-semibold cursor-pointer hover:underline text-gray-900 text-sm sm:text-base truncate" onClick={() => {handleNavigate(post.author.id)}}>{post.author.firstName + " " + post.author.lastName}</h3>
+                  <h3 className="font-semibold cursor-pointer hover:underline text-gray-900 text-sm sm:text-base truncate" onClick={() => { handleNavigate(post.author.id) }}>{post.author.firstName + " " + post.author.lastName}</h3>
                   {post.author.verified && (
                     <Badge className="bg-blue-100 text-blue-800 text-xs flex-shrink-0">Vérifié</Badge>
                   )}
@@ -176,7 +186,12 @@ export function PostCard({ post }: { post: any }) {
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     className="flex-1 text-xs sm:text-sm"
-                    onKeyPress={(e) => e.key === "Enter" && handleComment()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        handleComment()
+                      }
+                    }}
                   />
                   <Button size="sm" onClick={handleComment} disabled={!newComment.trim()} className="flex-shrink-0">
                     <Send className="w-3 h-3 sm:w-4 sm:h-4" />

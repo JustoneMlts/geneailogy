@@ -115,8 +115,11 @@ export const Feed = () => {
 
   // Comment
   const handleAddComment = async (postId: string) => {
+    console.log("currentUser", currentUser)
+
     if (!currentUser) return;
     const content = commentInputs[postId]?.trim();
+    console.log("content", content)
     if (!content) return;
 
     await addCommentToPost(postId, {
