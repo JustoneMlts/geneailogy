@@ -22,7 +22,8 @@ import { useDispatch, useSelector } from "react-redux"
 import { selectUser, setCurrentUser } from "@/lib/redux/slices/currentUserSlice"
 import { updateUser, updateUserAvatar } from "../controllers/usersController"
 import { Sidebar } from "@/components/sidebar"
-import { UserLink, UserType } from "@/lib/firebase/models"
+import { MemberType, UserLink, UserType } from "@/lib/firebase/models"
+import { getMemberById, updateMember } from "../controllers/membersController"
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("profile")
@@ -35,6 +36,22 @@ export default function ProfilePage() {
 
   const [vertical, setVertical] = useState<"top" | "bottom">("bottom")
   const [horizontal, setHorizontal] = useState<"left" | "center" | "right">("center")
+  const [member, setMember] = useState<MemberType | null>()
+
+  useEffect(() => {
+    const fetchMember = async () => {
+      try {
+        if (currentUser && currentUser.id) {
+          const data = await getMemberById(currentUser.id)
+          setMember(data)
+        }
+      } catch {
+        console.log("Une erreur est survenue lors de la récupération du member.")
+      }
+    }
+
+    fetchMember()
+  })
 
   const [notifications, setNotifications] = useState({
     email: true,
@@ -42,6 +59,12 @@ export default function ProfilePage() {
     suggestions: true,
     messages: true,
   })
+
+  function removeUndefined<T extends object>(obj: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([_, v]) => v !== undefined)
+  ) as Partial<T>
+}
 
   interface FormData {
     firstName: string
@@ -73,39 +96,63 @@ export default function ProfilePage() {
     researchInterests: currentUser?.researchInterests ?? "",
   });
 
-  const handleSubmit = async () => {
-    if (!currentUser?.id) {
-      console.error("L'utilisateur n'est pas identifié ou n'a pas d'ID Firestore.")
-      return
-    }
-    try {
-      const updatedUser: UserType = {
-        id: currentUser.id,
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        email: formData.email.trim(),
-        avatarUrl: currentUser.avatarUrl || '',
-        bio: formData.bio || undefined,
-        phoneNumber: formData.phoneNumber || undefined,
-        localisation: formData.localisation || undefined,
-        familyOrigin: formData.familyOrigin || undefined,
-        oldestAncestor: formData.oldestAncestor || undefined,
-        researchInterests: formData.researchInterests || undefined,
-        links: formData.links ?? [],
-        birthDate: formData.birthDate ? new Date(formData.birthDate).getTime() : undefined,
-        updatedDate: Date.now(),
-      }
+const handleSubmit = async () => {
+  if (!currentUser?.id) return console.error("User non identifié")
 
-      await updateUser(updatedUser)
-      dispatch(setCurrentUser(updatedUser))
-      setIsError(false)
-      setOpenAlert(true)
-    } catch (error) {
-      console.error("Erreur lors de la mise à jour :", error)
-      setIsError(true)
-      setOpenAlert(true)
+  try {
+    // Mise à jour du User
+    const updatedUser: UserType = {
+      id: currentUser.id,
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
+      email: formData.email.trim(),
+      bio: formData.bio || undefined,
+      phoneNumber: formData.phoneNumber || undefined,
+      localisation: formData.localisation || undefined,
+      familyOrigin: formData.familyOrigin || undefined,
+      oldestAncestor: formData.oldestAncestor || undefined,
+      researchInterests: formData.researchInterests || undefined,
+      links: formData.links ?? [],
+      birthDate: formData.birthDate ? new Date(formData.birthDate).getTime() : undefined,
+      avatarUrl: currentUser.avatarUrl,
+      nationality: currentUser.nationality,
+      createdDate: currentUser.createdDate,
+      isActive: currentUser.isActive ?? true,
+      treesIds: currentUser.treesIds ?? [],
+      updatedDate: Date.now(),
     }
+
+    await updateUser(updatedUser)
+    dispatch(setCurrentUser(updatedUser))
+
+    // Récupérer le member correspondant
+    const member = await getMemberById(currentUser.id)
+    console.log("member récupéré:", member)
+
+    if (member?.id) {
+      const updatedMember: Partial<MemberType> = removeUndefined({
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        birthDate: updatedUser.birthDate,
+        bio: updatedUser.bio,
+        nationality: updatedUser.nationality,
+        avatar: updatedUser.avatarUrl,
+        updatedDate: Date.now(),
+      })
+
+      console.log("updatedMember:", updatedMember)
+      await updateMember(member.id, updatedMember)
+    }
+
+    setIsError(false)
+    setOpenAlert(true)
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour :", error)
+    setIsError(true)
+    setOpenAlert(true)
   }
+}
+
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 

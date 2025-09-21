@@ -11,6 +11,7 @@ export const createTree = async (treeData: Omit<TreeType, 'id'>) => {
     const docRef = doc(collection(db, COLLECTIONS.TREES));
     await setDoc(docRef, {
       ...treeData,
+      id: docRef.id, // ajout du champ id
       createdDate: Date.now(),
       updatedDate: Date.now(),
       isActive: true
@@ -44,10 +45,21 @@ export const getTrees = async () => {
   return await getAllDataFromCollection(COLLECTIONS.TREES);
 };
 
-export const getTreeById = async (treeId: string) => {
-  return await getDataFromCollection(COLLECTIONS.TREES, treeId);
-};
+export const getTreeById = async (treeId: string): Promise<TreeType | null> => {
+  try {
+    const data = await getDataFromCollection(COLLECTIONS.TREES, treeId); // <-- treeId bien passé
+    if (!data) return null;
 
+    const { id: _, ...rest } = data; // retirer id si présent
+    return {
+      id: treeId,
+      ...rest,
+    } as TreeType;
+  } catch (error) {
+    console.error("❌ Error getTreeById:", error);
+    return null;
+  }
+};
 
 export const getMembersByTreeId = async (treeId: string): Promise<MemberType[]> => {
   try {

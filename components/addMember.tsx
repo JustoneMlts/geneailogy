@@ -43,7 +43,7 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
     const [deathPlace, setDeathPlace] = useState("");
     const [nationality, setNationality] = useState("");
     const [bio, setBio] = useState("");
-
+    const [selectedSpouse, setSelectedSpouse] = useState<string[]>([]);
     const [selectedParents, setSelectedParents] = useState<string[]>([]);
     const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
     const [selectedSiblings, setSelectedSiblings] = useState<string[]>([]);
@@ -55,7 +55,6 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
     const [members, setMembers] = useState<MemberType[]>([]); // ✅ tableau vide initial
 
     useEffect(() => {
-        console.log("treeId", treeId)
         if (!treeId) return;
 
         const fetchMembers = async () => {
@@ -70,47 +69,82 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
         fetchMembers();
     }, [treeId]);
 
-    console.log("familyMembers", familyMembers)
-
     const handleToggle = (id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => (checked: boolean | "indeterminate") => {
         if (checked === true) setter(prev => prev.includes(id) ? prev : [...prev, id]);
         else setter(prev => prev.filter(i => i !== id));
     };
 
-const handleSave = async () => {
-  const memberData = {
-    firstName,
-    lastName,
-    birthDate: birthDate?.getTime(),
-    deathDate: isDeceased ? deathDate?.getTime() : undefined,
-    birthPlace: birthPlace || undefined,
-    deathPlace: deathPlace || undefined,
-    gender: selectedGender,
-    nationality: nationality || undefined,
-    bio: bio || undefined,
-    treeId,
-    isMarried,
-    parentsIds: selectedParents,
-    childrenIds: selectedChildren,
-    brothersIds: selectedSiblings,
-    createdDate: Date.now(),
-    updatedDate: Date.now(),
-    isActive: true,
-  };
+    const handleSave = async () => {
+        const memberData = {
+            firstName,
+            lastName,
+            birthDate: birthDate?.getTime(),
+            deathDate: isDeceased ? deathDate?.getTime() : undefined,
+            birthPlace: birthPlace || undefined,
+            deathPlace: deathPlace || undefined,
+            gender: selectedGender,
+            nationality: nationality || undefined,
+            bio: bio || undefined,
+            treeId,
+            isMarried,
+            mariageId: selectedSpouse[0] || undefined,  // 👈 solo uno
+            parentsIds: selectedParents,
+            childrenIds: selectedChildren,
+            brothersIds: selectedSiblings,
+            createdDate: Date.now(),
+            updatedDate: Date.now(),
+            isActive: true,
+        };
 
-  // Supprimer les undefined pour Firebase
-  const cleanedData = Object.fromEntries(
-    Object.entries(memberData).filter(([_, v]) => v !== undefined)
-  );
+        const cleanedData = Object.fromEntries(
+            Object.entries(memberData).filter(([_, v]) => v !== undefined)
+        );
 
-  try {
-    const newMemberRef = await addDoc(collection(db, "Members"), cleanedData);
-    await updateDoc(doc(db, "Trees", treeId), { memberIds: arrayUnion(newMemberRef.id) });
-    onClose();
-  } catch (e) {
-    console.error(e);
-  }
-};
+        try {
+            const newMemberRef = await addDoc(collection(db, "Members"), cleanedData);
+            const newMemberId = newMemberRef.id;
+
+            await updateDoc(doc(db, "Trees", treeId), {
+                memberIds: arrayUnion(newMemberId),
+            });
+
+            const updates: Promise<any>[] = [];
+
+            selectedParents.forEach((parentId) => {
+                updates.push(updateDoc(doc(db, "Members", parentId), {
+                    childrenIds: arrayUnion(newMemberId)
+                }));
+            });
+
+            selectedChildren.forEach((childId) => {
+                updates.push(updateDoc(doc(db, "Members", childId), {
+                    parentsIds: arrayUnion(newMemberId)
+                }));
+            });
+
+            selectedSiblings.forEach((siblingId) => {
+                updates.push(updateDoc(doc(db, "Members", siblingId), {
+                    brothersIds: arrayUnion(newMemberId)
+                }));
+            });
+
+            // 👇 Aggiorniamo anche il coniuge scelto, se esiste
+            if (selectedSpouse[0]) {
+                updates.push(updateDoc(doc(db, "Members", selectedSpouse[0]), {
+                    mariageId: newMemberId,
+                    isMarried: true,
+                }));
+            }
+
+            await Promise.all(updates);
+
+            onClose();
+        } catch (e) {
+            console.error("❌ Erreur lors de l’ajout du membre :", e);
+        }
+    };
+
+
 
     const renderMemberCheckboxes = (selectedList: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) => {
         if (loadingMembers) return <p className="text-sm text-gray-500">Chargement des membres...</p>;
@@ -237,9 +271,9 @@ const handleSave = async () => {
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center space-x-2">
-                                    <User className="h-5 w-5" /> Informations personnelles
+                                    <User className="h-5 w-5" /> Dates et lieux
                                 </CardTitle>
-                                <CardDescription>Informations de base sur la personne</CardDescription>
+                                <CardDescription>Dates et lieux principaux de la personne</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="grid md:grid-cols-2 gap-4">
@@ -307,40 +341,6 @@ const handleSave = async () => {
                             </CardContent>
                         </Card>
 
-                        {/* Dates et lieux */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center space-x-2">
-                                    <CalendarIcon className="h-5 w-5" /> Dates et lieux
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div>
-                                    <Label className="mb-2 block font-medium">Parents</Label>
-                                    <div className="text-xs text-gray-500 mb-2">
-                                        Sélectionnez jusqu'à 2 parents
-                                    </div>
-                                    {renderMemberCheckboxes(selectedParents, setSelectedParents)}
-                                </div>
-
-                                <div>
-                                    <Label className="mb-2 block font-medium">Frères et sœurs</Label>
-                                    <div className="text-xs text-gray-500 mb-2">
-                                        Sélectionnez les frères et sœurs de ce membre
-                                    </div>
-                                    {renderMemberCheckboxes(selectedSiblings, setSelectedSiblings)}
-                                </div>
-
-                                <div>
-                                    <Label className="mb-2 block font-medium">Enfants</Label>
-                                    <div className="text-xs text-gray-500 mb-2">
-                                        Sélectionnez les enfants de ce membre
-                                    </div>
-                                    {renderMemberCheckboxes(selectedChildren, setSelectedChildren)}
-                                </div>
-                            </CardContent>
-                        </Card>
-
                         {/* Relations */}
                         <Card>
                             <CardHeader>
@@ -360,6 +360,25 @@ const handleSave = async () => {
                                 <div>
                                     <Label>Enfants</Label>
                                     {renderMemberCheckboxes(selectedChildren, setSelectedChildren)}
+                                </div>
+                                <div>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            checked={isMarried}
+                                            onCheckedChange={(checked) => {
+                                                setIsMarried(checked === true);
+                                                if (checked !== true) setSelectedSpouse([]); // ✅ reset con array vuoto
+                                            }}
+                                        />
+                                        <Label>Cette personne est-elle mariée ?</Label>
+                                    </div>
+
+                                    {isMarried && (
+                                        <div className="mt-3 space-y-2">
+                                            <Label>Sélectionner le/la conjoint(e)</Label>
+                                            {renderMemberCheckboxes(selectedSpouse, setSelectedSpouse)}
+                                        </div>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>

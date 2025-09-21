@@ -105,8 +105,9 @@ function DesktopSidebar({
 	}, [isPinned])
 
 	const handleLogout = () => {
-		dispatch(setCurrentUser(null));
 		logOut();
+		dispatch(setActiveTab("feed"))
+		dispatch(setCurrentUser(null));
 		route.push("/login");
 	}
 

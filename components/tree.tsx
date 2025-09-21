@@ -11,234 +11,418 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { UserType, TreeType, MemberType } from "../lib/firebase/models"
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AddMemberModal from "./addMember";
 import { useSelector } from "react-redux";
 import { selectUser } from "@/lib/redux/slices/currentUserSlice";
+import { getTreeById } from "@/app/controllers/treesController";
+import { getUserById } from "@/app/controllers/usersController";
+import { getFamilyMembersByIds } from "@/app/controllers/membersController";
+import { MariageLines } from "@/components/mariageLine"
 
 const getYearFromADate = (timestamp: number): number => {
     const date = new Date(timestamp)
     return date.getFullYear()
 }
+export const getMemberById = (familyData: MemberType[], id?: string): MemberType | undefined => 
+  id ? familyData.find(member => member.id === id) : undefined;
 
-const getMemberById = (data: Record<string, MemberType>, id?: string) => {
-    return id ? Object.values(data).find((m) => m.id === id) || null : null
-}
+export const getMembersByIds = (data: MemberType[], ids?: string[]): MemberType[] => 
+  ids?.map(id => getMemberById(data, id)).filter((m): m is MemberType => !!m) || [];
 
-const getMembersByIds = (data: Record<string, MemberType>, ids?: string[]) => {
-    return (ids || []).map((id) => getMemberById(data, id)).filter(Boolean) as MemberType[]
-}
+export const getParents = (member: MemberType, data: MemberType[]): MemberType[] => {
+  if (member.parentsIds?.length) return getMembersByIds(data, member.parentsIds);
+  return data.filter(m => m.childrenIds?.includes(member.id!));
+};
 
-const getParents = (member: MemberType, data: Record<string, MemberType>) => {
-    return getMembersByIds(data, member.parentsIds)
-}
+export const getChildren = (member: MemberType, data: MemberType[]): MemberType[] => 
+  getMembersByIds(data, member.childrenIds);
 
-const getSiblings = (member: MemberType, data: Record<string, MemberType>) => {
-    if (!member.parentsIds) return []
-    return Object.values(data).filter(
-        (m) =>
-            m.id !== member.id &&
-            m.parentsIds?.some((pid) => member.parentsIds?.includes(pid))
-    )
-}
+export const getSiblings = (member: MemberType, data: MemberType[]): MemberType[] => {
+  if (member.brothersIds?.length) return getMembersByIds(data, member.brothersIds);
+  return data.filter(
+    m => m.id !== member.id && m.parentsIds?.some(pid => member.parentsIds?.includes(pid))
+  );
+};
 
-const getChildren = (member: MemberType, data: Record<string, MemberType>) => {
-    return getMembersByIds(data, member.childrenIds)
-}
+type ChildrenSection = {
+  label: string;
+  members: MemberType[];
+  parentId: string;
+};
 
-const Section = ({
-    title,
-    members,
-    setSelectedMember,
-}: {
-    title: string
-    members: MemberType[]
-    setSelectedMember: (member: MemberType) => void
-}) => {
-    if (!members.length) return null
-    const currentUserId = "id-lucas"
-    const treeOwner = "Jean Dupont"
-    const isOwner = true
-    return (
-        <div className="text-center space-y-4">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">{title}</h2>
-            <div className="flex justify-center gap-10 flex-wrap">
-                {members.map((member) => (
-                    <div key={member.id}>
-                        <FamilyMemberCard
-                            member={member}
-                            highlight={isOwner && member.id === currentUserId}
-                            onClick={() => setSelectedMember(member)}
-                        />
-                    </div>
-                ))}
-            </div>
-        </div>
-    )
-}
+type Generation = {
+  label: string;
+  members: MemberType[];
+  type: 'parents' | 'siblings' | 'children-group';
+  childrenSections?: ChildrenSection[]; // Pour grouper les sections d'enfants
+};
 
-export const renderFullFamilyTree = (
-    familyData: Record<string, MemberType>,
-    currentUserId: string,
-    isOwner: boolean,
-    treeOwner: string,
-    setSelectedMember: (m: MemberType) => void
-) => {
-    const current = getMemberById(familyData, currentUserId)
-    if (!current) return null
+export const buildFullTree = (
+  familyData: MemberType[],
+  currentUserId?: string,
+  isOwner?: boolean,
+  treeOwner?: string
+): Generation[] => {
+  const generations: Generation[] = [];
+  const renderedMembers = new Set<string>();
 
-    const generations: MemberType[][] = []
-    let currentGen: MemberType[] = [current]
-    let visited = new Set<string | undefined>()
+  const currentMember = currentUserId ? getMemberById(familyData, currentUserId) : undefined;
+  if (!currentMember) return generations;
 
-    while (currentGen.length > 0) {
-        generations.unshift(currentGen)
-        visited = new Set([...visited, ...currentGen.map((m) => m.id)])
+  // 1. Générations ascendantes (parents, grands-parents, etc.)
+  let currentGenUp = [currentMember];
+  let level = 1;
+  
+  while (currentGenUp.length > 0) {
+    const nextGenUp: MemberType[] = [];
+    
+    currentGenUp.forEach(child => {
+      const parents = getParents(child, familyData).filter(p => !renderedMembers.has(p.id!));
+      if (parents.length) {
+        parents.forEach(p => renderedMembers.add(p.id!));
+        nextGenUp.push(...parents);
+      }
+    });
 
-        const nextGen: MemberType[] = []
-        currentGen.forEach((member) => {
-            const parents = getParents(member, familyData)
-            parents.forEach((p) => {
-                if (!visited.has(p.id)) {
-                    nextGen.push(p)
-                }
-            })
-        })
-
-        currentGen = nextGen
+    if (nextGenUp.length > 0) {
+      generations.unshift({
+        label: isOwner ? `Parents (G+${level})` : `Parents de la génération actuelle`,
+        members: nextGenUp,
+        type: 'parents'
+      });
     }
 
-    const generationLabels = [
-        "Votre génération", // index 0
-        "Vos parents",
-        "Vos grands-parents",
-        "Vos arrière-grands-parents",
-        "Vos arrière-arrière-grands-parents",
-        "Vos ancêtres (G+5)",
-        "Vos ancêtres (G+6)",
-        "Vos ancêtres (G+7)",
-        "Vos ancêtres (G+8)",
-        "Vos ancêtres (G+9)",
-    ]
+    currentGenUp = nextGenUp;
+    level++;
+  }
 
+  // 2. Génération de l'utilisateur + frères/sœurs avec leurs enfants
+  const siblings = getSiblings(currentMember, familyData).filter(s => !renderedMembers.has(s.id!));
+  const userGenMembers = [currentMember, ...siblings];
+  
+  userGenMembers.forEach(m => renderedMembers.add(m.id!));
+  
+  // 3. Créer les sections d'enfants pour chaque membre
+  const childrenSections: ChildrenSection[] = [];
+  
+  userGenMembers.forEach(parent => {
+    const children = getChildren(parent, familyData).filter(c => !renderedMembers.has(c.id!));
+    
+    if (children.length > 0) {
+      children.forEach(c => renderedMembers.add(c.id!));
+      
+      const parentName = parent.id === currentUserId ? 'Vos enfants' : `Enfants de ${parent.firstName || 'ce membre'}`;
+      
+      childrenSections.push({
+        label: parentName,
+        members: children,
+        parentId: parent.id!
+      });
+    }
+  });
+
+  // Ajouter la génération des frères/sœurs avec leurs enfants intégrés
+  generations.push({
+    label: isOwner ? "Vous et vos frères et sœurs" : `Génération de ${treeOwner}`,
+    members: userGenMembers,
+    type: 'siblings',
+    childrenSections
+  });
+
+  // 4. Générations suivantes (petits-enfants, etc.) - à implémenter si nécessaire
+  // ...
+
+  return generations;
+};
+
+// Composant principal (inchangé)
+export const renderFullFamilyTree = (treeId: string, refreshTrigger?: number) => {
+  const [familyData, setFamilyData] = useState<MemberType[]>([]);
+  const currentUser = useSelector(selectUser);
+  const [isOwner, setIsOwner] = useState(false);
+  const [tree, setTree] = useState<TreeType | null>(null);
+  const [treeOwner, setTreeOwner] = useState("");
+  const [selectedMember, setSelectedMember] = useState<MemberType>();
+  const [generations, setGenerations] = useState<Generation[]>([]);
+
+  useEffect(() => {
+    if (!treeId) return;
+    getTreeById(treeId)
+      .then(setTree)
+      .catch(err => console.error("Erreur arbre:", err));
+  }, [treeId, refreshTrigger]); // Ajout du refreshTrigger
+
+  useEffect(() => {
+    if (!tree || !tree.ownerId) return;
+    if (currentUser?.id === tree.ownerId) {
+      setTreeOwner(`${currentUser.firstName} ${currentUser.lastName}`);
+    } else {
+      getUserById(tree.ownerId)
+        .then(data => setTreeOwner(data ? `${data.firstName} ${data.lastName}` : ""))
+        .catch(err => console.error("Erreur propriétaire:", err));
+    }
+  }, [tree, currentUser]);
+
+  useEffect(() => {
+    if (tree && currentUser) setIsOwner(currentUser.id === tree.ownerId);
+  }, [tree, currentUser]);
+
+  useEffect(() => {
+    if (!tree?.memberIds?.length) return;
+    getFamilyMembersByIds(tree.memberIds)
+      .then(data => setFamilyData(data))
+      .catch(err => console.error("Erreur membres:", err));
+  }, [tree, refreshTrigger]); // Ajout du refreshTrigger
+
+  useEffect(() => {
+    if (!familyData.length || !currentUser) return;
+    const gens = buildFullTree(familyData, currentUser.id, isOwner, treeOwner);
+    setGenerations(gens);
+  }, [familyData, currentUser, isOwner, treeOwner]);
+
+  if (!currentUser || !familyData.length || !generations.length) {
+    return <div>Chargement de l'arbre...</div>;
+  }
+
+  return (
+    <div className="space-y-12 px-4">
+      {generations.map((generation, genIndex) => (
+        <GenerationSection
+          key={`gen-${genIndex}`}
+          title={generation.label}
+          members={generation.members}
+          setSelectedMember={setSelectedMember}
+          currentUserId={currentUser?.id || ""}
+          isOwner={isOwner}
+          type={generation.type}
+          childrenSections={generation.childrenSections}
+        />
+      ))}
+    </div>
+  );
+};
+
+// Composant génération avec support des sections d'enfants groupées
+const GenerationSection = ({
+  title,
+  members,
+  setSelectedMember,
+  currentUserId,
+  isOwner,
+  type,
+  childrenSections
+}: {
+  title: string;
+  members: MemberType[];
+  setSelectedMember: (member: MemberType) => void;
+  currentUserId: string;
+  isOwner: boolean;
+  type: 'parents' | 'siblings' | 'children-group';
+  childrenSections?: ChildrenSection[];
+}) => {
+  // Pour les sections frères/sœurs avec leurs enfants alignés
+  if (type === 'siblings' && childrenSections) {
     return (
-        <div className="space-y-8">
-            {generations.map((generation, index) => {
-                const reversedIndex = generations.length - 1 - index
-                const rawLabel = generationLabels[reversedIndex] || "Ancêtres"
-                const title = isOwner
-                    ? rawLabel
-                    : rawLabel.replace("Vos", `Les de ${treeOwner}`)
-
-                return (
-                    <div key={index}>
-                        {reversedIndex !== 1 && (
-                            <Section
-                                title={title}
-                                members={generation}
-                                setSelectedMember={setSelectedMember}
-                            />
-                        )}
-
-                        {/* Ajout spécial Oncles/Tantes + Cousins à la génération des parents */}
-                        {reversedIndex === 1 && (
-                            <>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <Section
-                                        title={
-                                            isOwner ? "Vos parents" : `Les parents de ${treeOwner}`
-                                        }
-                                        members={generation}
-                                        setSelectedMember={setSelectedMember}
-                                    />
-                                    <Section
-                                        title={
-                                            isOwner ? "Vos oncles et tantes" : `Les oncles et tantes de ${treeOwner}`
-                                        }
-                                        members={generation
-                                            .flatMap((parent) => getSiblings(parent, familyData))
-                                            .filter((v, i, a) => a.findIndex(m => m.id === v.id) === i)}
-                                        setSelectedMember={setSelectedMember}
-                                    />
-                                </div>
-
-                                {/* Trait entre ligne parents/oncles et cousins */}
-                                <div className="flex justify-center">
-                                    <div className="w-px h-8 bg-gray-300"></div>
-                                </div>
-
-                                <Section
-                                    title={isOwner ? "Vos cousins" : `Les cousins de ${treeOwner}`}
-                                    members={generation
-                                        .flatMap((parent) => getSiblings(parent, familyData))
-                                        .flatMap((uncle) => getChildren(uncle, familyData))
-                                        .filter((v, i, a) => a.findIndex(m => m.id === v.id) === i)}
-                                    setSelectedMember={setSelectedMember}
-                                />
-                            </>
-                        )}
-
-                        {index < generations.length - 1 && (
-                            <div className="flex justify-center">
-                                <div className="w-px h-8 bg-gray-300"></div>
-                            </div>
-                        )}
-                    </div>
-                )
-            })}
+      <div className="relative text-center space-y-8">
+        {/* Titre de la section avec ligne décorative */}
+        <div className="relative">
+          <h2 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
+            {title}
+          </h2>
+          <div className="absolute inset-y-0 left-0 right-0 flex items-center">
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+          </div>
         </div>
-    )
-}
 
-function FamilyMemberCard({ member, onClick, highlight }: { member: MemberType; onClick: () => void, highlight: boolean }) {
+        {/* Colonnes parent-enfant indépendantes */}
+        <div className="flex justify-center items-start gap-12">
+          {members.map((parent) => {
+            const parentChildrenSection = childrenSections?.find(section => section.parentId === parent.id);
+            
+            // Calculer la largeur nécessaire pour cette colonne
+            const childrenCount = parentChildrenSection?.members.length || 1;
+            const columnWidth = Math.max(150, childrenCount * 120 + (childrenCount - 1) * 16); // 120px par carte + 16px gap
+            
+            return (
+              <div 
+                key={parent.id!} 
+                className="flex flex-col items-center space-y-6"
+                style={{ minWidth: `${columnWidth}px` }}
+              >
+                {/* Le parent - centré dans sa colonne */}
+                <div className="flex justify-center w-full">
+                  <CompactFamilyMemberCard
+                    member={parent}
+                    highlight={parent.id === currentUserId}
+                    onClick={() => setSelectedMember(parent)}
+                  />
+                </div>
+                
+                {/* Ses enfants (s'il en a) */}
+                {parentChildrenSection && (
+                  <div className="text-center space-y-4 w-full">
+                    {/* Titre de la section d'enfants */}
+                    <div className="relative">
+                      <h3 className="text-xs font-medium text-gray-700 bg-white px-3 py-1 rounded-full border border-gray-200 inline-block relative z-10">
+                        {parentChildrenSection.label}
+                      </h3>
+                      <div className="absolute inset-y-0 left-0 right-0 flex items-center">
+                        <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
+                      </div>
+                    </div>
+                    
+                    {/* Les enfants - centrés dans la colonne */}
+                    <div className="flex gap-4 justify-center flex-wrap">
+                      {parentChildrenSection.members.map((member) => (
+                        <CompactFamilyMemberCard
+                          key={member.id!}
+                          member={member}
+                          highlight={member.id === currentUserId}
+                          onClick={() => setSelectedMember(member)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Si pas d'enfant, on garde un espace équivalent */}
+                {!parentChildrenSection && (
+                  <div className="h-32"></div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
+  // Pour les sections d'enfants groupées (cas qui ne devrait plus arriver)
+  if (type === 'children-group' && childrenSections) {
     return (
-        <div>
-            <Card
-                className={`w-48 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 ${member.gender === "male" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"
-                    }`}
-                onClick={onClick}
-            >
-                <CardContent className="p-4 text-center">
-                    <Avatar className="w-16 h-16 mx-auto mb-3">
-                        <AvatarImage src={member.avatar || "/placeholder.svg"} />
-                        <AvatarFallback className={member.gender === "male" ? "bg-blue-100" : "bg-pink-100"}>
-                            {member.firstName
+      <div className="relative text-center space-y-8">
+        <div className="flex justify-center gap-16">
+          {childrenSections.map((section, index) => (
+            <div key={`${section.parentId}-${index}`} className="text-center space-y-4">
+              <div className="relative">
+                <h3 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
+                  {section.label}
+                </h3>
+                <div className="absolute inset-y-0 left-0 right-0 flex items-center">
+                  <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+                </div>
+              </div>
+              
+              <div className="flex gap-6 justify-center">
+                {section.members.map((member) => (
+                  <CompactFamilyMemberCard
+                    key={member.id!}
+                    member={member}
+                    highlight={member.id === currentUserId}
+                    onClick={() => setSelectedMember(member)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Pour les autres types de sections (parents uniquement)
+  if (!members.length) return null;
+
+  return (
+    <div className="relative text-center space-y-6">
+      {/* Titre de la section avec ligne décorative */}
+      <div className="relative">
+        <h2 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
+          {title}
+        </h2>
+        <div className="absolute inset-y-0 left-0 right-0 flex items-center">
+          <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+        </div>
+      </div>
+
+      {/* Membres de la génération */}
+      <div className="flex gap-16 justify-center flex-wrap">
+        {members.map((member) => (
+          <CompactFamilyMemberCard
+            key={member.id!}
+            member={member}
+            highlight={member.id === currentUserId}
+            onClick={() => setSelectedMember(member)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Version compacte de la card pour une meilleure lisibilité
+function CompactFamilyMemberCard({
+    member,
+    onClick,
+    highlight
+}: {
+    member: MemberType;
+    onClick: () => void;
+    highlight: boolean
+}) {
+    return (
+        <Card
+            className={`w-40 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 ${member.gender === "male" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"
+                } ${highlight ? "ring-2 ring-yellow-400 ring-offset-2" : ""}`}
+            onClick={onClick}
+        >
+            <CardContent className="p-3 text-center">
+                <Avatar className="w-12 h-12 mx-auto mb-2">
+                    <AvatarImage src={member.avatar || "/placeholder.svg"} />
+                    <AvatarFallback className={member.gender === "male" ? "bg-blue-100 text-xs" : "bg-pink-100 text-xs"}>
+                        {member.firstName
+                            .split(" ")
+                            .map((n: any) => n[0])
+                            .join("") + member.lastName
                                 .split(" ")
                                 .map((n: any) => n[0])
-                                .join("") + member.lastName
-                                    .split(" ")
-                                    .map((n: any) => n[0])
-                                    .join("")
-                            }
-                        </AvatarFallback>
-                    </Avatar>
-                    <h3 className="font-semibold text-sm mb-2">{member.firstName + " " + member.lastName}</h3>
-                    <div className="space-y-1 text-xs text-gray-600">
-                        {member.birthDate && (
-                            <div className="flex items-center justify-center space-x-1">
-                                <Calendar className="w-3 h-3" />
-                                <span>
-                                    {getYearFromADate(member.birthDate)}
-                                    {member.deathDate && ` - ${getYearFromADate(member.deathDate)}`}
-                                </span>
-                            </div>
-                        )}
-                        {member.birthPlace && (
-                            <div className="flex items-center justify-center space-x-1">
-                                <MapPin className="w-3 h-3" />
-                                <span className="truncate">{member.birthPlace}</span>
-                            </div>
-                        )}
-                    </div>
-                    {member.deathDate && (
-                        <Badge variant="secondary" className="mt-2 text-xs">
-                            Décédé(e)
-                        </Badge>
+                                .join("")
+                        }
+                    </AvatarFallback>
+                </Avatar>
+
+                <h3 className="font-semibold text-xs mb-1 leading-tight">
+                    {member.firstName} {member.lastName}
+                </h3>
+
+                <div className="space-y-1 text-xs text-gray-600">
+                    {member.birthDate && (
+                        <div className="flex items-center justify-center space-x-1">
+                            <Calendar className="w-2.5 h-2.5" />
+                            <span className="text-xs">
+                                {getYearFromADate(member.birthDate)}
+                                {member.deathDate && ` - ${getYearFromADate(member.deathDate)}`}
+                            </span>
+                        </div>
                     )}
-                </CardContent>
-            </Card>
-        </div>
+                    {member.birthPlace && (
+                        <div className="flex items-center justify-center space-x-1">
+                            <MapPin className="w-2.5 h-2.5" />
+                            <span className="truncate text-xs max-w-24">
+                                {member.birthPlace.split(',')[0]}
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                {member.deathDate && (
+                    <Badge variant="secondary" className="mt-1 text-xs px-1 py-0">
+                        Décédé(e)
+                    </Badge>
+                )}
+            </CardContent>
+        </Card>
     )
 }
 
@@ -248,124 +432,14 @@ export const Tree = () => {
     const currentUser = useSelector(selectUser)
 
     useEffect(() => {
+        console.log("currentUser", currentUser)
         if (currentUser && currentUser.treesIds && currentUser.treesIds?.length) {
+            console.log("user -> treeId : ", currentUser.treesIds[0])
             setTreeId(currentUser.treesIds[0])
         }
     }, [currentUser])
 
-    useEffect(() => {
-        console.log("currentUser", currentUser)
-        if (currentUser && currentUser.treesIds && currentUser.treesIds[0])
-            console.log("treeId", currentUser.treesIds[0])
-    }, [treeId])
 
-    const familyData: Record<string, MemberType> = {
-        "0": {
-            id: "id-jean",
-            firstName: "Jean",
-            lastName: "Dupont",
-            birthDate: new Date("1950-01-01").getTime(),
-            birthPlace: "Paris, France",
-            avatar: "/placeholder.svg?height=60&width=60",
-            gender: "male",
-            childrenIds: ["id-pierre", "id-sophie"],
-            isMarried: true,
-            mariageId: "id-marie",
-            treeId: "tree-dupont",
-        },
-        "1": {
-            id: "id-marie",
-            firstName: "Marie",
-            lastName: "Martin",
-            birthDate: new Date("1952-01-01").getTime(),
-            birthPlace: "Lyon, France",
-            avatar: "/placeholder.svg?height=60&width=60",
-            gender: "female",
-            childrenIds: ["id-pierre", "id-sophie"],
-            isMarried: true,
-            mariageId: "id-jean",
-            treeId: "tree-dupont",
-        },
-        "2": {
-            id: "id-pierre",
-            firstName: "Pierre",
-            lastName: "Dupont",
-            birthDate: new Date("1975-01-01").getTime(),
-            birthPlace: "Paris, France",
-            avatar: "/placeholder.svg?height=60&width=60",
-            gender: "male",
-            parentsIds: ["id-jean", "id-marie"],
-            childrenIds: ["id-lucas"],
-            isMarried: true,
-            mariageId: "id-claire",
-            treeId: "tree-dupont",
-        },
-        "3": {
-            id: "id-sophie",
-            firstName: "Sophie",
-            lastName: "Dupont",
-            birthDate: new Date("1978-01-01").getTime(),
-            birthPlace: "Paris, France",
-            avatar: "/placeholder.svg?height=60&width=60",
-            gender: "female",
-            parentsIds: ["id-jean", "id-marie"],
-            isMarried: false,
-            treeId: "tree-dupont",
-        },
-        "4": {
-            id: "id-claire",
-            firstName: "Claire",
-            lastName: "Bernard",
-            birthDate: new Date("1977-01-01").getTime(),
-            birthPlace: "Marseille, France",
-            avatar: "/placeholder.svg?height=60&width=60",
-            gender: "female",
-            childrenIds: ["id-lucas"],
-            isMarried: true,
-            mariageId: "id-pierre",
-            treeId: "tree-dupont",
-        },
-        "5": {
-            id: "id-lucas",
-            firstName: "Lucas",
-            lastName: "Dupont",
-            birthDate: new Date("2005-01-01").getTime(),
-            birthPlace: "Paris, France",
-            avatar: "/placeholder.svg?height=60&width=60",
-            gender: "male",
-            parentsIds: ["id-pierre", "id-claire"],
-            isMarried: false,
-            treeId: "tree-dupont",
-        },
-        "6": {
-            id: "id-robert",
-            firstName: "Robert",
-            lastName: "Dupont",
-            birthDate: new Date("1920-01-01").getTime(),
-            deathDate: new Date("1995-01-01").getTime(),
-            birthPlace: "Bordeaux, France",
-            avatar: "/placeholder.svg?height=60&width=60",
-            gender: "male",
-            childrenIds: ["id-jean"],
-            isMarried: true,
-            mariageId: "id-louise",
-            treeId: "tree-dupont",
-        },
-        "7": {
-            id: "id-louise",
-            firstName: "Louise",
-            lastName: "Petit",
-            birthDate: new Date("1925-01-01").getTime(),
-            deathDate: new Date("2010-01-01").getTime(),
-            birthPlace: "Toulouse, France",
-            avatar: "/placeholder.svg?height=60&width=60",
-            gender: "female",
-            childrenIds: ["id-jean"],
-            isMarried: true,
-            mariageId: "id-robert",
-            treeId: "tree-dupont",
-        },
-    }
 
     const [zoom, setZoom] = useState(1)
     const [showFamilySettings, setShowFamilySettings] = useState(false)
@@ -486,313 +560,8 @@ export const Tree = () => {
 
             {/* Tree Visualization */}
             <div className="py-4">
-                {renderFullFamilyTree(familyData, "id-lucas", true, "Lucas", setSelectedMember)}
+                {renderFullFamilyTree(treeId)}
             </div>
-
-
-            {/* Member Details Panel - Version améliorée */}
-            {selectedMember && (
-                <div
-                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-                    onClick={() => setSelectedMember(null)}
-                >
-                    <Card
-                        className="bg-white max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <CardHeader className="relative">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="absolute right-2 top-2 h-8 w-8"
-                                onClick={() => setSelectedMember(null)}
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
-
-                            <div className="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6 pt-2">
-                                <Avatar className="w-24 h-24 flex-shrink-0">
-                                    <AvatarImage src={selectedMember.avatar || "/placeholder.svg"} />
-                                    <AvatarFallback
-                                        className={`text-2xl ${selectedMember.gender === "male" ? "bg-blue-100" : "bg-pink-100"}`}
-                                    >
-                                        {selectedMember.firstName
-                                            .split(" ")
-                                            .map((n: any) => n[0])
-                                            .join("") + selectedMember.lastName
-                                                .split(" ")
-                                                .map((n: any) => n[0])
-                                                .join("")
-                                        }
-                                    </AvatarFallback>
-                                </Avatar>
-
-                                <div className="text-center md:text-left flex-1">
-                                    <CardTitle className="text-3xl font-bold text-gray-800 mb-2">{selectedMember.firstName + ' ' + selectedMember.lastName}</CardTitle>
-                                    <div className="flex flex-wrap justify-center md:justify-start gap-2 mb-4">
-                                        <Badge
-                                            variant="outline"
-                                            className={
-                                                selectedMember.gender === "male"
-                                                    ? "border-blue-200 text-blue-700"
-                                                    : "border-pink-200 text-pink-700"
-                                            }
-                                        >
-                                            {selectedMember.gender === "male" ? "Homme" : "Femme"}
-                                        </Badge>
-                                        {selectedMember.deathDate && <Badge variant="secondary">Décédé(e)</Badge>}
-                                        {selectedMember.mariageId && (
-                                            <Badge variant="outline" className="border-red-200 text-red-700">
-                                                Marié(e)
-                                            </Badge>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </CardHeader>
-
-                        <CardContent className="space-y-6">
-                            {/* Informations personnelles */}
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
-                                    <User className="w-5 h-5 mr-2" />
-                                    Informations personnelles
-                                </h3>
-                                <div className="grid md:grid-cols-2 gap-4">
-                                    {selectedMember.birthDate && (
-                                        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                                            <Calendar className="w-5 h-5 text-gray-500 flex-shrink-0" />
-                                            <div>
-                                                <p className="text-sm text-gray-600">Date de naissance</p>
-                                                <p className="font-medium">
-                                                    {selectedMember.birthDate ? formatDate(selectedMember.birthDate) : "Non renseignée"}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedMember.deathDate && (
-                                        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                                            <Calendar className="w-5 h-5 text-gray-500 flex-shrink-0" />
-                                            <div>
-                                                <p className="text-sm text-gray-600">Date de décès</p>
-                                                <p className="font-medium">
-                                                    {selectedMember.birthDate ? formatDate(selectedMember.deathDate) : "Non renseignée"}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedMember.birthPlace && (
-                                        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg md:col-span-2">
-                                            <MapPin className="w-5 h-5 text-gray-500 flex-shrink-0" />
-                                            <div>
-                                                <p className="text-sm text-gray-600">Lieu de naissance</p>
-                                                <p className="font-medium">{selectedMember.birthPlace}</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Relations familiales */}
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
-                                    <Heart className="w-5 h-5 mr-2" />
-                                    Relations familiales
-                                </h3>
-                                <div className="space-y-3">
-                                    <div className="space-y-3">
-                                        {selectedMember.mariageId && (
-                                            <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                                                <div className="flex items-center space-x-3">
-                                                    <Heart className="w-5 h-5 text-red-500" />
-                                                    <div>
-                                                        <p className="text-sm text-gray-600">Conjoint(e)</p>
-                                                        <p className="font-medium">
-                                                            {familyData[selectedMember.mariageId]?.firstName}{" "}
-                                                            {familyData[selectedMember.mariageId]?.lastName}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        if (selectedMember?.mariageId) {
-                                                            setSelectedMember(familyData[selectedMember.mariageId]);
-                                                        }
-                                                    }}
-                                                >
-                                                    Voir le profil
-                                                </Button>
-                                            </div>
-                                        )}
-
-                                        {selectedMember.parentsIds && selectedMember.parentsIds?.length > 0 && (
-                                            <div className="p-3 bg-blue-50 rounded-lg">
-                                                <div className="flex items-center space-x-2 mb-2">
-                                                    <User className="w-5 h-5 text-blue-500" />
-                                                    <p className="text-sm text-gray-600">Parents</p>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    {selectedMember.parentsIds.map((parentId) => {
-                                                        const parent = familyData[parentId];
-                                                        if (!parent) return null;
-                                                        return (
-                                                            <div key={parentId} className="flex items-center justify-between">
-                                                                <p className="font-medium">
-                                                                    {parent.firstName} {parent.lastName}
-                                                                </p>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => setSelectedMember(parent)}
-                                                                >
-                                                                    Voir
-                                                                </Button>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {selectedMember.childrenIds && selectedMember.childrenIds?.length > 0 && (
-                                            <div className="p-3 bg-green-50 rounded-lg">
-                                                <div className="flex items-center space-x-2 mb-2">
-                                                    <User className="w-5 h-5 text-green-500" />
-                                                    <p className="text-sm text-gray-600">
-                                                        Enfant{selectedMember.childrenIds.length > 1 ? "s" : ""} (
-                                                        {selectedMember.childrenIds.length})
-                                                    </p>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    {selectedMember.childrenIds.map((childId) => {
-                                                        const child = familyData[childId];
-                                                        if (!child) return null;
-                                                        return (
-                                                            <div key={childId} className="flex items-center justify-between">
-                                                                <p className="font-medium">
-                                                                    {child.firstName} {child.lastName}
-                                                                </p>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => setSelectedMember(child)}
-                                                                >
-                                                                    Voir
-                                                                </Button>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-
-                                    {selectedMember.parentsIds && selectedMember.parentsIds.length > 0 && (
-                                        <div className="p-3 bg-blue-50 rounded-lg">
-                                            <div className="flex items-center space-x-2 mb-2">
-                                                <User className="w-5 h-5 text-blue-500" />
-                                                <p className="text-sm text-gray-600">Parents</p>
-                                            </div>
-                                            <div className="space-y-2">
-                                                {selectedMember.parentsIds.map((parentId: string) => {
-                                                    const parent = familyData[parentId]
-                                                    if (!parent) return null
-                                                    return (
-                                                        <div key={parentId} className="flex items-center justify-between">
-                                                            <p className="font-medium">{parent.firstName + " " + parent.lastName}</p>
-                                                            <Button variant="outline" size="sm" onClick={() => setSelectedMember(parent)}>
-                                                                Voir
-                                                            </Button>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedMember.childrenIds && selectedMember.childrenIds.length > 0 && (
-                                        <div className="p-3 bg-green-50 rounded-lg">
-                                            <div className="flex items-center space-x-2 mb-2">
-                                                <User className="w-5 h-5 text-green-500" />
-                                                <p className="text-sm text-gray-600">
-                                                    Enfant{selectedMember.childrenIds.length > 1 ? "s" : ""} (
-                                                    {selectedMember.childrenIds.length})
-                                                </p>
-                                            </div>
-                                            <div className="space-y-2">
-                                                {selectedMember.childrenIds.map((childId: string) => {
-                                                    const child = familyData[childId]
-                                                    if (!child) return null
-                                                    return (
-                                                        <div key={childId} className="flex items-center justify-between">
-                                                            <p className="font-medium">{child.firstName + " " + child.lastName}</p>
-                                                            <Button variant="outline" size="sm" onClick={() => setSelectedMember(child)}>
-                                                                Voir
-                                                            </Button>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="border-t pt-4">
-                                <div className="flex flex-col sm:flex-row gap-3">
-                                    <Button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600">
-                                        <User className="mr-2 h-4 w-4" />
-                                        Modifier les informations
-                                    </Button>
-                                    <Button variant="outline" className="flex-1 bg-transparent">
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Ajouter une relation
-                                    </Button>
-                                    <Button variant="outline" className="flex-1 bg-transparent">
-                                        <Camera className="mr-2 h-4 w-4" />
-                                        Ajouter une photo
-                                    </Button>
-                                </div>
-                            </div>
-
-                            {/* Statistiques rapides */}
-                            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4">
-                                <h4 className="font-semibold text-gray-800 mb-3">Statistiques</h4>
-                                <div className="grid grid-cols-3 gap-4 text-center">
-                                    <div>
-                                        <p className="text-2xl font-bold text-blue-600">
-                                            {selectedMember.birthDate && selectedMember.deathDate
-                                                ? getYearFromADate(selectedMember.deathDate) - getYearFromADate(selectedMember.birthDate)
-                                                : selectedMember.birthDate && getYearFromADate(selectedMember.birthDate)
-                                                    ? new Date().getFullYear() - getYearFromADate(selectedMember.birthDate)
-                                                    : "?"}
-                                        </p>
-                                        <p className="text-xs text-gray-600">Âge{selectedMember.deathDate && getYearFromADate(selectedMember.deathDate) ? " au décès" : ""}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-bold text-green-600">{selectedMember.childrenIds?.length || 0}</p>
-                                        <p className="text-xs text-gray-600">
-                                            Enfant{(selectedMember.childrenIds?.length || 0) > 1 ? "s" : ""}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-bold text-purple-600">
-                                            {(selectedMember.parentsIds?.length || 0) + (selectedMember.childrenIds?.length || 0)}
-                                        </p>
-                                        <p className="text-xs text-gray-600">Relations</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
 
             {/* Family Settings Modal */}
             {showFamilySettings && (
@@ -1212,3 +981,55 @@ export const Tree = () => {
         </div>
     )
 }
+
+// function FamilyMemberCard({ member, onClick, highlight }: { member: MemberType; onClick: () => void, highlight: boolean }) {
+
+//     return (
+//         <div>
+//             <Card
+//                 className={`w-48 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 ${member.gender === "male" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"
+//                     }`}
+//                 onClick={onClick}
+//             >
+//                 <CardContent className="p-4 text-center">
+//                     <Avatar className="w-16 h-16 mx-auto mb-3">
+//                         <AvatarImage src={member.avatar || "/placeholder.svg"} />
+//                         <AvatarFallback className={member.gender === "male" ? "bg-blue-100" : "bg-pink-100"}>
+//                             {member.firstName
+//                                 .split(" ")
+//                                 .map((n: any) => n[0])
+//                                 .join("") + member.lastName
+//                                     .split(" ")
+//                                     .map((n: any) => n[0])
+//                                     .join("")
+//                             }
+//                         </AvatarFallback>
+//                     </Avatar>
+//                     <h3 className="font-semibold text-sm mb-2">{member.firstName + " " + member.lastName}</h3>
+//                     <div className="space-y-1 text-xs text-gray-600">
+//                         {member.birthDate && (
+//                             <div className="flex items-center justify-center space-x-1">
+//                                 <Calendar className="w-3 h-3" />
+//                                 <span>
+//                                     {getYearFromADate(member.birthDate)}
+//                                     {member.deathDate && ` - ${getYearFromADate(member.deathDate)}`}
+//                                 </span>
+//                             </div>
+//                         )}
+//                         {member.birthPlace && (
+//                             <div className="flex items-center justify-center space-x-1">
+//                                 <MapPin className="w-3 h-3" />
+//                                 <span className="truncate">{member.birthPlace}</span>
+//                             </div>
+//                         )}
+//                     </div>
+//                     {member.deathDate && (
+//                         <Badge variant="secondary" className="mt-2 text-xs">
+//                             Décédé(e)
+//                         </Badge>
+//                     )}
+//                 </CardContent>
+//             </Card>
+//         </div>
+//     )
+// }
