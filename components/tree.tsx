@@ -348,7 +348,7 @@ export const GenerationSection = ({
 
                 {/* Scroll horizontal */}
                 <div className="pb-6">
-                    <div className="flex gap-12 items-start min-w-max">
+                    <div className="flex gap-12 items-start justify-center min-w-max">
                         {members.map((parent) => {
                             const parentChildrenSection = childrenSections?.find(section => section.parentId === parent.id);
                             const childrenCount = parentChildrenSection?.members.length || 1;
