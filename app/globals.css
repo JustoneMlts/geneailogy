@@ -120,3 +120,70 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+body {
+  overflow-x: hidden; /* comme tu voulais */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(100, 100, 100, 0.5) transparent; /* Firefox */
+}
+
+/* Webkit browsers : Chrome, Safari, Edge */
+body::-webkit-scrollbar {
+  width: 6px; /* vertical */
+  height: 6px; /* horizontal */
+}
+
+body::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 100, 100, 0.5);
+  border-radius: 3px; /* arrondi */
+}
+
+body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Dans ton global CSS ou tailwind @layer utilities */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px; /* hauteur pour scroll horizontal */
+  width: 6px;  /* largeur pour scroll vertical */
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 100, 100, 0.5);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Conteneur scroll custom */
+.scrollbar-custom {
+  overflow-x: auto;
+  overflow-y: auto;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(100,100,100,0.5) transparent; /* Firefox */
+}
+
+/* Webkit browsers : Chrome, Safari, Edge */
+.scrollbar-custom::-webkit-scrollbar {
+  width: 8px;   /* vertical scrollbar */
+  height: 8px;  /* horizontal scrollbar */
+}
+
+.scrollbar-custom::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb {
+  background-color: rgba(100,100,100,0.5);
+  border-radius: 4px; /* arrondi */
+  border: 2px solid transparent; /* espace autour du thumb pour arrondi net */
+  background-clip: content-box;
+}
+
+/* optionnel : scrollbar plus visible au survol */
+.scrollbar-custom:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(100,100,100,0.7);
+}

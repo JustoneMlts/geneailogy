@@ -48,7 +48,7 @@ export interface MemberType {
   lastName: string
   birthDate?: number
   deathDate?: number
-  birthPlace?: string
+  birthPlace?: LocationData 
   gender?: "male" | "female" | "other"
   avatar?: string
   bio?: string
@@ -64,6 +64,17 @@ export interface MemberType {
   createdDate?: number
   updatedDate?: number
   isActive?: boolean
+}
+
+export interface LocationData {
+    city: string;
+    country: string;
+    latitude: number;
+    longitude: number;
+    displayName: string;
+    countryCode?: string;
+    region?: string;
+    postcode?: string;
 }
 
 // Conversation (entre deux ou plusieurs users)

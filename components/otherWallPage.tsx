@@ -8,7 +8,8 @@ import { selectUser } from "@/lib/redux/slices/currentUserSlice"
 import { FeedPostType, UserType } from "@/lib/firebase/models"
 import { CreatePostCard } from "@/components/createPostCard"
 import { PostCard } from "@/components/postCard"
-import { handleGetUserNameInitials } from "@/app/helpers/userHelper"
+import { Tree } from "@/components/tree" // ✅ importe ton arbre
+import { useRouter } from "next/navigation"
 
 interface OtherWallProps {
     wallOwner: UserType
@@ -18,15 +19,10 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
     const currentUser = useSelector(selectUser)
     const [wallPosts, setWallPosts] = useState<FeedPostType[]>([])
     const [loading, setLoading] = useState(true)
-
-    useEffect(() => {
-        if (currentUser && currentUser.id) {
-            console.log("wallOwner : ", wallOwner.id)
-            console.log("currentUser : ", currentUser.id)
-        }
+    const [showTree, setShowTree] = useState(false)
+    const router = useRouter()
 
 
-    }, [wallOwner, currentUser])
     // Récupération des posts temps réel
     useEffect(() => {
         if (!wallOwner?.id) return
@@ -57,7 +53,8 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
         <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
             <div className="p-4 max-w-3xl mx-auto">
                 {/* Header du mur */}
-                <div className="flex items-center space-x-4 mb-6">
+                <div className="flex justify-between items-center space-x-4 mb-6">
+                    <div className="flex space-x-4">
                     <img
                         src={wallOwner.avatarUrl || "/placeholder.svg"}
                         alt="Avatar"
@@ -65,15 +62,28 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
                     />
                     <div>
                         <h1 className="text-3xl font-bold">
-                            {isOwnWall
-                                ? "Mon Journal"
-                                : `Mur de ${wallOwner.firstName} ${wallOwner.lastName}`}
+                            {isOwnWall ? "Mon Journal" : `Mur de ${wallOwner.firstName} ${wallOwner.lastName}`}
                         </h1>
                         <p className="text-gray-600">
                             {isOwnWall
                                 ? "Vos publications et celles de vos connexions"
                                 : "Publications postées ici"}
                         </p>
+
+                        {/* Bouton pour afficher l’arbre */}
+                        
+                    </div>
+                    </div>
+                    <div>
+                        {!isOwnWall && (
+
+                            <button
+                                onClick={() => router.push(`/tree/${wallOwner.id}`)}
+                                className="mt-3 px-4 py-2 bg-green-600 text-white text-sm rounded-lg shadow hover:bg-green-700 transition-colors"
+                            >
+                                🌳 Voir son arbre généalogique
+                            </button>
+                        )}
                     </div>
                 </div>
 

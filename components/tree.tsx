@@ -19,364 +19,473 @@ import { getTreeById } from "@/app/controllers/treesController";
 import { getUserById } from "@/app/controllers/usersController";
 import { getFamilyMembersByIds } from "@/app/controllers/membersController";
 import { MariageLines } from "@/components/mariageLine"
+import { DynamicFamilyTree } from "./dynamicFamilyTree";
+import GeographicalOrigins from "./geographicalOrigins";
 
+// Types et utilitaires inchangés
 const getYearFromADate = (timestamp: number): number => {
     const date = new Date(timestamp)
     return date.getFullYear()
 }
-export const getMemberById = (familyData: MemberType[], id?: string): MemberType | undefined => 
-  id ? familyData.find(member => member.id === id) : undefined;
 
-export const getMembersByIds = (data: MemberType[], ids?: string[]): MemberType[] => 
-  ids?.map(id => getMemberById(data, id)).filter((m): m is MemberType => !!m) || [];
+export const getMemberById = (familyData: MemberType[], id?: string): MemberType | undefined =>
+    id ? familyData.find(member => member.id === id) : undefined;
+
+export const getMembersByIds = (data: MemberType[], ids?: string[]): MemberType[] =>
+    ids?.map(id => getMemberById(data, id)).filter((m): m is MemberType => !!m) || [];
 
 export const getParents = (member: MemberType, data: MemberType[]): MemberType[] => {
-  if (member.parentsIds?.length) return getMembersByIds(data, member.parentsIds);
-  return data.filter(m => m.childrenIds?.includes(member.id!));
+    if (member.parentsIds?.length) return getMembersByIds(data, member.parentsIds);
+    return data.filter(m => m.childrenIds?.includes(member.id!));
 };
 
-export const getChildren = (member: MemberType, data: MemberType[]): MemberType[] => 
-  getMembersByIds(data, member.childrenIds);
+export const getChildren = (member: MemberType, data: MemberType[]): MemberType[] =>
+    getMembersByIds(data, member.childrenIds);
 
 export const getSiblings = (member: MemberType, data: MemberType[]): MemberType[] => {
-  if (member.brothersIds?.length) return getMembersByIds(data, member.brothersIds);
-  return data.filter(
-    m => m.id !== member.id && m.parentsIds?.some(pid => member.parentsIds?.includes(pid))
-  );
+    if (member.brothersIds?.length) return getMembersByIds(data, member.brothersIds);
+    return data.filter(
+        m => m.id !== member.id && m.parentsIds?.some(pid => member.parentsIds?.includes(pid))
+    );
+};
+
+// Fonction pour obtenir les oncles et tantes
+export const getUnclesAndAunts = (member: MemberType, data: MemberType[]): MemberType[] => {
+    const parents = getParents(member, data);
+    const unclesAndAunts: MemberType[] = [];
+
+    parents.forEach(parent => {
+        const siblings = getSiblings(parent, data);
+        unclesAndAunts.push(...siblings);
+    });
+
+    // Supprimer les doublons
+    return unclesAndAunts.filter((uncle, index, self) =>
+        index === self.findIndex(u => u.id === uncle.id)
+    );
+};
+
+// Fonction pour obtenir les cousins
+export const getCousins = (member: MemberType, data: MemberType[]): MemberType[] => {
+    const unclesAndAunts = getUnclesAndAunts(member, data);
+    const cousins: MemberType[] = [];
+
+    unclesAndAunts.forEach(uncleOrAunt => {
+        const children = getChildren(uncleOrAunt, data);
+        cousins.push(...children);
+    });
+
+    return cousins;
 };
 
 type ChildrenSection = {
-  label: string;
-  members: MemberType[];
-  parentId: string;
+    label: string;
+    members: MemberType[];
+    parentId: string;
 };
 
-type Generation = {
-  label: string;
-  members: MemberType[];
-  type: 'parents' | 'siblings' | 'children-group';
-  childrenSections?: ChildrenSection[]; // Pour grouper les sections d'enfants
+// Ajoutez ces nouveaux types à votre fichier
+export type Generation = {
+    label: string;
+    members: MemberType[];
+    type: 'paternal-grandparents' | 'maternal-grandparents' | 'grandparents' | 'parents' | 'uncles-aunts' | 'siblings' | 'cousins' | 'children-group';
+    childrenSections?: ChildrenSection[];
 };
 
-export const buildFullTree = (
-  familyData: MemberType[],
-  currentUserId?: string,
-  isOwner?: boolean,
-  treeOwner?: string
+// Fonction modifiée pour obtenir les grands-parents paternels
+export const getPaternalGrandparents = (member: MemberType, data: MemberType[]): MemberType[] => {
+    const parents = getParents(member, data);
+    const father = parents.find(parent => parent.gender === 'male');
+    if (!father) return [];
+    return getParents(father, data);
+};
+
+// Fonction modifiée pour obtenir les grands-parents maternels
+export const getMaternalGrandparents = (member: MemberType, data: MemberType[]): MemberType[] => {
+    const parents = getParents(member, data);
+    const mother = parents.find(parent => parent.gender === 'female');
+    if (!mother) return [];
+    return getParents(mother, data);
+};
+
+// Fonction principale modifiée pour construire l'arbre centré sur une personne
+export const buildDynamicTree = (
+    familyData: MemberType[],
+    centralPersonId: string,
+    currentUserId?: string,
+    isOwner?: boolean
 ): Generation[] => {
-  const generations: Generation[] = [];
-  const renderedMembers = new Set<string>();
+    const generations: Generation[] = [];
+    const renderedMembers = new Set<string>();
 
-  const currentMember = currentUserId ? getMemberById(familyData, currentUserId) : undefined;
-  if (!currentMember) return generations;
+    const centralMember = getMemberById(familyData, centralPersonId);
+    if (!centralMember) return generations;
 
-  // 1. Générations ascendantes (parents, grands-parents, etc.)
-  let currentGenUp = [currentMember];
-  let level = 1;
-  
-  while (currentGenUp.length > 0) {
-    const nextGenUp: MemberType[] = [];
-    
-    currentGenUp.forEach(child => {
-      const parents = getParents(child, familyData).filter(p => !renderedMembers.has(p.id!));
-      if (parents.length) {
+    // 1. Grands-parents paternels
+    const paternalGrandparents = getPaternalGrandparents(centralMember, familyData);
+    if (paternalGrandparents.length > 0) {
+        paternalGrandparents.forEach(gp => renderedMembers.add(gp.id!));
+        generations.push({
+            label: "Grands-parents paternels",
+            members: paternalGrandparents,
+            type: 'paternal-grandparents'
+        });
+    }
+
+    // 2. Grands-parents maternels
+    const maternalGrandparents = getMaternalGrandparents(centralMember, familyData);
+    if (maternalGrandparents.length > 0) {
+        maternalGrandparents.forEach(gp => renderedMembers.add(gp.id!));
+        generations.push({
+            label: "Grands-parents maternels",
+            members: maternalGrandparents,
+            type: 'maternal-grandparents'
+        });
+    }
+
+    // 3. Parents
+    const parents = getParents(centralMember, familyData);
+    if (parents.length > 0) {
         parents.forEach(p => renderedMembers.add(p.id!));
-        nextGenUp.push(...parents);
-      }
+        generations.push({
+            label: "Parents",
+            members: parents,
+            type: 'parents'
+        });
+    }
+
+    // 4. Oncles et tantes avec leurs enfants (cousins)
+    const unclesAndAunts = getUnclesAndAunts(centralMember, familyData)
+        .filter(ua => !renderedMembers.has(ua.id!));
+
+    if (unclesAndAunts.length > 0) {
+        unclesAndAunts.forEach(ua => renderedMembers.add(ua.id!));
+
+        const cousinsSections: ChildrenSection[] = [];
+        unclesAndAunts.forEach(uncleOrAunt => {
+            const cousins = getChildren(uncleOrAunt, familyData)
+                .filter(c => !renderedMembers.has(c.id!));
+
+            if (cousins.length > 0) {
+                cousins.forEach(c => renderedMembers.add(c.id!));
+                cousinsSections.push({
+                    label: `Enfants de ${uncleOrAunt.firstName}`,
+                    members: cousins,
+                    parentId: uncleOrAunt.id!
+                });
+            }
+        });
+    }
+
+    // 5. Génération centrale : la personne + ses frères et sœurs avec leurs enfants
+    const siblings = getSiblings(centralMember, familyData)
+        .filter(s => !renderedMembers.has(s.id!));
+    const centralGenMembers = [centralMember, ...siblings];
+
+    centralGenMembers.forEach(m => renderedMembers.add(m.id!));
+
+    const childrenSections: ChildrenSection[] = [];
+    centralGenMembers.forEach(parent => {
+        const children = getChildren(parent, familyData)
+            .filter(c => !renderedMembers.has(c.id!));
+
+        if (children.length > 0) {
+            children.forEach(c => renderedMembers.add(c.id!));
+
+            const parentName = parent.id === centralPersonId
+                ? (parent.id === currentUserId ? 'Vos enfants' : 'Ses enfants')
+                : `Enfants de ${parent.firstName}`;
+
+            childrenSections.push({
+                label: parentName,
+                members: children,
+                parentId: parent.id!
+            });
+        }
     });
 
-    if (nextGenUp.length > 0) {
-      generations.unshift({
-        label: isOwner ? `Parents (G+${level})` : `Parents de la génération actuelle`,
-        members: nextGenUp,
-        type: 'parents'
-      });
-    }
+    const centralLabel = centralPersonId === currentUserId
+        ? "Vous et vos frères et sœurs"
+        : `${centralMember.firstName} et ses frères et sœurs`;
 
-    currentGenUp = nextGenUp;
-    level++;
-  }
+    generations.push({
+        label: centralLabel,
+        members: centralGenMembers,
+        type: 'siblings',
+        childrenSections
+    });
 
-  // 2. Génération de l'utilisateur + frères/sœurs avec leurs enfants
-  const siblings = getSiblings(currentMember, familyData).filter(s => !renderedMembers.has(s.id!));
-  const userGenMembers = [currentMember, ...siblings];
-  
-  userGenMembers.forEach(m => renderedMembers.add(m.id!));
-  
-  // 3. Créer les sections d'enfants pour chaque membre
-  const childrenSections: ChildrenSection[] = [];
-  
-  userGenMembers.forEach(parent => {
-    const children = getChildren(parent, familyData).filter(c => !renderedMembers.has(c.id!));
-    
-    if (children.length > 0) {
-      children.forEach(c => renderedMembers.add(c.id!));
-      
-      const parentName = parent.id === currentUserId ? 'Vos enfants' : `Enfants de ${parent.firstName || 'ce membre'}`;
-      
-      childrenSections.push({
-        label: parentName,
-        members: children,
-        parentId: parent.id!
-      });
-    }
-  });
-
-  // Ajouter la génération des frères/sœurs avec leurs enfants intégrés
-  generations.push({
-    label: isOwner ? "Vous et vos frères et sœurs" : `Génération de ${treeOwner}`,
-    members: userGenMembers,
-    type: 'siblings',
-    childrenSections
-  });
-
-  // 4. Générations suivantes (petits-enfants, etc.) - à implémenter si nécessaire
-  // ...
-
-  return generations;
+    return generations;
 };
 
-// Composant principal (inchangé)
-export const renderFullFamilyTree = (treeId: string, refreshTrigger?: number) => {
-  const [familyData, setFamilyData] = useState<MemberType[]>([]);
-  const currentUser = useSelector(selectUser);
-  const [isOwner, setIsOwner] = useState(false);
-  const [tree, setTree] = useState<TreeType | null>(null);
-  const [treeOwner, setTreeOwner] = useState("");
-  const [selectedMember, setSelectedMember] = useState<MemberType>();
-  const [generations, setGenerations] = useState<Generation[]>([]);
-
-  useEffect(() => {
-    if (!treeId) return;
-    getTreeById(treeId)
-      .then(setTree)
-      .catch(err => console.error("Erreur arbre:", err));
-  }, [treeId, refreshTrigger]); // Ajout du refreshTrigger
-
-  useEffect(() => {
-    if (!tree || !tree.ownerId) return;
-    if (currentUser?.id === tree.ownerId) {
-      setTreeOwner(`${currentUser.firstName} ${currentUser.lastName}`);
-    } else {
-      getUserById(tree.ownerId)
-        .then(data => setTreeOwner(data ? `${data.firstName} ${data.lastName}` : ""))
-        .catch(err => console.error("Erreur propriétaire:", err));
-    }
-  }, [tree, currentUser]);
-
-  useEffect(() => {
-    if (tree && currentUser) setIsOwner(currentUser.id === tree.ownerId);
-  }, [tree, currentUser]);
-
-  useEffect(() => {
-    if (!tree?.memberIds?.length) return;
-    getFamilyMembersByIds(tree.memberIds)
-      .then(data => setFamilyData(data))
-      .catch(err => console.error("Erreur membres:", err));
-  }, [tree, refreshTrigger]); // Ajout du refreshTrigger
-
-  useEffect(() => {
-    if (!familyData.length || !currentUser) return;
-    const gens = buildFullTree(familyData, currentUser.id, isOwner, treeOwner);
-    setGenerations(gens);
-  }, [familyData, currentUser, isOwner, treeOwner]);
-
-  if (!currentUser || !familyData.length || !generations.length) {
-    return <div>Chargement de l'arbre...</div>;
-  }
-
-  return (
-    <div className="space-y-12 px-4">
-      {generations.map((generation, genIndex) => (
-        <GenerationSection
-          key={`gen-${genIndex}`}
-          title={generation.label}
-          members={generation.members}
-          setSelectedMember={setSelectedMember}
-          currentUserId={currentUser?.id || ""}
-          isOwner={isOwner}
-          type={generation.type}
-          childrenSections={generation.childrenSections}
-        />
-      ))}
-    </div>
-  );
-};
-
-// Composant génération avec support des sections d'enfants groupées
-const GenerationSection = ({
-  title,
-  members,
-  setSelectedMember,
-  currentUserId,
-  isOwner,
-  type,
-  childrenSections
+// Nouveau composant pour afficher les grands-parents côte à côte
+export const GrandparentsSection = ({
+    paternalGrandparents,
+    maternalGrandparents,
+    setSelectedMember,
+    currentUserId,
+    centralPersonId,
+    onNavigateToPerson
 }: {
-  title: string;
-  members: MemberType[];
-  setSelectedMember: (member: MemberType) => void;
-  currentUserId: string;
-  isOwner: boolean;
-  type: 'parents' | 'siblings' | 'children-group';
-  childrenSections?: ChildrenSection[];
+    paternalGrandparents: MemberType[];
+    maternalGrandparents: MemberType[];
+    setSelectedMember: (member: MemberType) => void;
+    currentUserId: string;
+    centralPersonId: string;
+    onNavigateToPerson: (personId: string) => void;
 }) => {
-  // Pour les sections frères/sœurs avec leurs enfants alignés
-  if (type === 'siblings' && childrenSections) {
-    return (
-      <div className="relative text-center space-y-8">
-        {/* Titre de la section avec ligne décorative */}
-        <div className="relative">
-          <h2 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
-            {title}
-          </h2>
-          <div className="absolute inset-y-0 left-0 right-0 flex items-center">
-            <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-          </div>
-        </div>
+    // Si aucun grand-parent, ne rien afficher
+    if (paternalGrandparents.length === 0 && maternalGrandparents.length === 0) {
+        return null;
+    }
 
-        {/* Colonnes parent-enfant indépendantes */}
-        <div className="flex justify-center items-start gap-12">
-          {members.map((parent) => {
-            const parentChildrenSection = childrenSections?.find(section => section.parentId === parent.id);
-            
-            // Calculer la largeur nécessaire pour cette colonne
-            const childrenCount = parentChildrenSection?.members.length || 1;
-            const columnWidth = Math.max(150, childrenCount * 120 + (childrenCount - 1) * 16); // 120px par carte + 16px gap
-            
-            return (
-              <div 
-                key={parent.id!} 
-                className="flex flex-col items-center space-y-6"
-                style={{ minWidth: `${columnWidth}px` }}
-              >
-                {/* Le parent - centré dans sa colonne */}
-                <div className="flex justify-center w-full">
-                  <CompactFamilyMemberCard
-                    member={parent}
-                    highlight={parent.id === currentUserId}
-                    onClick={() => setSelectedMember(parent)}
-                  />
-                </div>
-                
-                {/* Ses enfants (s'il en a) */}
-                {parentChildrenSection && (
-                  <div className="text-center space-y-4 w-full">
-                    {/* Titre de la section d'enfants */}
-                    <div className="relative">
-                      <h3 className="text-xs font-medium text-gray-700 bg-white px-3 py-1 rounded-full border border-gray-200 inline-block relative z-10">
-                        {parentChildrenSection.label}
-                      </h3>
-                      <div className="absolute inset-y-0 left-0 right-0 flex items-center">
-                        <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
-                      </div>
-                    </div>
-                    
-                    {/* Les enfants - centrés dans la colonne */}
-                    <div className="flex gap-4 justify-center flex-wrap">
-                      {parentChildrenSection.members.map((member) => (
-                        <CompactFamilyMemberCard
-                          key={member.id!}
-                          member={member}
-                          highlight={member.id === currentUserId}
-                          onClick={() => setSelectedMember(member)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Si pas d'enfant, on garde un espace équivalent */}
-                {!parentChildrenSection && (
-                  <div className="h-32"></div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  // Pour les sections d'enfants groupées (cas qui ne devrait plus arriver)
-  if (type === 'children-group' && childrenSections) {
     return (
-      <div className="relative text-center space-y-8">
-        <div className="flex justify-center gap-16">
-          {childrenSections.map((section, index) => (
-            <div key={`${section.parentId}-${index}`} className="text-center space-y-4">
-              <div className="relative">
-                <h3 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
-                  {section.label}
-                </h3>
-                <div className="absolute inset-y-0 left-0 right-0 flex items-center">
-                  <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+        <div className="relative text-center space-y-6">
+            {/* Container avec scroll horizontal */}
+            <div className="overflow-x-auto overflow-y-visible pb-4">
+                <div className="flex justify-center items-start gap-16 min-w-max">
+                    {/* Section Grands-parents paternels */}
+                    <div className="flex flex-col items-center space-y-6 flex-shrink-0">
+                        {paternalGrandparents.length > 0 && (
+                            <>
+                                <div className="relative">
+                                    <h2 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
+                                        Grands-parents paternels
+                                    </h2>
+                                </div>
+                                <div className="flex gap-4 justify-center">
+                                    {paternalGrandparents.map((member) => (
+                                        <div key={member.id!} className="flex-shrink-0">
+                                            <CompactFamilyMemberCard
+                                                member={member}
+                                                highlight={member.id === centralPersonId}
+                                                isCurrentUser={member.id === currentUserId}
+                                                onClick={() => {
+                                                    setSelectedMember(member);
+                                                    onNavigateToPerson(member.id!);
+                                                }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Section Grands-parents maternels */}
+                    <div className="flex flex-col items-center space-y-6 flex-shrink-0">
+                        {maternalGrandparents.length > 0 && (
+                            <>
+                                <div className="relative">
+                                    <h2 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
+                                        Grands-parents maternels
+                                    </h2>
+                                </div>
+                                <div className="flex gap-4 justify-center">
+                                    {maternalGrandparents.map((member) => (
+                                        <div key={member.id!} className="flex-shrink-0">
+                                            <CompactFamilyMemberCard
+                                                member={member}
+                                                highlight={member.id === centralPersonId}
+                                                isCurrentUser={member.id === currentUserId}
+                                                onClick={() => {
+                                                    setSelectedMember(member);
+                                                    onNavigateToPerson(member.id!);
+                                                }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
-              </div>
-              
-              <div className="flex gap-6 justify-center">
-                {section.members.map((member) => (
-                  <CompactFamilyMemberCard
-                    key={member.id!}
-                    member={member}
-                    highlight={member.id === currentUserId}
-                    onClick={() => setSelectedMember(member)}
-                  />
-                ))}
-              </div>
             </div>
-          ))}
         </div>
-      </div>
     );
-  }
-
-  // Pour les autres types de sections (parents uniquement)
-  if (!members.length) return null;
-
-  return (
-    <div className="relative text-center space-y-6">
-      {/* Titre de la section avec ligne décorative */}
-      <div className="relative">
-        <h2 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
-          {title}
-        </h2>
-        <div className="absolute inset-y-0 left-0 right-0 flex items-center">
-          <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-        </div>
-      </div>
-
-      {/* Membres de la génération */}
-      <div className="flex gap-16 justify-center flex-wrap">
-        {members.map((member) => (
-          <CompactFamilyMemberCard
-            key={member.id!}
-            member={member}
-            highlight={member.id === currentUserId}
-            onClick={() => setSelectedMember(member)}
-          />
-        ))}
-      </div>
-    </div>
-  );
 };
 
-// Version compacte de la card pour une meilleure lisibilité
+// Composant GenerationSection mis à jour avec les nouveaux types
+export const GenerationSection = ({
+    title,
+    members,
+    setSelectedMember,
+    currentUserId,
+    centralPersonId,
+    onNavigateToPerson,
+    isOwner,
+    type,
+    childrenSections
+}: {
+    title: string;
+    members: MemberType[];
+    setSelectedMember: (member: MemberType) => void;
+    currentUserId: string;
+    centralPersonId: string;
+    onNavigateToPerson: (personId: string) => void;
+    isOwner: boolean;
+    type: 'paternal-grandparents' | 'maternal-grandparents' | 'grandparents' | 'parents' | 'uncles-aunts' | 'siblings' | 'cousins' | 'children-group';
+    childrenSections?: ChildrenSection[];
+}) => {
+    // Pour les grands-parents paternels/maternels -> gérés par GrandparentsSection
+    if (type === 'paternal-grandparents' || type === 'maternal-grandparents') {
+        return null;
+    }
+
+    // === CAS : sections avec enfants (siblings, uncles-aunts) ===
+    if ((type === 'siblings' || type === 'uncles-aunts') && childrenSections) {
+        return (
+            <div className="relative text-center space-y-8">
+                {/* Titre */}
+                <div className="relative">
+                    <h2 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
+                        {title}
+                    </h2>
+                    <div className="absolute inset-y-0 left-0 right-0 flex items-center">
+                        <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+                    </div>
+                </div>
+
+                {/* Scroll horizontal */}
+                <div className="pb-6">
+                    <div className="flex gap-12 items-start min-w-max">
+                        {members.map((parent) => {
+                            const parentChildrenSection = childrenSections?.find(section => section.parentId === parent.id);
+                            const childrenCount = parentChildrenSection?.members.length || 1;
+                            const columnWidth = Math.max(150, childrenCount * 120 + (childrenCount - 1) * 16);
+
+                            return (
+                                <div
+                                    key={parent.id!}
+                                    className="flex flex-col items-center space-y-6 flex-shrink-0"
+                                    style={{ minWidth: `${columnWidth}px` }}
+                                >
+                                    {/* Carte parent */}
+                                    <div className="flex justify-center w-full">
+                                        <CompactFamilyMemberCard
+                                            member={parent}
+                                            highlight={parent.id === centralPersonId}
+                                            isCurrentUser={parent.id === currentUserId}
+                                            onClick={() => {
+                                                setSelectedMember(parent);
+                                                onNavigateToPerson(parent.id!);
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* Enfants */}
+                                    {parentChildrenSection && (
+                                        <div className="text-center space-y-4 w-full">
+                                            <div className="relative">
+                                                <h3 className="text-xs font-medium text-gray-700 bg-white px-3 py-1 rounded-full border border-gray-200 inline-block relative z-10">
+                                                    {parentChildrenSection.label}
+                                                </h3>
+                                                <div className="absolute inset-y-0 left-0 right-0 flex items-center">
+                                                    <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
+                                                </div>
+                                            </div>
+
+                                            {/* Scroll enfants du parent */}
+                                            <div className="">
+                                                <div className="flex gap-4 justify-start min-w-max">
+                                                    {parentChildrenSection.members.map((member) => (
+                                                        <CompactFamilyMemberCard
+                                                            key={member.id!}
+                                                            member={member}
+                                                            highlight={member.id === centralPersonId}
+                                                            isCurrentUser={member.id === currentUserId}
+                                                            onClick={() => {
+                                                                setSelectedMember(member);
+                                                                onNavigateToPerson(member.id!);
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {!parentChildrenSection && <div className="h-32"></div>}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // === CAS : autres types (parents, grandparents, cousins, etc.) ===
+    if (!members.length) return null;
+
+    return (
+        <div className="relative text-center space-y-6">
+            {/* Titre */}
+            <div className="relative">
+                <h2 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
+                    {title}
+                </h2>
+                <div className="absolute inset-y-0 left-0 right-0 flex items-center">
+                    <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+                </div>
+            </div>
+
+            {/* Scroll horizontal */}
+            <div className="overflow-visible pb-4">
+                <div className="flex gap-16 justify-center min-w-max overflow-visible">
+                    {members.map((member) => (
+                        <CompactFamilyMemberCard
+                            key={member.id!}
+                            member={member}
+                            highlight={member.id === centralPersonId}
+                            isCurrentUser={member.id === currentUserId}
+                            onClick={() => {
+                                setSelectedMember(member);
+                                onNavigateToPerson(member.id!);
+                            }}
+                        />
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// CompactFamilyMemberCard mise à jour avec indicateurs visuels
 function CompactFamilyMemberCard({
     member,
     onClick,
-    highlight
+    highlight,
+    isCurrentUser
 }: {
     member: MemberType;
     onClick: () => void;
-    highlight: boolean
+    highlight: boolean;
+    isCurrentUser: boolean;
 }) {
     return (
         <Card
-            className={`w-40 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 ${member.gender === "male" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"
-                } ${highlight ? "ring-2 ring-yellow-400 ring-offset-2" : ""}`}
+            className={`w-40 overflow-visible cursor-pointer transition-all duration-300 
+            hover:shadow-lg hover:scale-105 relative 
+            ${member.gender === "male" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"} 
+            ${highlight ? "ring-4 ring-green-400 ring-offset-2" : ""} 
+            ${isCurrentUser ? "ring-2 ring-yellow-400 ring-offset-1" : ""}`}
             onClick={onClick}
         >
+            {/* Indicateur "personne centrale" */}
+            {highlight && (
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">🎯</span>
+                </div>
+            )}
+
+            {/* Indicateur "vous" */}
+            {isCurrentUser && !highlight && (
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">👤</span>
+                </div>
+            )}
+
             <CardContent className="p-3 text-center">
                 <Avatar className="w-12 h-12 mx-auto mb-2">
                     <AvatarImage src={member.avatar || "/placeholder.svg"} />
@@ -406,14 +515,14 @@ function CompactFamilyMemberCard({
                             </span>
                         </div>
                     )}
-                    {member.birthPlace && (
+                    {/* {member.birthPlace && (
                         <div className="flex items-center justify-center space-x-1">
                             <MapPin className="w-2.5 h-2.5" />
                             <span className="truncate text-xs max-w-24">
                                 {member.birthPlace.split(',')[0]}
                             </span>
                         </div>
-                    )}
+                    )} */}
                 </div>
 
                 {member.deathDate && (
@@ -426,102 +535,88 @@ function CompactFamilyMemberCard({
     )
 }
 
-export const Tree = () => {
+export const Tree = ({ userId }: { userId?: string }) => {
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
     const [treeId, setTreeId] = useState("")
+    const [refreshTrigger, setRefreshTrigger] = useState(0)
     const currentUser = useSelector(selectUser)
+    const [mainUser, setMainUser] = useState<UserType | null>(null)
 
+    // Récupérer l'utilisateur principal
     useEffect(() => {
-        console.log("currentUser", currentUser)
-        if (currentUser && currentUser.treesIds && currentUser.treesIds?.length) {
-            console.log("user -> treeId : ", currentUser.treesIds[0])
-            setTreeId(currentUser.treesIds[0])
+        if (userId) {
+            getUserById(userId)
+                .then(setMainUser)
+                .catch((err) => console.error("Erreur récupération user:", err))
+        } else {
+            setMainUser(currentUser)
         }
-    }, [currentUser])
+    }, [userId, currentUser])
 
+    // Charger l'arbre du mainUser
+    useEffect(() => {
+        const loadTree = async () => {
+            if (!mainUser) return
+            if (mainUser.treesIds?.length) {
+                setTreeId(mainUser.treesIds[0])
+            }
+        }
+        loadTree()
+    }, [mainUser])
 
+    const refreshTree = () => {
+        setRefreshTrigger(prev => prev + 1)
+    }
 
     const [zoom, setZoom] = useState(1)
     const [showFamilySettings, setShowFamilySettings] = useState(false)
     const [selectedMember, setSelectedMember] = useState<MemberType | null>(null)
-    const [locations, setLocations] = useState([
-        { id: 1, place: "Paris, France", period: "1950 - Présent", type: "Résidence principale" },
-        { id: 2, place: "Lyon, France", period: "1920 - 1950", type: "Résidence familiale" },
-        { id: 3, place: "Bordeaux, France", period: "1890 - 1920", type: "Lieu de naissance" },
-    ])
-    const addOrigin = () => {
-        const newOrigin = {
-            id: Date.now(),
-            country: "",
-            region: "",
-            percentage: 0,
-        }
-        setOrigins([...origins, newOrigin])
-    }
-
-    const removeOrigin = (id: number) => {
-        setOrigins(origins.filter((origin) => origin.id !== id))
-    }
-
-    const addLocation = () => {
-        const newLocation = {
-            id: Date.now(),
-            place: "",
-            period: "",
-            type: "",
-        }
-        setLocations([...locations, newLocation])
-    }
-
-    const removeLocation = (id: number) => {
-        setLocations(locations.filter((location) => location.id !== id))
-    }
     const [origins, setOrigins] = useState([
         { id: 1, country: "France", region: "Normandie", percentage: 60 },
         { id: 2, country: "Italie", region: "Toscane", percentage: 30 },
         { id: 3, country: "Espagne", region: "Andalousie", percentage: 10 },
     ])
-    const countries = [
-        "France",
-        "Italie",
-        "Espagne",
-        "Allemagne",
-        "Royaume-Uni",
-        "Portugal",
-        "Brésil",
-        "Argentine",
-        "Mexique",
-        "États-Unis",
-        "Canada",
-        "Japon",
-        "Chine",
-        "Inde",
-        "Maroc",
-        "Algérie",
-        "Tunisie",
-        "Sénégal",
-        "Côte d'Ivoire",
-        "Cameroun",
-        "Autre",
-    ]
+    const [locations, setLocations] = useState([
+        { id: 1, place: "Paris, France", period: "1950 - Présent", type: "Résidence principale" },
+        { id: 2, place: "Lyon, France", period: "1920 - 1950", type: "Résidence familiale" },
+        { id: 3, place: "Bordeaux, France", period: "1890 - 1920", type: "Lieu de naissance" },
+    ])
+
+    const addOrigin = () => {
+        const newOrigin = { id: Date.now(), country: "", region: "", percentage: 0 }
+        setOrigins([...origins, newOrigin])
+    }
+    const removeOrigin = (id: number) => setOrigins(origins.filter((o) => o.id !== id))
+
+    const addLocation = () => {
+        const newLocation = { id: Date.now(), place: "", period: "", type: "" }
+        setLocations([...locations, newLocation])
+    }
+    const removeLocation = (id: number) => setLocations(locations.filter((l) => l.id !== id))
 
     const locationTypes = ["Résidence principale", "Résidence familiale", "Lieu de naissance", "Lieu de travail", "Autre"]
+    const countries = ["France", "Italie", "Espagne", "Allemagne", "Royaume-Uni", "Portugal", "Brésil", "Argentine", "Mexique", "États-Unis", "Canada", "Japon", "Chine", "Inde", "Maroc", "Algérie", "Tunisie", "Sénégal", "Côte d'Ivoire", "Cameroun", "Autre"]
 
-
-    const formatDate = (timestamp: number): string => {
-        const date = new Date(timestamp);
-        return date.toLocaleDateString("fr-FR");
-    };
-
+    const handleAddMemberClose = (memberAdded?: boolean) => {
+        setIsAddMemberOpen(false)
+        if (memberAdded) refreshTree()
+    }
 
     return (
         <div className="animate-fade-in">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-800 mb-2">Mon arbre généalogique</h1>
-                    <p className="text-gray-600">Explorez votre histoire familiale de génération en génération</p>
+                    <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                        {mainUser && userId
+                            ? `Arbre généalogique de ${mainUser.firstName} ${mainUser.lastName}`
+                            : "Mon arbre généalogique"}
+                    </h1>
+                    <p className="text-gray-600">
+                        Explorez {mainUser && userId ? `l’histoire familiale de ${mainUser.firstName}` : "votre histoire familiale"} de génération en génération
+                    </p>
                 </div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
+                    {/* Zoom */}
                     <div className="flex items-center space-x-2 bg-white/50 rounded-lg p-2">
                         <Button variant="ghost" size="icon" onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}>
                             <ZoomOut className="h-4 w-4" />
@@ -534,36 +629,29 @@ export const Tree = () => {
                             <RotateCcw className="h-4 w-4" />
                         </Button>
                     </div>
-                    <Button
-                        variant="outline"
-                        onClick={() => setShowFamilySettings(true)}
-                        className="bg-white/50 w-full sm:w-auto"
-                    >
+                    {/* Settings */}
+                    <Button variant="outline" onClick={() => setShowFamilySettings(true)} className="bg-white/50 w-full sm:w-auto">
                         <Settings className="mr-2 h-4 w-4" />
                         Paramètres famille
                     </Button>
+                    {/* Add member */}
                     <div>
                         <Button onClick={() => setIsAddMemberOpen(true)} className="bg-gradient-to-r from-blue-600 to-purple-600">
                             <Plus className="mr-2 h-4 w-4" /> Ajouter membre
                         </Button>
-
-                        <div>
-                            <AddMemberModal
-                                treeId={treeId}
-                                isOpen={isAddMemberOpen}
-                                onClose={() => setIsAddMemberOpen(false)}
-                            />
-                        </div>
+                        <AddMemberModal treeId={treeId} isOpen={isAddMemberOpen} onClose={handleAddMemberClose} />
                     </div>
                 </div>
             </div>
 
-            {/* Tree Visualization */}
-            <div className="py-4">
-                {renderFullFamilyTree(treeId)}
+            {/* Tree Visualization - Utilisation du nouveau composant dynamique */}
+            <div className="py-4" style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}>
+                {treeId && mainUser && (
+                    <DynamicFamilyTree treeId={treeId} userId={mainUser.id} refreshTrigger={refreshTrigger} />
+                )}
             </div>
 
-            {/* Family Settings Modal */}
+            {/* Family Settings Modal - Reste inchangé */}
             {showFamilySettings && (
                 <div
                     className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -885,7 +973,7 @@ export const Tree = () => {
                                     </div>
 
                                     <div className="p-4 bg-blue-50 rounded-lg">
-                                        <h4 className="font-semibold text-blue-800 mb-2">💡 Conseil</h4>
+                                        <h4 className="font-semibold text-blue-800 mb-2">Conseil</h4>
                                         <p className="text-sm text-blue-700">
                                             Plus vous renseignez d'informations précises, plus l'IA pourra vous proposer des
                                             suggestions de liens familiaux pertinentes et vous connecter avec d'autres familles ayant
@@ -916,41 +1004,12 @@ export const Tree = () => {
                     </div>
                 </div>
             )}
+
+            {/* Cards des origines et lieux - Reste inchangé */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-slide-up animate-stagger-3">
-                <Card className="shadow-md border-0 card-hover">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Origines géographiques</CardTitle>
-                        <CardDescription>Répartition des origines de votre famille</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-64 flex items-center justify-center bg-gray-100 rounded-lg mb-4 animate-scale-in">
-                            <div className="text-center text-gray-500">
-                                <Globe className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-                                <p>Carte des origines</p>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            {origins.map((origin, index) => (
-                                <div
-                                    key={origin.id}
-                                    className="flex items-center space-x-2 animate-slide-up"
-                                    style={{ animationDelay: `${index * 0.1}s` }}
-                                >
-                                    <div
-                                        className="h-3 rounded-full"
-                                        style={{
-                                            width: `${origin.percentage}%`,
-                                            backgroundColor: `hsl(var(--chart-${(index % 5) + 1}))`,
-                                        }}
-                                    ></div>
-                                    <div className="text-sm">
-                                        {origin.country}, {origin.region} ({origin.percentage}%)
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                <div>
+                    <GeographicalOrigins />
+                </div>
 
                 <Card className="shadow-md border-0 card-hover">
                     <CardHeader>

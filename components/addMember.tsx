@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,10 @@ import { useSelector } from "react-redux";
 import { selectUser } from "@/lib/redux/slices/currentUserSlice";
 import { MemberType } from "@/lib/firebase/models";
 import { getMembersByTreeId } from "@/app/controllers/treesController";
+import MemberSearch from "./memberSearch";
+import { addMember } from "@/app/controllers/membersController";
+import { NationalitySelector } from "./nationalitySelector";
+import { LocationData, LocationSelector } from "./LocationSelector";
 
 type AddMemberModalProps = {
     treeId: string;
@@ -39,7 +43,7 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
     const [selectedGender, setSelectedGender] = useState<Gender>("male");
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
-    const [birthPlace, setBirthPlace] = useState("");
+    const [birthPlace, setBirthPlace] = useState<LocationData | null>(null);
     const [deathPlace, setDeathPlace] = useState("");
     const [nationality, setNationality] = useState("");
     const [bio, setBio] = useState("");
@@ -50,6 +54,7 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
 
     const [familyMembers, setFamilyMembers] = useState<{ id: string; firstName?: string; lastName?: string }[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
+    const [error, setError] = useState<string>('');
 
     const currentUser = useSelector(selectUser);
     const [members, setMembers] = useState<MemberType[]>([]); // ✅ tableau vide initial
@@ -69,106 +74,59 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
         fetchMembers();
     }, [treeId]);
 
-    const handleToggle = (id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => (checked: boolean | "indeterminate") => {
-        if (checked === true) setter(prev => prev.includes(id) ? prev : [...prev, id]);
-        else setter(prev => prev.filter(i => i !== id));
-    };
+    function deepRemoveUndefined<T>(obj: T): T {
+        if (Array.isArray(obj)) {
+            return obj.map((item) => deepRemoveUndefined(item)) as T;
+        } else if (obj && typeof obj === "object") {
+            return Object.fromEntries(
+                Object.entries(obj)
+                    .filter(([_, v]) => v !== undefined)
+                    .map(([k, v]) => [k, deepRemoveUndefined(v)])
+            ) as T;
+        }
+        return obj;
+    }
+
+    const handleNationalityChange = useCallback((newNationality: string): void => {
+        setNationality(newNationality);
+        if (error) setError(''); // Effacer l'erreur lors du changement
+    }, [error]);
 
     const handleSave = async () => {
-        const memberData = {
-            firstName,
-            lastName,
-            birthDate: birthDate?.getTime(),
-            deathDate: isDeceased ? deathDate?.getTime() : undefined,
-            birthPlace: birthPlace || undefined,
-            deathPlace: deathPlace || undefined,
-            gender: selectedGender,
-            nationality: nationality || undefined,
-            bio: bio || undefined,
-            treeId,
-            isMarried,
-            mariageId: selectedSpouse[0] || undefined,  // 👈 solo uno
-            parentsIds: selectedParents,
-            childrenIds: selectedChildren,
-            brothersIds: selectedSiblings,
-            createdDate: Date.now(),
-            updatedDate: Date.now(),
-            isActive: true,
-        };
-
-        const cleanedData = Object.fromEntries(
-            Object.entries(memberData).filter(([_, v]) => v !== undefined)
-        );
-
         try {
-            const newMemberRef = await addDoc(collection(db, "Members"), cleanedData);
-            const newMemberId = newMemberRef.id;
-
-            await updateDoc(doc(db, "Trees", treeId), {
-                memberIds: arrayUnion(newMemberId),
+            const memberData: Omit<MemberType, "id"> = deepRemoveUndefined({
+                firstName,
+                lastName,
+                gender: selectedGender,
+                treeId,
+                isMarried,
+                parentsIds: selectedParents,
+                childrenIds: selectedChildren,
+                brothersIds: selectedSiblings,
+                createdDate: Date.now(),
+                updatedDate: Date.now(),
+                isActive: true,
+                birthDate: birthDate?.getTime(),
+                deathDate: isDeceased ? deathDate?.getTime() : undefined,
+                birthPlace: birthPlace ?? undefined,
+                deathPlace,
+                nationality,
+                bio,
+                mariageId: selectedSpouse[0],
             });
 
-            const updates: Promise<any>[] = [];
+            // 1️⃣ Ajouter le membre et mettre à jour les relations automatiquement
+            const newMemberId = await addMember(memberData);
 
-            selectedParents.forEach((parentId) => {
-                updates.push(updateDoc(doc(db, "Members", parentId), {
-                    childrenIds: arrayUnion(newMemberId)
-                }));
-            });
-
-            selectedChildren.forEach((childId) => {
-                updates.push(updateDoc(doc(db, "Members", childId), {
-                    parentsIds: arrayUnion(newMemberId)
-                }));
-            });
-
-            selectedSiblings.forEach((siblingId) => {
-                updates.push(updateDoc(doc(db, "Members", siblingId), {
-                    brothersIds: arrayUnion(newMemberId)
-                }));
-            });
-
-            // 👇 Aggiorniamo anche il coniuge scelto, se esiste
-            if (selectedSpouse[0]) {
-                updates.push(updateDoc(doc(db, "Members", selectedSpouse[0]), {
-                    mariageId: newMemberId,
-                    isMarried: true,
-                }));
-            }
-
-            await Promise.all(updates);
+            // 2️⃣ Ajouter le membre à l'arbre
+            await updateDoc(doc(db, "Trees", treeId), { memberIds: arrayUnion(newMemberId) });
 
             onClose();
-        } catch (e) {
-            console.error("❌ Erreur lors de l’ajout du membre :", e);
+        } catch (error) {
+            console.error("❌ Erreur lors de l'ajout du membre :", error);
         }
     };
 
-
-
-    const renderMemberCheckboxes = (selectedList: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) => {
-        if (loadingMembers) return <p className="text-sm text-gray-500">Chargement des membres...</p>;
-        if (!members.length) return <p className="text-sm text-gray-500">Aucun membre disponible</p>;
-
-        return (
-            <div className="grid gap-2 max-h-48 overflow-auto pr-2">
-                {members
-                    .filter(m => m.id) // on ne garde que les membres avec un id
-                    .map(m => {
-                        const isSelected = selectedList.includes(m.id!); // ! indique que ce n'est pas undefined
-                        const isCurrentUser = m.id === currentUser?.id;
-                        return (
-                            <label key={m.id} className="flex items-center space-x-2 cursor-pointer">
-                                <Checkbox checked={isSelected} onCheckedChange={handleToggle(m.id!, setter)} />
-                                <span className="text-sm">
-                                    {m.firstName} {m.lastName}{isCurrentUser && " (Vous)"}
-                                </span>
-                            </label>
-                        );
-                    })}
-            </div>
-        );
-    };
 
     return (
         <div className="fixed inset-0 z-50 overflow-auto bg-black/50 flex justify-center items-start pt-12">
@@ -294,10 +252,11 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
                                             </PopoverContent>
                                         </Popover>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="birthPlace">Lieu de naissance</Label>
-                                        <Input id="birthPlace" value={birthPlace} onChange={(e) => setBirthPlace(e.target.value)} placeholder="Paris, France" />
-                                    </div>
+                                    <LocationSelector
+                                        value={birthPlace}
+                                        onChange={setBirthPlace}
+                                        label="Lieu de naissance"
+                                    />
                                 </div>
 
                                 <div className="flex items-center space-x-2">
@@ -332,11 +291,12 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
                                 )}
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="nationality" className="flex items-center space-x-2">
-                                        <Globe className="h-4 w-4" />
-                                        <span>Nationalité</span>
-                                    </Label>
-                                    <Input id="nationality" value={nationality} onChange={(e) => setNationality(e.target.value)} placeholder="Française" />
+                                    <NationalitySelector
+                                        value={nationality}
+                                        onChange={handleNationalityChange}
+                                        placeholder="Sélectionnez une nationalité"
+                                        error={error}
+                                    />
                                 </div>
                             </CardContent>
                         </Card>
@@ -347,36 +307,92 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
                                 <CardTitle className="flex items-center space-x-2">
                                     <Heart className="h-5 w-5" /> Relations familiales
                                 </CardTitle>
+                                <CardDescription>
+                                    Utilisez la barre de recherche pour trouver et sélectionner les membres de la famille
+                                </CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-6">
+                            <CardContent className="space-y-8">
+                                {/* Parents */}
                                 <div>
-                                    <Label>Parents</Label>
-                                    {renderMemberCheckboxes(selectedParents, setSelectedParents)}
+                                    <Label className="block text-sm font-medium text-gray-700 mb-3">
+                                        Parents
+                                    </Label>
+                                    <MemberSearch
+                                        members={members}
+                                        selectedMembers={selectedParents}
+                                        onSelectionChange={setSelectedParents}
+                                        placeholder="Rechercher un parent..."
+                                        maxSelections={2}
+                                        currentUserId={currentUser?.id}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        Maximum 2 parents peuvent être sélectionnés
+                                    </p>
                                 </div>
+
+                                {/* Frères et sœurs */}
                                 <div>
-                                    <Label>Frères et sœurs</Label>
-                                    {renderMemberCheckboxes(selectedSiblings, setSelectedSiblings)}
+                                    <Label className="block text-sm font-medium text-gray-700 mb-3">
+                                        Frères et sœurs
+                                    </Label>
+                                    <MemberSearch
+                                        members={members}
+                                        selectedMembers={selectedSiblings}
+                                        onSelectionChange={setSelectedSiblings}
+                                        placeholder="Rechercher un frère ou une sœur..."
+                                        excludeIds={selectedParents}
+                                        currentUserId={currentUser?.id}
+                                    />
                                 </div>
+
+                                {/* Enfants */}
                                 <div>
-                                    <Label>Enfants</Label>
-                                    {renderMemberCheckboxes(selectedChildren, setSelectedChildren)}
+                                    <Label className="block text-sm font-medium text-gray-700 mb-3">
+                                        Enfants
+                                    </Label>
+                                    <MemberSearch
+                                        members={members}
+                                        selectedMembers={selectedChildren}
+                                        onSelectionChange={setSelectedChildren}
+                                        placeholder="Rechercher un enfant..."
+                                        excludeIds={[...selectedParents, ...selectedSiblings]}
+                                        currentUserId={currentUser?.id}
+                                    />
                                 </div>
+
+                                {/* Conjoint(e) */}
                                 <div>
-                                    <div className="flex items-center space-x-2">
+                                    <div className="flex items-center space-x-3 mb-4">
                                         <Checkbox
                                             checked={isMarried}
                                             onCheckedChange={(checked) => {
                                                 setIsMarried(checked === true);
-                                                if (checked !== true) setSelectedSpouse([]); // ✅ reset con array vuoto
+                                                if (checked !== true) {
+                                                    setSelectedSpouse([]);
+                                                }
                                             }}
                                         />
                                         <Label>Cette personne est-elle mariée ?</Label>
                                     </div>
 
                                     {isMarried && (
-                                        <div className="mt-3 space-y-2">
-                                            <Label>Sélectionner le/la conjoint(e)</Label>
-                                            {renderMemberCheckboxes(selectedSpouse, setSelectedSpouse)}
+                                        <div className="ml-7">
+                                            <Label className="block text-sm font-medium text-gray-700 mb-3">
+                                                Conjoint(e)
+                                            </Label>
+                                            <MemberSearch
+                                                members={members}
+                                                selectedMembers={selectedSpouse}
+                                                onSelectionChange={setSelectedSpouse}
+                                                placeholder="Rechercher le/la conjoint(e)..."
+                                                maxSelections={1}
+                                                excludeIds={[
+                                                    ...selectedParents,
+                                                    ...selectedSiblings,
+                                                    ...selectedChildren
+                                                ]}
+                                                currentUserId={currentUser?.id}
+                                            />
                                         </div>
                                     )}
                                 </div>
