@@ -45,7 +45,7 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
     const [lastName, setLastName] = useState("");
     const [birthPlace, setBirthPlace] = useState<LocationData | null>(null);
     const [deathPlace, setDeathPlace] = useState("");
-    const [nationality, setNationality] = useState("");
+    const [nationality, setNationality] = useState<string[]>([]); // tableau vide par défaut
     const [bio, setBio] = useState("");
     const [selectedSpouse, setSelectedSpouse] = useState<string[]>([]);
     const [selectedParents, setSelectedParents] = useState<string[]>([]);
@@ -87,9 +87,9 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
         return obj;
     }
 
-    const handleNationalityChange = useCallback((newNationality: string): void => {
-        setNationality(newNationality);
-        if (error) setError(''); // Effacer l'erreur lors du changement
+    const handleNationalityChange = useCallback((newNationalities: string[]): void => {
+        setNationality(newNationalities);
+        if (error) setError(''); // effacer l'erreur
     }, [error]);
 
     const handleSave = async () => {
@@ -126,7 +126,6 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
             console.error("❌ Erreur lors de l'ajout du membre :", error);
         }
     };
-
 
     return (
         <div className="fixed inset-0 z-50 overflow-auto bg-black/50 flex justify-center items-start pt-12">

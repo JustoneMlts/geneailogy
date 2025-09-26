@@ -21,6 +21,85 @@ import { getFamilyMembersByIds } from "@/app/controllers/membersController";
 import { MariageLines } from "@/components/mariageLine"
 import { DynamicFamilyTree } from "./dynamicFamilyTree";
 import GeographicalOrigins from "./geographicalOrigins";
+import { isArray } from "lodash";
+import { current } from "@reduxjs/toolkit";
+
+const nationalityToISO: Record<string, string> = {
+    'Afghane': 'AF', 'Sud-africaine': 'ZA', 'Albanaise': 'AL', 'Algérienne': 'DZ',
+    'Allemande': 'DE', 'Andorrane': 'AD', 'Angolaise': 'AO', 'Antiguaise-et-barbudienne': 'AG',
+    'Saoudienne': 'SA', 'Argentine': 'AR', 'Arménienne': 'AM', 'Australienne': 'AU',
+    'Autrichienne': 'AT', 'Azerbaïdjanaise': 'AZ', 'Bahamienne': 'BS', 'Bahreïnienne': 'BH',
+    'Bangladaise': 'BD', 'Barbadienne': 'BB', 'Belge': 'BE', 'Bélizienne': 'BZ',
+    'Béninoise': 'BJ', 'Bhoutanaise': 'BT', 'Biélorusse': 'BY', 'Birmane': 'MM',
+    'Bolivienne': 'BO', 'Bosnienne': 'BA', 'Botswanaise': 'BW', 'Brésilienne': 'BR',
+    'Brunéienne': 'BN', 'Bulgare': 'BG', 'Burkinabée': 'BF', 'Burundaise': 'BI',
+    'Cambodgienne': 'KH', 'Camerounaise': 'CM', 'Canadienne': 'CA', 'Cap-verdienne': 'CV',
+    'Centrafricaine': 'CF', 'Chilienne': 'CL', 'Chinoise': 'CN', 'Chypriote': 'CY',
+    'Colombienne': 'CO', 'Comorienne': 'KM', 'Congolaise': 'CG', 'Congolaise (RDC)': 'CD',
+    'Nord-coréenne': 'KP', 'Sud-coréenne': 'KR', 'Costaricienne': 'CR', 'Ivoirienne': 'CI',
+    'Croate': 'HR', 'Cubaine': 'CU', 'Danoise': 'DK', 'Djiboutienne': 'DJ',
+    'Dominicaine': 'DO', 'Dominiquaise': 'DM', 'Égyptienne': 'EG', 'Émirienne': 'AE',
+    'Équatorienne': 'EC', 'Érythréenne': 'ER', 'Espagnole': 'ES', 'Estonienne': 'EE',
+    'Américaine': 'US', 'Éthiopienne': 'ET', 'Fidjienne': 'FJ', 'Finlandaise': 'FI',
+    'Française': 'FR', 'Gabonaise': 'GA', 'Gambienne': 'GM', 'Géorgienne': 'GE',
+    'Ghanéenne': 'GH', 'Grecque': 'GR', 'Grenadienne': 'GD', 'Guatémaltèque': 'GT',
+    'Guinéenne': 'GN', 'Équato-guinéenne': 'GQ', 'Bissau-guinéenne': 'GW', 'Guyanienne': 'GY',
+    'Haïtienne': 'HT', 'Hondurienne': 'HN', 'Hongroise': 'HU', 'Indienne': 'IN',
+    'Indonésienne': 'ID', 'Irakienne': 'IQ', 'Iranienne': 'IR', 'Irlandaise': 'IE',
+    'Islandaise': 'IS', 'Israélienne': 'IL', 'Italienne': 'IT', 'Jamaïcaine': 'JM',
+    'Japonaise': 'JP', 'Jordanienne': 'JO', 'Kazakhe': 'KZ', 'Kényane': 'KE',
+    'Kirghize': 'KG', 'Kiribatienne': 'KI', 'Koweïtienne': 'KW', 'Laotienne': 'LA',
+    'Lesothane': 'LS', 'Lettonne': 'LV', 'Libanaise': 'LB', 'Libérienne': 'LR',
+    'Libyenne': 'LY', 'Liechtensteinoise': 'LI', 'Lituanienne': 'LT', 'Luxembourgeoise': 'LU',
+    'Macédonienne du Nord': 'MK', 'Malgache': 'MG', 'Malaisienne': 'MY', 'Malawienne': 'MW',
+    'Maldivienne': 'MV', 'Malienne': 'ML', 'Maltaise': 'MT', 'Marocaine': 'MA',
+    'Marshallaise': 'MH', 'Mauricienne': 'MU', 'Mauritanienne': 'MR', 'Mexicaine': 'MX',
+    'Micronésienne': 'FM', 'Moldave': 'MD', 'Monégasque': 'MC', 'Mongole': 'MN',
+    'Monténégrine': 'ME', 'Mozambicaine': 'MZ', 'Namibienne': 'NA', 'Nauruane': 'NR',
+    'Népalaise': 'NP', 'Nicaraguayenne': 'NI', 'Nigérienne': 'NE', 'Nigériane': 'NG',
+    'Norvégienne': 'NO', 'Néo-zélandaise': 'NZ', 'Omanaise': 'OM', 'Ougandaise': 'UG',
+    'Ouzbeke': 'UZ', 'Pakistanaise': 'PK', 'Palaosienne': 'PW', 'Palestinienne': 'PS',
+    'Panaméenne': 'PA', 'Papouane-néo-guinéenne': 'PG', 'Paraguayenne': 'PY',
+    'Néerlandaise': 'NL', 'Péruvienne': 'PE', 'Philippine': 'PH', 'Polonaise': 'PL',
+    'Portugaise': 'PT', 'Qatarienne': 'QA', 'Roumaine': 'RO', 'Britannique': 'GB',
+    'Russe': 'RU', 'Rwandaise': 'RW', 'Saint-lucienne': 'LC', 'Saint-marinaise': 'SM',
+    'Saint-vincentaise-et-grenadine': 'VC', 'Salomonaise': 'SB', 'Salvadorienne': 'SV',
+    'Samoane': 'WS', 'São-toméenne': 'ST', 'Sénégalaise': 'SN', 'Serbe': 'RS',
+    'Seychelloise': 'SC', 'Sierra-léonaise': 'SL', 'Singapourienne': 'SG', 'Slovaque': 'SK',
+    'Slovène': 'SI', 'Somalienne': 'SO', 'Soudanaise': 'SD', 'Sud-soudanaise': 'SS',
+    'Sri-lankaise': 'LK', 'Suédoise': 'SE', 'Suisse': 'CH', 'Surinamaise': 'SR',
+    'Swazie': 'SZ', 'Syrienne': 'SY', 'Tadjike': 'TJ', 'Tanzanienne': 'TZ',
+    'Tchadienne': 'TD', 'Tchèque': 'CZ', 'Thaïlandaise': 'TH', 'Timoraise': 'TL',
+    'Togolaise': 'TG', 'Tonguienne': 'TO', 'Trinidadienne': 'TT', 'Tunisienne': 'TN',
+    'Turkmène': 'TM', 'Turque': 'TR', 'Tuvaluane': 'TV', 'Ukrainienne': 'UA',
+    'Uruguayenne': 'UY', 'Vanuatuane': 'VU', 'Vénézuélienne': 'VE', 'Vietnamienne': 'VN',
+    'Yéménite': 'YE', 'Zambienne': 'ZM', 'Zimbabwéenne': 'ZW',
+};
+
+// Convertir code ISO -> emoji drapeau
+const isoToFlagEmoji = (iso: string) =>
+    iso
+        .toUpperCase()
+        .replace(/./g, (char) =>
+            String.fromCodePoint(127397 + char.charCodeAt(0))
+        );
+
+// Convertir nom FR -> emoji
+const nationalityToEmoji = (nationality: string) => {
+    const code = nationalityToISO[nationality];
+    if (!code) return '🏳'; // fallback
+    return isoToFlagEmoji(code);
+};
+
+function handleEdit(member: MemberType) {
+    console.log("Edit", member);
+    // ouvrir modal ou form pour éditer
+}
+
+function handleDelete(member: MemberType) {
+    console.log("Delete", member);
+    // confirmation + suppression
+}
 
 // Types et utilitaires inchangés
 const getYearFromADate = (timestamp: number): number => {
@@ -225,7 +304,8 @@ export const GrandparentsSection = ({
     setSelectedMember,
     currentUserId,
     centralPersonId,
-    onNavigateToPerson
+    onNavigateToPerson,
+    isTreeOwner
 }: {
     paternalGrandparents: MemberType[];
     maternalGrandparents: MemberType[];
@@ -233,6 +313,7 @@ export const GrandparentsSection = ({
     currentUserId: string;
     centralPersonId: string;
     onNavigateToPerson: (personId: string) => void;
+    isTreeOwner: boolean;
 }) => {
     // Si aucun grand-parent, ne rien afficher
     if (paternalGrandparents.length === 0 && maternalGrandparents.length === 0) {
@@ -257,6 +338,7 @@ export const GrandparentsSection = ({
                                     {paternalGrandparents.map((member) => (
                                         <div key={member.id!} className="flex-shrink-0">
                                             <CompactFamilyMemberCard
+                                                key={member.id!}
                                                 member={member}
                                                 highlight={member.id === centralPersonId}
                                                 isCurrentUser={member.id === currentUserId}
@@ -264,6 +346,9 @@ export const GrandparentsSection = ({
                                                     setSelectedMember(member);
                                                     onNavigateToPerson(member.id!);
                                                 }}
+                                                onEdit={() => handleEdit(member)}
+                                                onDelete={() => handleDelete(member)}
+                                                isTreeOwner={isTreeOwner}                                            
                                             />
                                         </div>
                                     ))}
@@ -285,6 +370,7 @@ export const GrandparentsSection = ({
                                     {maternalGrandparents.map((member) => (
                                         <div key={member.id!} className="flex-shrink-0">
                                             <CompactFamilyMemberCard
+                                                key={member.id!}
                                                 member={member}
                                                 highlight={member.id === centralPersonId}
                                                 isCurrentUser={member.id === currentUserId}
@@ -292,6 +378,9 @@ export const GrandparentsSection = ({
                                                     setSelectedMember(member);
                                                     onNavigateToPerson(member.id!);
                                                 }}
+                                                onEdit={() => handleEdit(member)}
+                                                onDelete={() => handleDelete(member)}
+                                                isTreeOwner={isTreeOwner}
                                             />
                                         </div>
                                     ))}
@@ -315,7 +404,8 @@ export const GenerationSection = ({
     onNavigateToPerson,
     isOwner,
     type,
-    childrenSections
+    childrenSections,
+    isTreeOwner
 }: {
     title: string;
     members: MemberType[];
@@ -326,12 +416,12 @@ export const GenerationSection = ({
     isOwner: boolean;
     type: 'paternal-grandparents' | 'maternal-grandparents' | 'grandparents' | 'parents' | 'uncles-aunts' | 'siblings' | 'cousins' | 'children-group';
     childrenSections?: ChildrenSection[];
+    isTreeOwner: boolean;
 }) => {
     // Pour les grands-parents paternels/maternels -> gérés par GrandparentsSection
     if (type === 'paternal-grandparents' || type === 'maternal-grandparents') {
         return null;
     }
-
     // === CAS : sections avec enfants (siblings, uncles-aunts) ===
     if ((type === 'siblings' || type === 'uncles-aunts') && childrenSections) {
         return (
@@ -370,6 +460,9 @@ export const GenerationSection = ({
                                                 setSelectedMember(parent);
                                                 onNavigateToPerson(parent.id!);
                                             }}
+                                            onEdit={() => handleEdit(parent)}
+                                            onDelete={() => handleDelete(parent)}
+                                            isTreeOwner={isTreeOwner}
                                         />
                                     </div>
 
@@ -398,7 +491,11 @@ export const GenerationSection = ({
                                                                 setSelectedMember(member);
                                                                 onNavigateToPerson(member.id!);
                                                             }}
+                                                            onEdit={() => handleEdit(member)}
+                                                            onDelete={() => handleDelete(member)}
+                                                            isTreeOwner={isTreeOwner}
                                                         />
+
                                                     ))}
                                                 </div>
                                             </div>
@@ -443,6 +540,9 @@ export const GenerationSection = ({
                                 setSelectedMember(member);
                                 onNavigateToPerson(member.id!);
                             }}
+                            onEdit={() => handleEdit(member)}
+                            onDelete={() => handleDelete(member)}
+                            isTreeOwner={isTreeOwner}
                         />
                     ))}
                 </div>
@@ -456,13 +556,32 @@ function CompactFamilyMemberCard({
     member,
     onClick,
     highlight,
-    isCurrentUser
+    isCurrentUser,
+    onEdit,
+    onDelete,
+    isTreeOwner
 }: {
     member: MemberType;
     onClick: () => void;
     highlight: boolean;
     isCurrentUser: boolean;
+    onEdit: () => void;
+    onDelete: () => void;
+    isTreeOwner: boolean;
 }) {
+    const [showActions, setShowActions] = useState(false);
+
+    const handleMouse = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowActions(true);
+    };
+
+    const handleTouch = (e: React.TouchEvent) => {
+        e.stopPropagation();
+        setShowActions((prev) => !prev);
+    };
+
+    console.log("isTreeOwner : ", isTreeOwner)
     return (
         <Card
             className={`w-40 overflow-visible cursor-pointer transition-all duration-300 
@@ -471,69 +590,103 @@ function CompactFamilyMemberCard({
             ${highlight ? "ring-4 ring-green-400 ring-offset-2" : ""} 
             ${isCurrentUser ? "ring-2 ring-yellow-400 ring-offset-1" : ""}`}
             onClick={onClick}
+            onMouseEnter={() => setShowActions(true)}
+            onMouseLeave={() => setShowActions(false)}
+            onTouchStart={handleTouch} // mobile
         >
-            {/* Indicateur "personne centrale" */}
-            {highlight && (
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">🎯</span>
-                </div>
-            )}
+            {isTreeOwner &&
+            <div
+                className={`absolute -top-2 -right-2 flex flex-row items-center space-x-1 space-y-1 z-50 transition-all duration-200 
+                ${showActions ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`}
+            >
+                {/* Edit */}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit();
+                    }}
+                    className="w-6 h-6 border-2 border-blue-600 bg-blue-100 hover:bg-blue-600 text-white rounded-full flex items-center justify-center transition-transform duration-200 transform hover:scale-125"
+                    title="Éditer"
+                >
+                    <span className="transition-transform duration-200 transform hover:scale-125 flex items-center justify-center w-3 h-3 text-[10px] text-center leading-none">
+                        ✏️
+                    </span>
+                </button>
+                {/* Delete */}
+                <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                    className="w-6 h-6 border-2 border-red-600 bg-red-100 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-transform duration-200 transform hover:scale-125"
+                    title="Supprimer"
+                >
+                    <span className="transition-transform duration-200 transform hover:scale-125 flex items-center justify-center w-3 h-3 text-[10px] text-center leading-none">
+                        ❌
+                    </span>
+                </button>
+            </div>
+            }
 
-            {/* Indicateur "vous" */}
-            {isCurrentUser && !highlight && (
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">👤</span>
-                </div>
-            )}
 
-            <CardContent className="p-3 text-center">
-                <Avatar className="w-12 h-12 mx-auto mb-2">
-                    <AvatarImage src={member.avatar || "/placeholder.svg"} />
-                    <AvatarFallback className={member.gender === "male" ? "bg-blue-100 text-xs" : "bg-pink-100 text-xs"}>
-                        {member.firstName
-                            .split(" ")
-                            .map((n: any) => n[0])
-                            .join("") + member.lastName
+            {/* Avatar + drapeaux */}
+            <CardContent className="p-3 text-center relative">
+                <div className="relative w-12 h-12 mx-auto mb-2">
+                    <Avatar className="w-full h-full">
+                        <AvatarImage src={member.avatar || "/placeholder.svg"} />
+                        <AvatarFallback className={member.gender === "male" ? "bg-blue-100 text-xs" : "bg-pink-100 text-xs"}>
+                            {member.firstName
                                 .split(" ")
                                 .map((n: any) => n[0])
-                                .join("")
-                        }
-                    </AvatarFallback>
-                </Avatar>
+                                .join("") + member.lastName
+                                    .split(" ")
+                                    .map((n: any) => n[0])
+                                    .join("")
+                            }
+                        </AvatarFallback>
+                    </Avatar>
 
-                <h3 className="font-semibold text-xs mb-1 leading-tight">
-                    {member.firstName} {member.lastName}
-                </h3>
-
-                <div className="space-y-1 text-xs text-gray-600">
-                    {member.birthDate && (
-                        <div className="flex items-center justify-center space-x-1">
-                            <Calendar className="w-2.5 h-2.5" />
-                            <span className="text-xs">
-                                {getYearFromADate(member.birthDate)}
-                                {member.deathDate && ` - ${getYearFromADate(member.deathDate)}`}
-                            </span>
+                    {/* Drapeaux */}
+                    {member.nationality && (
+                        <div className="absolute -bottom-1 -right-1 flex -space-x-1">
+                            {Array.isArray(member.nationality) ? (
+                                <>
+                                    {member.nationality.slice(0, 3).map((nat, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-gray-200 text-[10px] shadow-sm cursor-default"
+                                            title={nat}
+                                        >
+                                            {nationalityToEmoji(nat)}
+                                        </div>
+                                    ))}
+                                    {member.nationality.length > 3 && (
+                                        <div
+                                            className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-[10px] border border-gray-200 shadow-sm cursor-default"
+                                            title={member.nationality.slice(3).join(', ')}
+                                        >
+                                            +{member.nationality.length - 3}
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div
+                                    className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-gray-200 text-[10px] shadow-sm cursor-default"
+                                    title={member.nationality}
+                                >
+                                    {nationalityToEmoji(member.nationality)}
+                                </div>
+                            )}
                         </div>
                     )}
-                    {/* {member.birthPlace && (
-                        <div className="flex items-center justify-center space-x-1">
-                            <MapPin className="w-2.5 h-2.5" />
-                            <span className="truncate text-xs max-w-24">
-                                {member.birthPlace.split(',')[0]}
-                            </span>
-                        </div>
-                    )} */}
                 </div>
 
-                {member.deathDate && (
-                    <Badge variant="secondary" className="mt-1 text-xs px-1 py-0">
-                        Décédé(e)
-                    </Badge>
-                )}
+                <h3 className="font-semibold text-xs mb-1 leading-tight">
+                    {member.firstName} {member.lastName} 
+                </h3>
             </CardContent>
         </Card>
-    )
+    );
 }
+
+
 
 export const Tree = ({ userId }: { userId?: string }) => {
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
@@ -603,8 +756,8 @@ export const Tree = ({ userId }: { userId?: string }) => {
     }
 
     return (
-        <div className="animate-fade-in">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
+        <div className="animate-fade-in px-6">
+            <div className="flex flex-col px-6 md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800 mb-2">
                         {mainUser && userId
@@ -1040,55 +1193,3 @@ export const Tree = ({ userId }: { userId?: string }) => {
         </div>
     )
 }
-
-// function FamilyMemberCard({ member, onClick, highlight }: { member: MemberType; onClick: () => void, highlight: boolean }) {
-
-//     return (
-//         <div>
-//             <Card
-//                 className={`w-48 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 ${member.gender === "male" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"
-//                     }`}
-//                 onClick={onClick}
-//             >
-//                 <CardContent className="p-4 text-center">
-//                     <Avatar className="w-16 h-16 mx-auto mb-3">
-//                         <AvatarImage src={member.avatar || "/placeholder.svg"} />
-//                         <AvatarFallback className={member.gender === "male" ? "bg-blue-100" : "bg-pink-100"}>
-//                             {member.firstName
-//                                 .split(" ")
-//                                 .map((n: any) => n[0])
-//                                 .join("") + member.lastName
-//                                     .split(" ")
-//                                     .map((n: any) => n[0])
-//                                     .join("")
-//                             }
-//                         </AvatarFallback>
-//                     </Avatar>
-//                     <h3 className="font-semibold text-sm mb-2">{member.firstName + " " + member.lastName}</h3>
-//                     <div className="space-y-1 text-xs text-gray-600">
-//                         {member.birthDate && (
-//                             <div className="flex items-center justify-center space-x-1">
-//                                 <Calendar className="w-3 h-3" />
-//                                 <span>
-//                                     {getYearFromADate(member.birthDate)}
-//                                     {member.deathDate && ` - ${getYearFromADate(member.deathDate)}`}
-//                                 </span>
-//                             </div>
-//                         )}
-//                         {member.birthPlace && (
-//                             <div className="flex items-center justify-center space-x-1">
-//                                 <MapPin className="w-3 h-3" />
-//                                 <span className="truncate">{member.birthPlace}</span>
-//                             </div>
-//                         )}
-//                     </div>
-//                     {member.deathDate && (
-//                         <Badge variant="secondary" className="mt-2 text-xs">
-//                             Décédé(e)
-//                         </Badge>
-//                     )}
-//                 </CardContent>
-//             </Card>
-//         </div>
-//     )
-// }

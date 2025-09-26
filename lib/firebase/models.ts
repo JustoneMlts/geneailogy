@@ -52,7 +52,7 @@ export interface MemberType {
   gender?: "male" | "female" | "other"
   avatar?: string
   bio?: string
-  nationality?: string
+  nationality?: string | string []
   treeId: string
   mariageId?: string
   isMarried?: boolean

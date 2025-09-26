@@ -21,6 +21,7 @@ export const DynamicFamilyTree = ({
   const [isOwner, setIsOwner] = useState(false);
   const [tree, setTree] = useState<TreeType | null>(null);
   const [treeOwner, setTreeOwner] = useState("");
+  const [isTreeOwner, setIsTreeOwner] = useState(false)
   const [selectedMember, setSelectedMember] = useState<MemberType>();
   const [centralPersonId, setCentralPersonId] = useState<string>("");
   const [generations, setGenerations] = useState<Generation[]>([]);
@@ -91,6 +92,12 @@ export const DynamicFamilyTree = ({
     setGenerations(gens);
   }, [familyData, centralPersonId, mainUser, isOwner]);
 
+  useEffect(() => {
+    if (tree && currentUser && tree.ownerId === currentUser.id) {
+      setIsTreeOwner(true)
+    }
+  }, [tree, currentUser])
+
   // Fonction pour naviguer vers une personne
   const navigateToPerson = (personId: string) => {
     if (personId !== centralPersonId) {
@@ -134,7 +141,7 @@ export const DynamicFamilyTree = ({
   );
 
   return (
-    <div className="space-y-8 px-4">
+    <div className="space-y-8 px-6">
       {/* Barre de navigation */}
       <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border">
         <div className="flex items-center space-x-4">
@@ -179,6 +186,7 @@ export const DynamicFamilyTree = ({
           currentUserId={mainUser?.id || ""}
           centralPersonId={centralPersonId}
           onNavigateToPerson={navigateToPerson}
+          isTreeOwner={isTreeOwner}
         />
 
         {/* Autres générations (Parents, Vous et vos frères et sœurs, etc.) */}
@@ -194,6 +202,7 @@ export const DynamicFamilyTree = ({
             isOwner={isOwner}
             type={generation.type}
             childrenSections={generation.childrenSections}
+            isTreeOwner={isTreeOwner}
           />
         ))}
       </div>
