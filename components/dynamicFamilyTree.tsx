@@ -2,19 +2,25 @@ import { MemberType, TreeType, UserType } from "@/lib/firebase/models";
 import { selectUser } from "@/lib/redux/slices/currentUserSlice";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { buildDynamicTree, Generation, GenerationSection, GrandparentsSection, getMemberById } from "./tree";
+import { buildDynamicTree, Generation, GenerationSection, GrandparentsSection, getMemberById, getMembersByIds } from "./tree";
 import { getTreeById } from "@/app/controllers/treesController";
 import { getUserById } from "@/app/controllers/usersController";
-import { getFamilyMembersByIds } from "@/app/controllers/membersController";
+import { getFamilyMembersByIds, getParentsByMemberId } from "@/app/controllers/membersController";
 
 export const DynamicFamilyTree = ({
   treeId,
   userId,
-  refreshTrigger
+  refreshTrigger,
+  onEdit,
+  onDelete,
+  onDetail,
 }: {
   treeId: string;
   userId?: string;
   refreshTrigger?: number;
+  onEdit: (memberId: string) => void;
+  onDelete: (memberId: string) => void;
+  onDetail: (memberId: string) => void;
 }) => {
   const [familyData, setFamilyData] = useState<MemberType[]>([]);
   const currentUser = useSelector(selectUser);
@@ -27,6 +33,7 @@ export const DynamicFamilyTree = ({
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
   const [mainUser, setMainUser] = useState<UserType | null>(null);
+  const [parents, setParents] = useState<MemberType[] | null>([])
 
   useEffect(() => {
     if (userId) {
@@ -124,12 +131,26 @@ export const DynamicFamilyTree = ({
       setNavigationHistory([mainUser.id]);
     }
   };
+  
+  const centralPerson = getMemberById(familyData, centralPersonId);
+
+  useEffect(() => {
+    const fetchParents = async () => {
+      try {
+        if (centralPerson && centralPerson.id) {
+          const data = await getParentsByMemberId(centralPerson.id)
+          setParents(data)
+        }
+      } catch {
+        console.log("Une erreur est survenue lors de la récupération des parents.")
+      }
+    }
+    fetchParents()
+  }, [centralPerson])
 
   if (!mainUser || !familyData.length || !generations.length) {
     return <div>Chargement de l'arbre...</div>;
   }
-
-  const centralPerson = getMemberById(familyData, centralPersonId);
 
   // Séparer les grands-parents paternels et maternels
   const paternalGrandparents = generations.find(gen => gen.type === 'paternal-grandparents')?.members || [];
@@ -187,6 +208,10 @@ export const DynamicFamilyTree = ({
           centralPersonId={centralPersonId}
           onNavigateToPerson={navigateToPerson}
           isTreeOwner={isTreeOwner}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          parents={parents ? parents : []}
+          onDetail={onDetail}
         />
 
         {/* Autres générations (Parents, Vous et vos frères et sœurs, etc.) */}
@@ -203,6 +228,9 @@ export const DynamicFamilyTree = ({
             type={generation.type}
             childrenSections={generation.childrenSections}
             isTreeOwner={isTreeOwner}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onDetail={onDetail}
           />
         ))}
       </div>

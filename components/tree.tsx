@@ -23,83 +23,8 @@ import { DynamicFamilyTree } from "./dynamicFamilyTree";
 import GeographicalOrigins from "./geographicalOrigins";
 import { isArray } from "lodash";
 import { current } from "@reduxjs/toolkit";
-
-const nationalityToISO: Record<string, string> = {
-    'Afghane': 'AF', 'Sud-africaine': 'ZA', 'Albanaise': 'AL', 'Algérienne': 'DZ',
-    'Allemande': 'DE', 'Andorrane': 'AD', 'Angolaise': 'AO', 'Antiguaise-et-barbudienne': 'AG',
-    'Saoudienne': 'SA', 'Argentine': 'AR', 'Arménienne': 'AM', 'Australienne': 'AU',
-    'Autrichienne': 'AT', 'Azerbaïdjanaise': 'AZ', 'Bahamienne': 'BS', 'Bahreïnienne': 'BH',
-    'Bangladaise': 'BD', 'Barbadienne': 'BB', 'Belge': 'BE', 'Bélizienne': 'BZ',
-    'Béninoise': 'BJ', 'Bhoutanaise': 'BT', 'Biélorusse': 'BY', 'Birmane': 'MM',
-    'Bolivienne': 'BO', 'Bosnienne': 'BA', 'Botswanaise': 'BW', 'Brésilienne': 'BR',
-    'Brunéienne': 'BN', 'Bulgare': 'BG', 'Burkinabée': 'BF', 'Burundaise': 'BI',
-    'Cambodgienne': 'KH', 'Camerounaise': 'CM', 'Canadienne': 'CA', 'Cap-verdienne': 'CV',
-    'Centrafricaine': 'CF', 'Chilienne': 'CL', 'Chinoise': 'CN', 'Chypriote': 'CY',
-    'Colombienne': 'CO', 'Comorienne': 'KM', 'Congolaise': 'CG', 'Congolaise (RDC)': 'CD',
-    'Nord-coréenne': 'KP', 'Sud-coréenne': 'KR', 'Costaricienne': 'CR', 'Ivoirienne': 'CI',
-    'Croate': 'HR', 'Cubaine': 'CU', 'Danoise': 'DK', 'Djiboutienne': 'DJ',
-    'Dominicaine': 'DO', 'Dominiquaise': 'DM', 'Égyptienne': 'EG', 'Émirienne': 'AE',
-    'Équatorienne': 'EC', 'Érythréenne': 'ER', 'Espagnole': 'ES', 'Estonienne': 'EE',
-    'Américaine': 'US', 'Éthiopienne': 'ET', 'Fidjienne': 'FJ', 'Finlandaise': 'FI',
-    'Française': 'FR', 'Gabonaise': 'GA', 'Gambienne': 'GM', 'Géorgienne': 'GE',
-    'Ghanéenne': 'GH', 'Grecque': 'GR', 'Grenadienne': 'GD', 'Guatémaltèque': 'GT',
-    'Guinéenne': 'GN', 'Équato-guinéenne': 'GQ', 'Bissau-guinéenne': 'GW', 'Guyanienne': 'GY',
-    'Haïtienne': 'HT', 'Hondurienne': 'HN', 'Hongroise': 'HU', 'Indienne': 'IN',
-    'Indonésienne': 'ID', 'Irakienne': 'IQ', 'Iranienne': 'IR', 'Irlandaise': 'IE',
-    'Islandaise': 'IS', 'Israélienne': 'IL', 'Italienne': 'IT', 'Jamaïcaine': 'JM',
-    'Japonaise': 'JP', 'Jordanienne': 'JO', 'Kazakhe': 'KZ', 'Kényane': 'KE',
-    'Kirghize': 'KG', 'Kiribatienne': 'KI', 'Koweïtienne': 'KW', 'Laotienne': 'LA',
-    'Lesothane': 'LS', 'Lettonne': 'LV', 'Libanaise': 'LB', 'Libérienne': 'LR',
-    'Libyenne': 'LY', 'Liechtensteinoise': 'LI', 'Lituanienne': 'LT', 'Luxembourgeoise': 'LU',
-    'Macédonienne du Nord': 'MK', 'Malgache': 'MG', 'Malaisienne': 'MY', 'Malawienne': 'MW',
-    'Maldivienne': 'MV', 'Malienne': 'ML', 'Maltaise': 'MT', 'Marocaine': 'MA',
-    'Marshallaise': 'MH', 'Mauricienne': 'MU', 'Mauritanienne': 'MR', 'Mexicaine': 'MX',
-    'Micronésienne': 'FM', 'Moldave': 'MD', 'Monégasque': 'MC', 'Mongole': 'MN',
-    'Monténégrine': 'ME', 'Mozambicaine': 'MZ', 'Namibienne': 'NA', 'Nauruane': 'NR',
-    'Népalaise': 'NP', 'Nicaraguayenne': 'NI', 'Nigérienne': 'NE', 'Nigériane': 'NG',
-    'Norvégienne': 'NO', 'Néo-zélandaise': 'NZ', 'Omanaise': 'OM', 'Ougandaise': 'UG',
-    'Ouzbeke': 'UZ', 'Pakistanaise': 'PK', 'Palaosienne': 'PW', 'Palestinienne': 'PS',
-    'Panaméenne': 'PA', 'Papouane-néo-guinéenne': 'PG', 'Paraguayenne': 'PY',
-    'Néerlandaise': 'NL', 'Péruvienne': 'PE', 'Philippine': 'PH', 'Polonaise': 'PL',
-    'Portugaise': 'PT', 'Qatarienne': 'QA', 'Roumaine': 'RO', 'Britannique': 'GB',
-    'Russe': 'RU', 'Rwandaise': 'RW', 'Saint-lucienne': 'LC', 'Saint-marinaise': 'SM',
-    'Saint-vincentaise-et-grenadine': 'VC', 'Salomonaise': 'SB', 'Salvadorienne': 'SV',
-    'Samoane': 'WS', 'São-toméenne': 'ST', 'Sénégalaise': 'SN', 'Serbe': 'RS',
-    'Seychelloise': 'SC', 'Sierra-léonaise': 'SL', 'Singapourienne': 'SG', 'Slovaque': 'SK',
-    'Slovène': 'SI', 'Somalienne': 'SO', 'Soudanaise': 'SD', 'Sud-soudanaise': 'SS',
-    'Sri-lankaise': 'LK', 'Suédoise': 'SE', 'Suisse': 'CH', 'Surinamaise': 'SR',
-    'Swazie': 'SZ', 'Syrienne': 'SY', 'Tadjike': 'TJ', 'Tanzanienne': 'TZ',
-    'Tchadienne': 'TD', 'Tchèque': 'CZ', 'Thaïlandaise': 'TH', 'Timoraise': 'TL',
-    'Togolaise': 'TG', 'Tonguienne': 'TO', 'Trinidadienne': 'TT', 'Tunisienne': 'TN',
-    'Turkmène': 'TM', 'Turque': 'TR', 'Tuvaluane': 'TV', 'Ukrainienne': 'UA',
-    'Uruguayenne': 'UY', 'Vanuatuane': 'VU', 'Vénézuélienne': 'VE', 'Vietnamienne': 'VN',
-    'Yéménite': 'YE', 'Zambienne': 'ZM', 'Zimbabwéenne': 'ZW',
-};
-
-// Convertir code ISO -> emoji drapeau
-const isoToFlagEmoji = (iso: string) =>
-    iso
-        .toUpperCase()
-        .replace(/./g, (char) =>
-            String.fromCodePoint(127397 + char.charCodeAt(0))
-        );
-
-// Convertir nom FR -> emoji
-const nationalityToEmoji = (nationality: string) => {
-    const code = nationalityToISO[nationality];
-    if (!code) return '🏳'; // fallback
-    return isoToFlagEmoji(code);
-};
-
-function handleEdit(member: MemberType) {
-    console.log("Edit", member);
-    // ouvrir modal ou form pour éditer
-}
-
-function handleDelete(member: MemberType) {
-    console.log("Delete", member);
-    // confirmation + suppression
-}
+import { nationalityToEmoji } from "@/app/helpers/memberHelper";
+import { MemberProfileModal } from "./memberProfilModal";
 
 // Types et utilitaires inchangés
 const getYearFromADate = (timestamp: number): number => {
@@ -163,7 +88,6 @@ type ChildrenSection = {
     parentId: string;
 };
 
-// Ajoutez ces nouveaux types à votre fichier
 export type Generation = {
     label: string;
     members: MemberType[];
@@ -187,7 +111,6 @@ export const getMaternalGrandparents = (member: MemberType, data: MemberType[]):
     return getParents(mother, data);
 };
 
-// Fonction principale modifiée pour construire l'arbre centré sur une personne
 export const buildDynamicTree = (
     familyData: MemberType[],
     centralPersonId: string,
@@ -297,7 +220,6 @@ export const buildDynamicTree = (
     return generations;
 };
 
-// Nouveau composant pour afficher les grands-parents côte à côte
 export const GrandparentsSection = ({
     paternalGrandparents,
     maternalGrandparents,
@@ -305,7 +227,11 @@ export const GrandparentsSection = ({
     currentUserId,
     centralPersonId,
     onNavigateToPerson,
-    isTreeOwner
+    isTreeOwner,
+    onEdit,
+    onDelete,
+    parents,
+    onDetail,
 }: {
     paternalGrandparents: MemberType[];
     maternalGrandparents: MemberType[];
@@ -314,10 +240,57 @@ export const GrandparentsSection = ({
     centralPersonId: string;
     onNavigateToPerson: (personId: string) => void;
     isTreeOwner: boolean;
+    onEdit: (memberId: string) => void;
+    onDelete: (memberId: string) => void;
+    onDetail: (memberId: string) => void;
+    parents: MemberType[]; // Ajout de ce prop
 }) => {
     // Si aucun grand-parent, ne rien afficher
     if (paternalGrandparents.length === 0 && maternalGrandparents.length === 0) {
         return null;
+    }
+
+    useEffect(() => {
+        if (parents) {
+            // Déterminer l'ordre en fonction de la position des parents
+            const father = parents.find(parent => parent.gender === 'male');
+            const mother = parents.find(parent => parent.gender === 'female');
+        }
+    }, [parents])
+
+
+
+    // Créer les sections dans l'ordre des parents
+    const sections = [];
+
+    parents.forEach(parent => {
+        if (parent.gender === 'male' && paternalGrandparents.length > 0) {
+            sections.push({
+                title: "Grands-parents paternels",
+                grandparents: paternalGrandparents
+            });
+        } else if (parent.gender === 'female' && maternalGrandparents.length > 0) {
+            sections.push({
+                title: "Grands-parents maternels",
+                grandparents: maternalGrandparents
+            });
+        }
+    });
+
+    // Fallback au cas où les parents ne seraient pas trouvés
+    if (sections.length === 0) {
+        if (paternalGrandparents.length > 0) {
+            sections.push({
+                title: "Grands-parents paternels",
+                grandparents: paternalGrandparents
+            });
+        }
+        if (maternalGrandparents.length > 0) {
+            sections.push({
+                title: "Grands-parents maternels",
+                grandparents: maternalGrandparents
+            });
+        }
     }
 
     return (
@@ -325,76 +298,42 @@ export const GrandparentsSection = ({
             {/* Container avec scroll horizontal */}
             <div className="overflow-x-auto overflow-y-visible pb-4">
                 <div className="flex justify-center items-start gap-16 min-w-max">
-                    {/* Section Grands-parents paternels */}
-                    <div className="flex flex-col items-center space-y-6 flex-shrink-0">
-                        {paternalGrandparents.length > 0 && (
-                            <>
-                                <div className="relative">
-                                    <h2 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
-                                        Grands-parents paternels
-                                    </h2>
-                                </div>
-                                <div className="flex gap-4 justify-center">
-                                    {paternalGrandparents.map((member) => (
-                                        <div key={member.id!} className="flex-shrink-0">
-                                            <CompactFamilyMemberCard
-                                                key={member.id!}
-                                                member={member}
-                                                highlight={member.id === centralPersonId}
-                                                isCurrentUser={member.id === currentUserId}
-                                                onClick={() => {
-                                                    setSelectedMember(member);
-                                                    onNavigateToPerson(member.id!);
-                                                }}
-                                                onEdit={() => handleEdit(member)}
-                                                onDelete={() => handleDelete(member)}
-                                                isTreeOwner={isTreeOwner}                                            
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    {sections.map((section, index) => (
+                        <div key={index} className="flex flex-col items-center space-y-6 flex-shrink-0">
+                            <div className="relative">
+                                <h2 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
+                                    {section.title}
+                                </h2>
+                            </div>
+                            <div className="flex gap-4 justify-center">
+                                {section.grandparents.map((member) => (
+                                    <div key={member.id!} className="flex-shrink-0">
+                                        <CompactFamilyMemberCard
+                                            key={member.id!}
+                                            member={member}
+                                            highlight={member.id === centralPersonId}
+                                            isCurrentUser={member.id === currentUserId}
+                                            onClick={() => {
+                                                setSelectedMember(member);
+                                                onNavigateToPerson(member.id!);
+                                            }}
+                                            onEdit={() => { if (member.id) onEdit(member.id) }}
+                                            onDelete={() => { if (member.id) onDelete(member.id) }}
+                                            isTreeOwner={isTreeOwner}
+                                            onDetail={() => {if (member.id) onDetail(member.id)}}
 
-                    {/* Section Grands-parents maternels */}
-                    <div className="flex flex-col items-center space-y-6 flex-shrink-0">
-                        {maternalGrandparents.length > 0 && (
-                            <>
-                                <div className="relative">
-                                    <h2 className="text-sm font-bold text-gray-800 bg-white px-4 py-2 rounded-full border-2 border-gray-200 inline-block relative z-10">
-                                        Grands-parents maternels
-                                    </h2>
-                                </div>
-                                <div className="flex gap-4 justify-center">
-                                    {maternalGrandparents.map((member) => (
-                                        <div key={member.id!} className="flex-shrink-0">
-                                            <CompactFamilyMemberCard
-                                                key={member.id!}
-                                                member={member}
-                                                highlight={member.id === centralPersonId}
-                                                isCurrentUser={member.id === currentUserId}
-                                                onClick={() => {
-                                                    setSelectedMember(member);
-                                                    onNavigateToPerson(member.id!);
-                                                }}
-                                                onEdit={() => handleEdit(member)}
-                                                onDelete={() => handleDelete(member)}
-                                                isTreeOwner={isTreeOwner}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
     );
 };
 
-// Composant GenerationSection mis à jour avec les nouveaux types
 export const GenerationSection = ({
     title,
     members,
@@ -405,7 +344,10 @@ export const GenerationSection = ({
     isOwner,
     type,
     childrenSections,
-    isTreeOwner
+    isTreeOwner,
+    onEdit,
+    onDelete,
+    onDetail   
 }: {
     title: string;
     members: MemberType[];
@@ -417,6 +359,9 @@ export const GenerationSection = ({
     type: 'paternal-grandparents' | 'maternal-grandparents' | 'grandparents' | 'parents' | 'uncles-aunts' | 'siblings' | 'cousins' | 'children-group';
     childrenSections?: ChildrenSection[];
     isTreeOwner: boolean;
+    onEdit: (memberId: string) => void;
+    onDelete: (memberId: string) => void;
+    onDetail: (memberId: string) => void;
 }) => {
     // Pour les grands-parents paternels/maternels -> gérés par GrandparentsSection
     if (type === 'paternal-grandparents' || type === 'maternal-grandparents') {
@@ -460,9 +405,10 @@ export const GenerationSection = ({
                                                 setSelectedMember(parent);
                                                 onNavigateToPerson(parent.id!);
                                             }}
-                                            onEdit={() => handleEdit(parent)}
-                                            onDelete={() => handleDelete(parent)}
+                                            onEdit={() => { if (parent.id) onEdit(parent.id) }}
+                                            onDelete={() => { if (parent.id) onDelete(parent.id) }}
                                             isTreeOwner={isTreeOwner}
+                                            onDetail={() => {if (parent.id) onDetail(parent.id)}}
                                         />
                                     </div>
 
@@ -491,11 +437,11 @@ export const GenerationSection = ({
                                                                 setSelectedMember(member);
                                                                 onNavigateToPerson(member.id!);
                                                             }}
-                                                            onEdit={() => handleEdit(member)}
-                                                            onDelete={() => handleDelete(member)}
+                                                            onEdit={() => { if (member.id) onEdit(member.id) }}
+                                                            onDelete={() => { if (member.id) onDelete(member.id) }}
                                                             isTreeOwner={isTreeOwner}
+                                                            onDetail={() => {if (member.id) onDetail(member.id)}}
                                                         />
-
                                                     ))}
                                                 </div>
                                             </div>
@@ -540,9 +486,11 @@ export const GenerationSection = ({
                                 setSelectedMember(member);
                                 onNavigateToPerson(member.id!);
                             }}
-                            onEdit={() => handleEdit(member)}
-                            onDelete={() => handleDelete(member)}
-                            isTreeOwner={isTreeOwner}
+                            onEdit={() => { if (member.id) onEdit(member.id) }}
+                            onDelete={() => { if (member.id) onDelete(member.id) }}
+                            isTreeOwner={isTreeOwner}                           
+                            onDetail={() => {if (member.id) onDetail(member.id)}}
+
                         />
                     ))}
                 </div>
@@ -559,7 +507,8 @@ function CompactFamilyMemberCard({
     isCurrentUser,
     onEdit,
     onDelete,
-    isTreeOwner
+    isTreeOwner,
+    onDetail,
 }: {
     member: MemberType;
     onClick: () => void;
@@ -568,6 +517,7 @@ function CompactFamilyMemberCard({
     onEdit: () => void;
     onDelete: () => void;
     isTreeOwner: boolean;
+    onDetail: () => void;
 }) {
     const [showActions, setShowActions] = useState(false);
 
@@ -581,7 +531,6 @@ function CompactFamilyMemberCard({
         setShowActions((prev) => !prev);
     };
 
-    console.log("isTreeOwner : ", isTreeOwner)
     return (
         <Card
             className={`w-40 overflow-visible cursor-pointer transition-all duration-300 
@@ -594,35 +543,55 @@ function CompactFamilyMemberCard({
             onMouseLeave={() => setShowActions(false)}
             onTouchStart={handleTouch} // mobile
         >
-            {isTreeOwner &&
+            {/* Icône œil - visible par tous */}
             <div
-                className={`absolute -top-2 -right-2 flex flex-row items-center space-x-1 space-y-1 z-50 transition-all duration-200 
+                className={`absolute -top-2 -left-2 z-50 transition-all duration-200
                 ${showActions ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`}
             >
-                {/* Edit */}
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        onEdit();
+                        onDetail();
                     }}
-                    className="w-6 h-6 border-2 border-blue-600 bg-blue-100 hover:bg-blue-600 text-white rounded-full flex items-center justify-center transition-transform duration-200 transform hover:scale-125"
-                    title="Éditer"
+                    className="w-6 h-6 border-2 border-gray-400 bg-white hover:bg-gray-50 hover:border-gray-600 rounded-full flex items-center justify-center transition-all duration-200 transform hover:scale-125"
+                    title="Voir le profil"
                 >
                     <span className="transition-transform duration-200 transform hover:scale-125 flex items-center justify-center w-3 h-3 text-[10px] text-center leading-none">
-                        ✏️
-                    </span>
-                </button>
-                {/* Delete */}
-                <button
-                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                    className="w-6 h-6 border-2 border-red-600 bg-red-100 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-transform duration-200 transform hover:scale-125"
-                    title="Supprimer"
-                >
-                    <span className="transition-transform duration-200 transform hover:scale-125 flex items-center justify-center w-3 h-3 text-[10px] text-center leading-none">
-                        ❌
+                        👁️
                     </span>
                 </button>
             </div>
+
+            {/* Actions propriétaire - edit/delete */}
+            {isTreeOwner &&
+                <div
+                    className={`absolute -top-2 -right-2 flex flex-row items-center space-x-1 z-50 transition-all duration-200
+                    ${showActions ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`}
+                >
+                    {/* Edit */}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit();
+                        }}
+                        className="w-6 h-6 border-2 border-blue-600 bg-blue-100 hover:bg-blue-600 text-white rounded-full flex items-center justify-center transition-transform duration-200 transform hover:scale-125"
+                        title="Éditer"
+                    >
+                        <span className="transition-transform duration-200 transform hover:scale-125 flex items-center justify-center w-3 h-3 text-[10px] text-center leading-none">
+                            ✏️
+                        </span>
+                    </button>
+                    {/* Delete */}
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                        className="w-6 h-6 border-2 border-red-600 bg-red-100 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-transform duration-200 transform hover:scale-125"
+                        title="Supprimer"
+                    >
+                        <span className="transition-transform duration-200 transform hover:scale-125 flex items-center justify-center w-3 h-3 text-[10px] text-center leading-none">
+                            ❌
+                        </span>
+                    </button>
+                </div>
             }
 
 
@@ -645,48 +614,77 @@ function CompactFamilyMemberCard({
 
                     {/* Drapeaux */}
                     {member.nationality && (
-                        <div className="absolute -bottom-1 -right-1 flex -space-x-1">
-                            {Array.isArray(member.nationality) ? (
+                        <>
+                            {Array.isArray(member.nationality) && member.nationality.length === 2 ? (
+                                // 2 drapeaux : positionnement séparé gauche/droite
                                 <>
-                                    {member.nationality.slice(0, 3).map((nat, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-gray-200 text-[10px] shadow-sm cursor-default"
-                                            title={nat}
-                                        >
-                                            {nationalityToEmoji(nat)}
+                                    <div className="absolute -bottom-1 -left-1" style={{ transformOrigin: 'center' }}>
+                                        <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-gray-200 text-[10px] shadow-sm cursor-default"
+                                            title={member.nationality[0]}>
+                                            {nationalityToEmoji(member.nationality[0])}
                                         </div>
-                                    ))}
-                                    {member.nationality.length > 3 && (
-                                        <div
-                                            className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-[10px] border border-gray-200 shadow-sm cursor-default"
-                                            title={member.nationality.slice(3).join(', ')}
-                                        >
-                                            +{member.nationality.length - 3}
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1" >
+                                        <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-gray-200 text-[10px] shadow-sm cursor-default"
+                                            title={member.nationality[1]}>
+                                            {nationalityToEmoji(member.nationality[1])}
                                         </div>
-                                    )}
+                                    </div>
                                 </>
                             ) : (
-                                <div
-                                    className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-gray-200 text-[10px] shadow-sm cursor-default"
-                                    title={member.nationality}
-                                >
-                                    {nationalityToEmoji(member.nationality)}
+                                // 1 drapeau ou 3+ drapeaux : logique existante
+                                <div className={`absolute -bottom-1 ${Array.isArray(member.nationality)
+                                    ? member.nationality.length === 1
+                                        ? "flex -space-x-1 -right-1" // 1 drapeau : bas à droite
+                                        : "flex -space-x-1 left-1/2 transform -translate-x-1/2" // 3+ drapeaux : centrés
+                                    : "flex -space-x-1 -right-1" // Nationalité unique : bas à droite
+                                    }`}>
+                                    {Array.isArray(member.nationality) ? (
+                                        <>
+                                            {member.nationality.slice(0, 3).map((nat, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-gray-200 text-[10px] shadow-sm cursor-default"
+                                                    title={nat}
+                                                >
+                                                    {nationalityToEmoji(nat)}
+                                                </div>
+                                            ))}
+                                            {member.nationality.length > 3 && (
+                                                <div
+                                                    className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-[10px] border border-gray-200 shadow-sm cursor-default"
+                                                    title={member.nationality.slice(3).join(', ')}
+                                                >
+                                                    +{member.nationality.length - 3}
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div
+                                            className="w-5 h-5 bg-white rounded-full flex items-center justify-center border border-gray-200 text-[10px] shadow-sm cursor-default"
+                                            title={member.nationality}
+                                        >
+                                            {nationalityToEmoji(member.nationality)}
+                                        </div>
+                                    )}
                                 </div>
                             )}
-                        </div>
+                        </>
                     )}
                 </div>
+                <div>
+                    <h3 className="font-semibold text-xs leading-tight">
+                        {member.firstName} {member.lastName}
+                    </h3>
+                    <span className="text-[12px] text-gray-600">
+                        {member.birthPlace?.city}, {member.birthPlace?.country}
+                    </span>
+                </div>
 
-                <h3 className="font-semibold text-xs mb-1 leading-tight">
-                    {member.firstName} {member.lastName} 
-                </h3>
             </CardContent>
         </Card>
     );
 }
-
-
 
 export const Tree = ({ userId }: { userId?: string }) => {
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
@@ -694,6 +692,31 @@ export const Tree = ({ userId }: { userId?: string }) => {
     const [refreshTrigger, setRefreshTrigger] = useState(0)
     const currentUser = useSelector(selectUser)
     const [mainUser, setMainUser] = useState<UserType | null>(null)
+    const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+    const [delitingMemberId, setDeletingMemberId] = useState<string | null>(null);
+    const [detailMemberId, setDetailMemberId] = useState("")
+    const [showModal, setShowModal] = useState(false);
+
+    const handleDetailMember = (memberId: string) => {
+        setDetailMemberId(memberId)
+        setShowModal(true)
+    }
+
+    const handleEdit = (memberId: string) => {
+        setEditingMemberId(memberId);
+    };
+
+    const handleEditClose = () => {
+        setEditingMemberId(null);
+    };
+
+    const handleDelete = (memberId: string) => {
+        setDeletingMemberId(memberId);
+    };
+
+    const handleDeleteClose = () => {
+        setDeletingMemberId(null);
+    };
 
     // Récupérer l'utilisateur principal
     useEffect(() => {
@@ -793,6 +816,23 @@ export const Tree = ({ userId }: { userId?: string }) => {
                             <Plus className="mr-2 h-4 w-4" /> Ajouter membre
                         </Button>
                         <AddMemberModal treeId={treeId} isOpen={isAddMemberOpen} onClose={handleAddMemberClose} />
+                        {editingMemberId && (
+                            <AddMemberModal
+                                treeId={treeId}
+                                memberId={editingMemberId} // passer l’ID du membre à éditer
+                                isOpen={!!editingMemberId}
+                                onClose={handleEditClose}
+                                isEdit={true}
+                            />
+                        )}
+
+                        {detailMemberId && 
+                            <MemberProfileModal
+                                memberId={detailMemberId}
+                                isOpen={showModal}
+                                onClose={() => setShowModal(false)}
+                            />
+                        }
                     </div>
                 </div>
             </div>
@@ -800,7 +840,7 @@ export const Tree = ({ userId }: { userId?: string }) => {
             {/* Tree Visualization - Utilisation du nouveau composant dynamique */}
             <div className="py-4" style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}>
                 {treeId && mainUser && (
-                    <DynamicFamilyTree treeId={treeId} userId={mainUser.id} refreshTrigger={refreshTrigger} />
+                    <DynamicFamilyTree treeId={treeId} userId={mainUser.id} refreshTrigger={refreshTrigger} onDelete={handleDelete} onEdit={handleEdit} onDetail={handleDetailMember}/>
                 )}
             </div>
 

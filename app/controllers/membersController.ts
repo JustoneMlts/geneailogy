@@ -269,3 +269,39 @@ export const getMembersBirthPlaces = async (): Promise<
 
   return birthPlaces;
 };
+
+/**
+ * Récupère les parents d'un membre à partir de son ID
+ */
+export const getParentsByMemberId = async (memberId: string): Promise<MemberType[]> => {
+  try {
+    // Récupérer le membre depuis Firestore
+    const memberSnap = await getDoc(doc(db, COLLECTIONS.MEMBERS, memberId));
+    if (!memberSnap.exists()) {
+      console.warn(`❌ Membre ${memberId} introuvable`);
+      return [];
+    }
+
+    const memberData = memberSnap.data() as MemberType;
+    const parentIds = memberData.parentsIds || [];
+
+    if (!parentIds.length) {
+      console.log(`ℹ️ Le membre ${memberId} n'a pas de parents définis`);
+      return [];
+    }
+
+    // Charger les parents depuis Firestore
+    const parents: MemberType[] = [];
+    for (const pid of parentIds) {
+      const parentSnap = await getDoc(doc(db, COLLECTIONS.MEMBERS, pid));
+      if (parentSnap.exists()) {
+        parents.push({ id: parentSnap.id, ...(parentSnap.data() as MemberType) });
+      }
+    }
+
+    return parents;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des parents :", error);
+    return [];
+  }
+};

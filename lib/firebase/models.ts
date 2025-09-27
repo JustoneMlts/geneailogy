@@ -48,6 +48,7 @@ export interface MemberType {
   lastName: string
   birthDate?: number
   deathDate?: number
+  deathPlace?: string,
   birthPlace?: LocationData 
   gender?: "male" | "female" | "other"
   avatar?: string

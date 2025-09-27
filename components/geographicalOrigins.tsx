@@ -217,7 +217,7 @@ const GeographicalOrigins: React.FC = () => {
       <p className="text-sm text-gray-600 mb-6">Répartition des lieux de naissance de votre famille</p>
 
       {/* Carte */}
-      <div className="mb-8">
+      <div className="mb-8 z-10">
         <div
           ref={mapRef}
           className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center"

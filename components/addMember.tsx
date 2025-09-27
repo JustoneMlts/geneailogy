@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,10 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { TreePine, Upload, CalendarIcon, Save, User, Heart, FileText, Globe } from "lucide-react";
+import { Upload, CalendarIcon, Save, User, Heart, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { addDoc, arrayUnion, collection, doc, getDoc, updateDoc, getDocs, query, where } from "firebase/firestore";
+import { arrayUnion, doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { useSelector } from "react-redux";
 import { selectUser } from "@/lib/redux/slices/currentUserSlice";
@@ -24,14 +23,23 @@ import MemberSearch from "./memberSearch";
 import { addMember } from "@/app/controllers/membersController";
 import { NationalitySelector } from "./nationalitySelector";
 import { LocationData, LocationSelector } from "./LocationSelector";
+import { Avatar, AvatarImage } from "./ui/avatar";
 
 type AddMemberModalProps = {
     treeId: string;
     isOpen: boolean;
     onClose: () => void;
+    isEdit?: boolean;
+    memberId?: string;
 };
 
-export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberModalProps) {
+export default function AddMemberModal({
+    treeId,
+    isOpen,
+    onClose,
+    isEdit = false,
+    memberId,
+}: AddMemberModalProps) {
     if (!isOpen) return null;
 
     type Gender = "male" | "female" | "other";
@@ -45,34 +53,67 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
     const [lastName, setLastName] = useState("");
     const [birthPlace, setBirthPlace] = useState<LocationData | null>(null);
     const [deathPlace, setDeathPlace] = useState("");
-    const [nationality, setNationality] = useState<string[]>([]); // tableau vide par défaut
+    const [nationality, setNationality] = useState<string[]>([]);
     const [bio, setBio] = useState("");
     const [selectedSpouse, setSelectedSpouse] = useState<string[]>([]);
     const [selectedParents, setSelectedParents] = useState<string[]>([]);
     const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
     const [selectedSiblings, setSelectedSiblings] = useState<string[]>([]);
-
-    const [familyMembers, setFamilyMembers] = useState<{ id: string; firstName?: string; lastName?: string }[]>([]);
-    const [loadingMembers, setLoadingMembers] = useState(false);
-    const [error, setError] = useState<string>('');
+    const [avatarUrl, setAvatarUrl] = useState("")
+    const [error, setError] = useState<string>("");
 
     const currentUser = useSelector(selectUser);
-    const [members, setMembers] = useState<MemberType[]>([]); // ✅ tableau vide initial
+    const [members, setMembers] = useState<MemberType[]>([]);
 
+    // Charger tous les membres de l'arbre
     useEffect(() => {
         if (!treeId) return;
-
         const fetchMembers = async () => {
             try {
-                const data = await getMembersByTreeId(treeId)
-                setMembers(data)
+                const data = await getMembersByTreeId(treeId);
+                setMembers(data);
             } catch {
-                console.log("une erreur est survenue lors de la récupération des membres de la famille")
+                console.log("❌ Erreur récupération des membres");
             }
         };
-
         fetchMembers();
     }, [treeId]);
+
+    // Charger les infos si édition
+    useEffect(() => {
+        const fetchMember = async () => {
+            if (isEdit && memberId) {
+                try {
+                    const ref = doc(db, "Members", memberId);
+                    const snap = await getDoc(ref);
+                    if (snap.exists()) {
+                        const data = snap.data() as MemberType;
+                        setAvatarUrl(data.avatar || "")
+                        setFirstName(data.firstName || "");
+                        setLastName(data.lastName || "");
+                        setSelectedGender((data.gender as Gender) || "male");
+                        setIsMarried(data.isMarried || false);
+                        setSelectedParents(data.parentsIds || []);
+                        setSelectedChildren(data.childrenIds || []);
+                        setSelectedSiblings(data.brothersIds || []);
+                        setSelectedSpouse(data.mariageId ? [data.mariageId] : []);
+                        setBirthDate(data.birthDate ? new Date(data.birthDate) : undefined);
+                        setDeathDate(data.deathDate ? new Date(data.deathDate) : undefined);
+                        setIsDeceased(!!data.deathDate);
+                        setBirthPlace(data.birthPlace || null);
+                        setNationality(
+                            Array.isArray(data.nationality) ? data.nationality : data.nationality ? [data.nationality] : []
+                        );
+                        setBio(data.bio || "");
+                        setDeathPlace(data.deathPlace || "");
+                    }
+                } catch (err) {
+                    console.error("❌ Erreur chargement membre :", err);
+                }
+            }
+        };
+        fetchMember();
+    }, [isEdit, memberId]);
 
     function deepRemoveUndefined<T>(obj: T): T {
         if (Array.isArray(obj)) {
@@ -87,10 +128,13 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
         return obj;
     }
 
-    const handleNationalityChange = useCallback((newNationalities: string[]): void => {
-        setNationality(newNationalities);
-        if (error) setError(''); // effacer l'erreur
-    }, [error]);
+    const handleNationalityChange = useCallback(
+        (newNationalities: string[]): void => {
+            setNationality(newNationalities);
+            if (error) setError("");
+        },
+        [error]
+    );
 
     const handleSave = async () => {
         try {
@@ -115,24 +159,31 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
                 mariageId: selectedSpouse[0],
             });
 
-            // 1️⃣ Ajouter le membre et mettre à jour les relations automatiquement
-            const newMemberId = await addMember(memberData);
-
-            // 2️⃣ Ajouter le membre à l'arbre
-            await updateDoc(doc(db, "Trees", treeId), { memberIds: arrayUnion(newMemberId) });
+            if (isEdit && memberId) {
+                // 🔄 Mode édition → update
+                await updateDoc(doc(db, "Members", memberId), memberData);
+            } else {
+                // ➕ Mode ajout → add
+                const newMemberId = await addMember(memberData);
+                await updateDoc(doc(db, "Trees", treeId), {
+                    memberIds: arrayUnion(newMemberId),
+                });
+            }
 
             onClose();
         } catch (error) {
-            console.error("❌ Erreur lors de l'ajout du membre :", error);
+            console.error("❌ Erreur sauvegarde :", error);
         }
     };
 
     return (
-        <div className="fixed inset-0 z-50 overflow-auto bg-black/50 flex justify-center items-start pt-12">
+        <div className="fixed inset-0 overflow-auto bg-black/50 flex justify-center items-start pt-12" style={{ zIndex: 9999 }}>
             <div className="bg-white rounded-lg shadow-lg w-full max-w-5xl p-6">
                 {/* Header */}
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold">Ajouter un membre</h2>
+                    <h2 className="text-2xl font-bold">
+                        {isEdit ? "Modifier un membre" : "Ajouter un membre"}
+                    </h2>
                     <Button variant="ghost" onClick={onClose}>Fermer</Button>
                 </div>
 
@@ -146,15 +197,23 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-6">
-                                <div className="flex flex-col items-center space-y-4">
-                                    <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center border-2 border-dashed border-gray-300">
-                                        <User className="h-12 w-12 text-gray-400" />
+                                {!avatarUrl ?
+                                    <div className="flex flex-col items-center space-y-4">
+                                        <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center border-2 border-dashed border-gray-300">
+                                            <User className="h-12 w-12 text-gray-400" />
+                                        </div>
+                                        <Button variant="outline" className="w-full bg-transparent">
+                                            <Upload className="mr-2 h-4 w-4" />
+                                            Télécharger une photo
+                                        </Button>
                                     </div>
-                                    <Button variant="outline" className="w-full bg-transparent">
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        Télécharger une photo
-                                    </Button>
-                                </div>
+                                    : 
+                                    <div className="flex flex-col items-center space-y-4">
+                                        <Avatar className="w-32 h-32">
+                                            <AvatarImage src={avatarUrl || "/placeholder.svg"} />
+                                        </Avatar>
+                                    </div>
+                                }
 
                                 <div className="space-y-4">
                                     <div>
@@ -182,9 +241,9 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
                         </Card>
                     </div>
 
-                    {/* Formulaire */}
+                    {/* Formulaire, Relations et Notes */}
                     <div className="lg:col-span-2 space-y-6">
-                        {/* Informations personnelles */}
+                          {/* Informations personnelles */}
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center space-x-2">
@@ -409,7 +468,6 @@ export default function AddMemberModal({ treeId, isOpen, onClose }: AddMemberMod
                                 <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Écrivez ici toute information supplémentaire..." className="min-h-[120px]" />
                             </CardContent>
                         </Card>
-
                         {/* Actions */}
                         <div className="flex justify-end space-x-4 pt-4">
                             <Button variant="outline" onClick={onClose}>Annuler</Button>
