@@ -24,6 +24,9 @@ import { addMember } from "@/app/controllers/membersController";
 import { NationalitySelector } from "./nationalitySelector";
 import { LocationData, LocationSelector } from "./LocationSelector";
 import { Avatar, AvatarImage } from "./ui/avatar";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+
 
 type AddMemberModalProps = {
     treeId: string;
@@ -295,20 +298,16 @@ export default function AddMemberModal({
                                 <div className="grid md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>Date de naissance</Label>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    className="w-full justify-start text-left font-normal bg-transparent"
-                                                >
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {birthDate ? format(birthDate, "PPP", { locale: fr }) : "Sélectionner une date"}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0">
-                                                <Calendar mode="single" selected={birthDate} onSelect={setBirthDate} initialFocus />
-                                            </PopoverContent>
-                                        </Popover>
+                                        <DatePicker
+                                            selected={birthDate}
+                                            onChange={(date: Date | null) => setBirthDate(date ?? undefined)}
+                                            dateFormat="dd/MM/yyyy"
+                                            showYearDropdown
+                                            scrollableYearDropdown
+                                            yearDropdownItemNumber={100}
+                                            placeholderText="Sélectionner une date"
+                                            className="w-full border rounded-md px-3 py-2"
+                                        />
                                     </div>
                                     <LocationSelector
                                         value={birthPlace}

@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import AddMemberModal from "./addMember";
 import { useSelector } from "react-redux";
 import { selectUser } from "@/lib/redux/slices/currentUserSlice";
-import { getTreeById } from "@/app/controllers/treesController";
+import { getMembersByTreeId, getTreeById } from "@/app/controllers/treesController";
 import { getUserById } from "@/app/controllers/usersController";
 import { getFamilyMembersByIds } from "@/app/controllers/membersController";
 import { MariageLines } from "@/components/mariageLine"
@@ -25,6 +25,7 @@ import { isArray } from "lodash";
 import { current } from "@reduxjs/toolkit";
 import { nationalityToEmoji } from "@/app/helpers/memberHelper";
 import { MemberProfileModal } from "./memberProfilModal";
+import { FamilyNationalitiesChart } from "./FamilyNationalitiesChart";
 
 // Types et utilitaires inchangés
 const getYearFromADate = (timestamp: number): number => {
@@ -531,13 +532,26 @@ function CompactFamilyMemberCard({
         setShowActions((prev) => !prev);
     };
 
+    const formatTimestampToDate = (timestamp: number): string => {
+        if (!timestamp) return "";
+
+        const date = new Date(timestamp);
+
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0"); // mois commence à 0
+        const year = date.getFullYear();
+
+        return `${day}/${month}/${year}`;
+    };
+
     return (
         <Card
-            className={`w-40 overflow-visible cursor-pointer transition-all duration-300 
-            hover:shadow-lg hover:scale-105 relative 
-            ${member.gender === "male" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"} 
-            ${highlight ? "ring-4 ring-green-400 ring-offset-2" : ""} 
-            ${isCurrentUser ? "ring-2 ring-yellow-400 ring-offset-1" : ""}`}
+            className={`w-40 h-36 overflow-visible cursor-pointer transition-all duration-300 
+                hover:shadow-lg hover:scale-105 relative 
+                ${member.gender === "male" ? "border-blue-200 bg-blue-50" : "border-pink-200 bg-pink-50"} 
+                ${highlight ? "ring-4 ring-green-400 ring-offset-2" : ""} 
+                ${isCurrentUser ? "ring-2 ring-yellow-400 ring-offset-1" : ""}`
+            }
             onClick={onClick}
             onMouseEnter={() => setShowActions(true)}
             onMouseLeave={() => setShowActions(false)}
@@ -672,12 +686,15 @@ function CompactFamilyMemberCard({
                         </>
                     )}
                 </div>
-                <div>
+                <div className="flex flex-col">
                     <h3 className="font-semibold text-xs leading-tight">
                         {member.firstName} {member.lastName}
                     </h3>
                     <span className="text-[12px] text-gray-600">
                         {member.birthPlace?.city}, {member.birthPlace?.country}
+                    </span>
+                    <span className="text-[12px] text-gray-600">
+                        {member.birthDate && formatTimestampToDate(member.birthDate)}
                     </span>
                 </div>
 
@@ -699,6 +716,26 @@ export const Tree = ({ userId }: { userId?: string }) => {
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [tree, setTree] = useState<TreeType | null>()
     const [isTreeOwner, setIsTreeOwner] = useState(false)
+    const [members, setMembers] = useState<MemberType[] | null>([])
+
+    const getMemberAge = (birthTimestamp?: number): number | null => {
+        if (!birthTimestamp) return null;
+
+        const birthDate = new Date(birthTimestamp);
+        const today = new Date();
+
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const hasHadBirthdayThisYear =
+            today.getMonth() > birthDate.getMonth() ||
+            (today.getMonth() === birthDate.getMonth() &&
+                today.getDate() >= birthDate.getDate());
+
+        if (!hasHadBirthdayThisYear) {
+            age--;
+        }
+
+        return age;
+    };
 
     useEffect(() => {
         if (!treeId) return;
@@ -714,6 +751,18 @@ export const Tree = ({ userId }: { userId?: string }) => {
 
         loadTreeData();
     }, [treeId, refreshTrigger])
+
+    useEffect(() => {
+        const fetchMembers = async () => {
+            try {
+                const data = await getMembersByTreeId(treeId)
+                setMembers(data)
+            } catch {
+                console.log("Une erreur est survenue lors de la récupération des membres.")
+            }
+        }
+        fetchMembers()
+    }, [treeId])
 
     const handleDetailMember = (memberId: string) => {
         setDetailMemberId(memberId)
@@ -761,11 +810,6 @@ export const Tree = ({ userId }: { userId?: string }) => {
     const refreshTree = () => {
         setRefreshTrigger(prev => prev + 1)
     }
-
-    useEffect(() => {
-        console.log("tree ownerId : ", tree?.ownerId)
-        console.log('currentUserId : ', currentUser?.id)
-    }, [currentUser, tree])
 
     const [zoom, setZoom] = useState(1)
     const [showFamilySettings, setShowFamilySettings] = useState(false)
@@ -1234,32 +1278,9 @@ export const Tree = ({ userId }: { userId?: string }) => {
                 <div>
                     <GeographicalOrigins />
                 </div>
-
-                <Card className="shadow-md border-0 card-hover">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Lieux importants</CardTitle>
-                        <CardDescription>Lieux significatifs dans l'histoire de votre famille</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            {locations.map((location, index) => (
-                                <div
-                                    key={location.id}
-                                    className="flex items-start space-x-3 animate-slide-up"
-                                    style={{ animationDelay: `${index * 0.1}s` }}
-                                >
-                                    <MapPin className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                        <div className="font-medium">{location.place}</div>
-                                        <div className="text-sm text-gray-500">
-                                            {location.period} • {location.type}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                {members &&
+                    <FamilyNationalitiesChart members={members} />
+                }
             </div>
         </div>
     )

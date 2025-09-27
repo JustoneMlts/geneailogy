@@ -62,6 +62,7 @@ export const getTreeById = async (treeId: string): Promise<TreeType | null> => {
 };
 
 export const getMembersByTreeId = async (treeId: string): Promise<MemberType[]> => {
+  if (!treeId) return []
   try {
     const treeRef = doc(db, "Trees", treeId);
     const treeSnap = await getDoc(treeRef);
