@@ -8,12 +8,13 @@ interface MemberProfileModalProps {
   memberId: string;
   isOpen: boolean;
   onClose: () => void;
+  showShareMenu: boolean;
+  setShowShareMenu: React.Dispatch<React.SetStateAction<boolean>>
 }
 
-export const MemberProfileModal = ({ memberId, isOpen, onClose }: MemberProfileModalProps) => {
-  const [showShareMenu, setShowShareMenu] = useState(false);
+export const MemberProfileModal = ({ memberId, isOpen, onClose, showShareMenu, setShowShareMenu }: MemberProfileModalProps) => {
   const [member, setMember] = useState<MemberType | null>()
-  
+
   useEffect(() => {
     const fetchMember = async () => {
       try {
@@ -65,7 +66,7 @@ export const MemberProfileModal = ({ memberId, isOpen, onClose }: MemberProfileM
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
       <div className={`bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative ${
         member.gender === "male" ? "border-4 border-blue-200" : "border-4 border-pink-200"
       }`}>

@@ -696,7 +696,8 @@ export const Tree = ({ userId }: { userId?: string }) => {
     const [delitingMemberId, setDeletingMemberId] = useState<string | null>(null);
     const [detailMemberId, setDetailMemberId] = useState("")
     const [showModal, setShowModal] = useState(false);
-
+    const [showShareMenu, setShowShareMenu] = useState(false);
+    
     const handleDetailMember = (memberId: string) => {
         setDetailMemberId(memberId)
         setShowModal(true)
@@ -830,7 +831,12 @@ export const Tree = ({ userId }: { userId?: string }) => {
                             <MemberProfileModal
                                 memberId={detailMemberId}
                                 isOpen={showModal}
-                                onClose={() => setShowModal(false)}
+                                onClose={() => {
+                                    setShowModal(false);
+                                    setShowShareMenu(false)
+                                }}
+                                showShareMenu={showShareMenu}
+                                setShowShareMenu={setShowShareMenu}
                             />
                         }
                     </div>
