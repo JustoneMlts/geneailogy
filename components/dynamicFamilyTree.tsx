@@ -8,14 +8,14 @@ import { getUserById } from "@/app/controllers/usersController";
 import { getFamilyMembersByIds, getParentsByMemberId } from "@/app/controllers/membersController";
 
 export const DynamicFamilyTree = ({
-  treeId,
+  tree,
   userId,
   refreshTrigger,
   onEdit,
   onDelete,
   onDetail,
 }: {
-  treeId: string;
+  tree: TreeType;
   userId?: string;
   refreshTrigger?: number;
   onEdit: (memberId: string) => void;
@@ -25,7 +25,6 @@ export const DynamicFamilyTree = ({
   const [familyData, setFamilyData] = useState<MemberType[]>([]);
   const currentUser = useSelector(selectUser);
   const [isOwner, setIsOwner] = useState(false);
-  const [tree, setTree] = useState<TreeType | null>(null);
   const [treeOwner, setTreeOwner] = useState("");
   const [isTreeOwner, setIsTreeOwner] = useState(false)
   const [selectedMember, setSelectedMember] = useState<MemberType>();
@@ -47,16 +46,12 @@ export const DynamicFamilyTree = ({
 
   // Charger l'arbre avec mise à jour en temps réel
   useEffect(() => {
-    if (!treeId) return;
+    if (!tree) return;
 
     const loadTreeData = async () => {
       try {
-        const treeData = await getTreeById(treeId);
-        setTree(treeData);
-
-        // Charger immédiatement les membres si l'arbre a des memberIds
-        if (treeData?.memberIds?.length) {
-          const membersData = await getFamilyMembersByIds(treeData.memberIds);
+        if (tree?.memberIds?.length) {
+          const membersData = await getFamilyMembersByIds(tree.memberIds);
           setFamilyData(membersData);
         }
       } catch (err) {
@@ -65,7 +60,7 @@ export const DynamicFamilyTree = ({
     };
 
     loadTreeData();
-  }, [treeId, refreshTrigger]); // refreshTrigger déclenche le rechargement
+  }, [tree, refreshTrigger]); // refreshTrigger déclenche le rechargement
 
   // Déterminer le propriétaire
   useEffect(() => {

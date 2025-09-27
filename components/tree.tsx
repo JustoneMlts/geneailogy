@@ -320,7 +320,7 @@ export const GrandparentsSection = ({
                                             onEdit={() => { if (member.id) onEdit(member.id) }}
                                             onDelete={() => { if (member.id) onDelete(member.id) }}
                                             isTreeOwner={isTreeOwner}
-                                            onDetail={() => {if (member.id) onDetail(member.id)}}
+                                            onDetail={() => { if (member.id) onDetail(member.id) }}
 
                                         />
                                     </div>
@@ -347,7 +347,7 @@ export const GenerationSection = ({
     isTreeOwner,
     onEdit,
     onDelete,
-    onDetail   
+    onDetail
 }: {
     title: string;
     members: MemberType[];
@@ -408,7 +408,7 @@ export const GenerationSection = ({
                                             onEdit={() => { if (parent.id) onEdit(parent.id) }}
                                             onDelete={() => { if (parent.id) onDelete(parent.id) }}
                                             isTreeOwner={isTreeOwner}
-                                            onDetail={() => {if (parent.id) onDetail(parent.id)}}
+                                            onDetail={() => { if (parent.id) onDetail(parent.id) }}
                                         />
                                     </div>
 
@@ -440,7 +440,7 @@ export const GenerationSection = ({
                                                             onEdit={() => { if (member.id) onEdit(member.id) }}
                                                             onDelete={() => { if (member.id) onDelete(member.id) }}
                                                             isTreeOwner={isTreeOwner}
-                                                            onDetail={() => {if (member.id) onDetail(member.id)}}
+                                                            onDetail={() => { if (member.id) onDetail(member.id) }}
                                                         />
                                                     ))}
                                                 </div>
@@ -488,8 +488,8 @@ export const GenerationSection = ({
                             }}
                             onEdit={() => { if (member.id) onEdit(member.id) }}
                             onDelete={() => { if (member.id) onDelete(member.id) }}
-                            isTreeOwner={isTreeOwner}                           
-                            onDetail={() => {if (member.id) onDetail(member.id)}}
+                            isTreeOwner={isTreeOwner}
+                            onDetail={() => { if (member.id) onDetail(member.id) }}
 
                         />
                     ))}
@@ -697,7 +697,24 @@ export const Tree = ({ userId }: { userId?: string }) => {
     const [detailMemberId, setDetailMemberId] = useState("")
     const [showModal, setShowModal] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
-    
+    const [tree, setTree] = useState<TreeType | null>()
+    const [isTreeOwner, setIsTreeOwner] = useState(false)
+
+    useEffect(() => {
+        if (!treeId) return;
+
+        const loadTreeData = async () => {
+            try {
+                const treeData = await getTreeById(treeId);
+                setTree(treeData);
+            } catch (err) {
+                console.error("Erreur arbre:", err);
+            }
+        };
+
+        loadTreeData();
+    }, [treeId, refreshTrigger])
+
     const handleDetailMember = (memberId: string) => {
         setDetailMemberId(memberId)
         setShowModal(true)
@@ -744,6 +761,11 @@ export const Tree = ({ userId }: { userId?: string }) => {
     const refreshTree = () => {
         setRefreshTrigger(prev => prev + 1)
     }
+
+    useEffect(() => {
+        console.log("tree ownerId : ", tree?.ownerId)
+        console.log('currentUserId : ', currentUser?.id)
+    }, [currentUser, tree])
 
     const [zoom, setZoom] = useState(1)
     const [showFamilySettings, setShowFamilySettings] = useState(false)
@@ -806,47 +828,49 @@ export const Tree = ({ userId }: { userId?: string }) => {
                             <RotateCcw className="h-4 w-4" />
                         </Button>
                     </div>
-                    {/* Settings */}
-                    <Button variant="outline" onClick={() => setShowFamilySettings(true)} className="bg-white/50 w-full sm:w-auto">
-                        <Settings className="mr-2 h-4 w-4" />
-                        Paramètres famille
-                    </Button>
-                    {/* Add member */}
-                    <div>
-                        <Button onClick={() => setIsAddMemberOpen(true)} className="bg-gradient-to-r from-blue-600 to-purple-600">
-                            <Plus className="mr-2 h-4 w-4" /> Ajouter membre
-                        </Button>
-                        <AddMemberModal treeId={treeId} isOpen={isAddMemberOpen} onClose={handleAddMemberClose} />
-                        {editingMemberId && (
-                            <AddMemberModal
-                                treeId={treeId}
-                                memberId={editingMemberId} // passer l’ID du membre à éditer
-                                isOpen={!!editingMemberId}
-                                onClose={handleEditClose}
-                                isEdit={true}
-                            />
-                        )}
+                    {currentUser && tree && tree.ownerId === currentUser.id &&
+                        <>
+                            <Button variant="outline" onClick={() => setShowFamilySettings(true)} className="bg-white/50 w-full sm:w-auto">
+                                <Settings className="mr-2 h-4 w-4" />
+                                Paramètres famille
+                            </Button>
+                            <div>
+                                <Button onClick={() => setIsAddMemberOpen(true)} className="bg-gradient-to-r from-blue-600 to-purple-600">
+                                    <Plus className="mr-2 h-4 w-4" /> Ajouter membre
+                                </Button>
+                                <AddMemberModal treeId={treeId} isOpen={isAddMemberOpen} onClose={handleAddMemberClose} />
+                                {editingMemberId && (
+                                    <AddMemberModal
+                                        treeId={treeId}
+                                        memberId={editingMemberId} // passer l’ID du membre à éditer
+                                        isOpen={!!editingMemberId}
+                                        onClose={handleEditClose}
+                                        isEdit={true}
+                                    />
+                                )}
 
-                        {detailMemberId && 
-                            <MemberProfileModal
-                                memberId={detailMemberId}
-                                isOpen={showModal}
-                                onClose={() => {
-                                    setShowModal(false);
-                                    setShowShareMenu(false)
-                                }}
-                                showShareMenu={showShareMenu}
-                                setShowShareMenu={setShowShareMenu}
-                            />
-                        }
-                    </div>
+                            </div>
+                        </>
+                    }
+                    {detailMemberId &&
+                        <MemberProfileModal
+                            memberId={detailMemberId}
+                            isOpen={showModal}
+                            onClose={() => {
+                                setShowModal(false);
+                                setShowShareMenu(false)
+                            }}
+                            showShareMenu={showShareMenu}
+                            setShowShareMenu={setShowShareMenu}
+                        />
+                    }
                 </div>
             </div>
 
             {/* Tree Visualization - Utilisation du nouveau composant dynamique */}
             <div className="py-4" style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}>
-                {treeId && mainUser && (
-                    <DynamicFamilyTree treeId={treeId} userId={mainUser.id} refreshTrigger={refreshTrigger} onDelete={handleDelete} onEdit={handleEdit} onDetail={handleDetailMember}/>
+                {tree && treeId && mainUser && (
+                    <DynamicFamilyTree tree={tree} userId={mainUser.id} refreshTrigger={refreshTrigger} onDelete={handleDelete} onEdit={handleEdit} onDetail={handleDetailMember} />
                 )}
             </div>
 
@@ -861,28 +885,29 @@ export const Tree = ({ userId }: { userId?: string }) => {
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                    <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                                        <Settings className="h-5 w-5 text-white" />
+                        {currentUser && tree && tree?.ownerId === currentUser.id &&
+                            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+                                            <Settings className="h-5 w-5 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-gray-800">Paramètres de la famille</h2>
+                                            <p className="text-gray-600">Gérez les informations globales de votre famille</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-gray-800">Paramètres de la famille</h2>
-                                        <p className="text-gray-600">Gérez les informations globales de votre famille</p>
-                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setShowFamilySettings(false)}
+                                        className="h-8 w-8"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
                                 </div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setShowFamilySettings(false)}
-                                    className="h-8 w-8"
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
                             </div>
-                        </div>
-
+                        }
                         <div className="p-6 space-y-8">
                             {/* Informations générales */}
                             <Card>
