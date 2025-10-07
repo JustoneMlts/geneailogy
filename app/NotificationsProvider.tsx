@@ -192,10 +192,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         
     setOpen(false) // Fermer immédiatement
     
-    if (currentNotif.type === "message" && currentNotif.relatedId) {
+    if (currentNotif.type === "message" && currentNotif.senderId) {
       router.push(`/messages/${currentNotif.relatedId}`)
-    } else if (currentNotif.type === "connection" && currentNotif.relatedId) {
-      router.push(`/profile/${currentNotif.relatedId}`)
+    } else if (currentNotif.type === "connection" && currentNotif.senderId) {
+      router.push(`/wall/${currentNotif.senderId}`)
     } else {
       router.push("/")
     }

@@ -132,7 +132,6 @@ export const DirectMessages = () => {
       .join(", ")
   }
 
-
   // 8️⃣ Sélection ou création conversation
   const handleClickFriend = async (friend: UserType) => {
     if (!currentUser?.id || !friend.id) return;
@@ -209,142 +208,151 @@ export const DirectMessages = () => {
   }, [combinedConversations, queryText])
 
   return (
-    <div className="animate-fade-in">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Messages</h1>
-        <p className="text-gray-600">Communiquez avec d'autres généalogistes et familles</p>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ---- Conversations ---- */}
-        <Card className="lg:col-span-1">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle>Conversations</CardTitle>
-            <div className="mt-3">
-              <Input placeholder="Rechercher..." value={queryText} onChange={(e) => setQueryText(e.target.value)} />
-            </div>
-          </CardHeader>
+    <div className="h-[calc(100vh-73px)] flex flex-col">
+      <div className="h-full max-w-7xl mx-auto px-6 flex flex-col">
+        <div className="mb-2 flex-shrink-0">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Messages</h1>
+          <p className="text-gray-600">Communiquez avec d'autres généalogistes et familles</p>
+        </div>
 
-          <CardContent className="p-0 max-h-[520px] overflow-auto">
-            {filteredConversations.length === 0 ? (
-              <p className="text-sm text-gray-500 px-4 py-2">Aucune conversation</p>
-            ) : (
-              filteredConversations.map(item => {
-                if (item.type === "conversation") {
-                  const conv = item.data;
-                  const otherName = getParticipantDisplay(conv);
-                  const isSelected = selectedConversation?.id === conv.id;
-                  const lastMsgObj = messages
-                    .filter(m => m.conversationId === conv.id)
-                    .sort((a, b) => b.createdDate - a.createdDate)[0] // dernier message
-                  const lastMessage = lastMsgObj?.text || ""
-                  const lastSenderId = lastMsgObj?.senderId
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+          {/* ---- Messages ---- */}
+          <Card className="lg:col-span-2 flex flex-col min-h-0">
+            <CardHeader className="pb-2 flex-shrink-0">
+              <div className="flex items-center space-x-3">
+                <Avatar className="flex-shrink-0">
+                  <AvatarImage src={selectedConversation ? participantsMap[selectedConversation.participantIds.find(id => id !== currentUser?.id)!]?.avatarUrl || "/placeholder.svg" : "/placeholder.svg"} />
+                  <AvatarFallback>?</AvatarFallback>
+                </Avatar>
+                <div>
+                  <CardTitle className="text-sm">{selectedConversation ? getParticipantDisplay(selectedConversation) : "Sélectionnez une conversation"}</CardTitle>
+                </div>
+              </div>
+            </CardHeader>
 
+            <CardContent className="flex flex-col flex-1 pt-0 min-h-0">
+              <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-3">
+                {messagesWithAvatarFlag.map(m => (
+                  <div key={m.id} className={`flex items-center ${m.senderId === currentUser?.id ? "justify-end" : "justify-start"}`}>
+                    {m.senderId !== currentUser?.id && m.showAvatar && (
+                      <Avatar className="w-8 h-8 mr-2">
+                        <AvatarImage src={participantsMap[m.senderId]?.avatarUrl || "/placeholder.svg"} />
+                        <AvatarFallback>{participantsMap[m.senderId] && handleGetUserNameInitials(participantsMap[m.senderId]) || "?"}</AvatarFallback>
+                      </Avatar>
+                    )}
 
-                  return (
-                    <div key={conv.id}
-                      className={`p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50 border-blue-200" : ""}`}
-                      onClick={() => setSelectedConversation(conv)}
-                    >
-                      <div className="flex items-center space-x-3">
+                    <div className={`max-w-[70%] relative`}>
+                      <div
+                        className={`flex items-center justify-center px-3 py-2 ${m.text &&
+                          m.text.length < 50
+                          ? 'rounded-full'
+                          : m.text && m.text.length < 150
+                            ? 'rounded-3xl'
+                            : 'rounded-2xl'
+                          } ${m.senderId === currentUser?.id
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-100 text-gray-800"
+                          }`}
+                      >
+                        <p className="text-sm">{m.text}</p>
+                      </div>
+                    </div>
+
+                    {m.senderId === currentUser?.id && m.showAvatar && (
+                      <Avatar className="w-8 h-8 ml-2">
+                        <AvatarImage src={currentUser?.avatarUrl || "/placeholder.svg"} />
+                        <AvatarFallback>{handleGetUserNameInitials(currentUser) || "?"}</AvatarFallback>
+                      </Avatar>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="px-4 py-3 border-t flex-shrink-0">
+                <div className="flex space-x-2">
+                  <Input
+                    placeholder="Tapez votre message..."
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage() }}
+                    className="flex-1"
+                  />
+                  <Button onClick={handleSendMessage}>Envoyer</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ---- Conversations ---- */}
+          <Card className="lg:col-span-1 flex flex-col h-screen overflow-hidden">
+            <CardHeader className="pb-2 pt-4 px-4 flex-shrink-0">
+              <CardTitle>Conversations</CardTitle>
+              <div className="mt-3">
+                <Input placeholder="Rechercher..." value={queryText} onChange={(e) => setQueryText(e.target.value)} />
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0 flex-1 overflow-y-auto min-h-0">
+              {filteredConversations.length === 0 ? (
+                <p className="text-sm text-gray-500 px-4 py-2">Aucune conversation</p>
+              ) : (
+                filteredConversations.map(item => {
+                  if (item.type === "conversation") {
+                    const conv = item.data;
+                    const otherName = getParticipantDisplay(conv);
+                    const isSelected = selectedConversation?.id === conv.id;
+                    const lastMsgObj = messages
+                      .filter(m => m.conversationId === conv.id)
+                      .sort((a, b) => b.createdDate - a.createdDate)[0]
+                    const lastMessage = lastMsgObj?.text || ""
+                    const lastSenderId = lastMsgObj?.senderId
+
+                    return (
+                      <div key={conv.id}
+                        className={`p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50 border-blue-200" : ""}`}
+                        onClick={() => setSelectedConversation(conv)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="flex-shrink-0">
+                            <AvatarImage src={participantsMap[conv.participantIds.find(id => id !== currentUser?.id)!]?.avatarUrl || "/placeholder.svg"} />
+                            <AvatarFallback>{otherName?.[0] || "?"}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-sm truncate">{otherName}</h3>
+                            <p className="text-sm text-gray-600 truncate">{lastMessage}</p>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            {lastSenderId && lastSenderId !== currentUser?.id && (
+                              <Badge className="bg-yellow-400 text-black text-xs">À ton tour</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    const friend = item.data;
+                    return (
+                      <div key={friend.id}
+                        className="p-4 border-b hover:bg-gray-50 cursor-pointer flex items-center space-x-3"
+                        onClick={() => handleClickFriend(friend)}
+                      >
                         <Avatar className="flex-shrink-0">
-                          <AvatarImage src={participantsMap[conv.participantIds.find(id => id !== currentUser?.id)!]?.avatarUrl || "/placeholder.svg"} />
-                          <AvatarFallback>{otherName?.[0] || "?"}</AvatarFallback>
+                          <AvatarImage src={friend.avatarUrl || "/placeholder.svg"} />
+                          <AvatarFallback>{(friend.firstName?.[0] || "?") + (friend.lastName?.[0] || "")}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm truncate">{otherName}</h3>
-                          <p className="text-sm text-gray-600 truncate">{lastMessage}</p>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          {lastSenderId && lastSenderId !== currentUser?.id && (
-                            <Badge className="bg-yellow-400 text-black text-xs">À ton tour</Badge>
-                          )}
+                          <div className="font-semibold text-sm truncate">{friend.firstName} {friend.lastName}</div>
+                          <div className="text-xs text-gray-500 truncate">{friend.email}</div>
                         </div>
                       </div>
-                    </div>
-                  );
-                } else {
-                  const friend = item.data;
-                  return (
-                    <div key={friend.id}
-                      className="p-4 border-b hover:bg-gray-50 cursor-pointer flex items-center space-x-3"
-                      onClick={() => handleClickFriend(friend)}
-                    >
-                      <Avatar className="flex-shrink-0">
-                        <AvatarImage src={friend.avatarUrl || "/placeholder.svg"} />
-                        <AvatarFallback>{(friend.firstName?.[0] || "?") + (friend.lastName?.[0] || "")}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm truncate">{friend.firstName} {friend.lastName}</div>
-                        <div className="text-xs text-gray-500 truncate">{friend.email}</div>
-                      </div>
-                    </div>
-                  );
-                }
-              })
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ---- Messages ---- */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <div className="flex items-center space-x-3">
-              <Avatar className="flex-shrink-0">
-                <AvatarImage src={selectedConversation ? participantsMap[selectedConversation.participantIds.find(id => id !== currentUser?.id)!]?.avatarUrl || "/placeholder.svg" : "/placeholder.svg"} />
-                <AvatarFallback>?</AvatarFallback>
-              </Avatar>
-              <div>
-                <CardTitle className="text-sm">{selectedConversation ? getParticipantDisplay(selectedConversation) : "Sélectionnez une conversation"}</CardTitle>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="h-96 flex flex-col pt-0">
-            <div ref={scrollRef} className="flex-1 space-y-4 mb-4 overflow-y-auto px-4 py-3">
-              {messagesWithAvatarFlag.map(m => (
-                <div key={m.id} className={`flex items-center ${m.senderId === currentUser?.id ? "justify-end" : "justify-start"}`}>
-                  {m.senderId !== currentUser?.id && m.showAvatar && (
-                    <Avatar className="w-8 h-8 mr-2">
-                      <AvatarImage src={participantsMap[m.senderId]?.avatarUrl || "/placeholder.svg"} />
-                      <AvatarFallback>{participantsMap[m.senderId] && handleGetUserNameInitials(participantsMap[m.senderId]) || "?"}</AvatarFallback>
-                    </Avatar>
-                  )}
-
-                  <div className={`max-w-[70%] relative`}>
-                    <div className={`flex items-center justify-center rounded-full px-3 py-2 ${m.senderId === currentUser?.id ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-800"}`}>
-                      <p className="text-sm">{m.text}</p>
-                      {/* <div className="flex justify-end items-center space-x-1 text-xs mt-1">
-                        <span>{formatTime(m.createdDate)}</span>
-                        {m.senderId === currentUser?.id && m.isSeen && <span>✓</span>}
-                      </div> */}
-                    </div>
-                  </div>
-
-                  {m.senderId === currentUser?.id && m.showAvatar && (
-                    <Avatar className="w-8 h-8 ml-2">
-                      <AvatarImage src={currentUser?.avatarUrl || "/placeholder.svg"} />
-                      <AvatarFallback>{handleGetUserNameInitials(currentUser) || "?"}</AvatarFallback>
-                    </Avatar>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="px-4 py-3 border-t">
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Tapez votre message..."
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage() }}
-                  className="flex-1"
-                />
-                <Button onClick={handleSendMessage}>Envoyer</Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                    );
+                  }
+                })
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )

@@ -131,7 +131,7 @@ export const Ai = () => {
     }
 
     return (
-        <div className="animate-fade-in">
+        <div className="animate-fade-in max-w-7xl mx-auto p-6">
             <h1 className="text-3xl font-bold mb-6 animate-slide-up">Suggestions IA</h1>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

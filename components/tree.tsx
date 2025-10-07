@@ -25,7 +25,7 @@ import { isArray } from "lodash";
 import { current } from "@reduxjs/toolkit";
 import { nationalityToEmoji } from "@/app/helpers/memberHelper";
 import { MemberProfileModal } from "./memberProfilModal";
-import { FamilyNationalitiesChart } from "./FamilyNationalitiesChart";
+import { FamilyLastNamesChart } from "./FamilyNationalitiesChart";
 
 // Types et utilitaires inchangés
 const getYearFromADate = (timestamp: number): number => {
@@ -449,7 +449,8 @@ export const GenerationSection = ({
                                         </div>
                                     )}
 
-                                    {!parentChildrenSection && <div className="h-32"></div>}
+                                    {!parentChildrenSection && <div className="h-32">
+                                    </div>}
                                 </div>
                             );
                         })}
@@ -846,7 +847,7 @@ export const Tree = ({ userId }: { userId?: string }) => {
     }
 
     return (
-        <div className="animate-fade-in px-6">
+        <div className="animate-fade-in w-full mx-auto p-6 ">
             <div className="flex flex-col px-6 md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800 mb-2">
@@ -911,11 +912,35 @@ export const Tree = ({ userId }: { userId?: string }) => {
                 </div>
             </div>
 
-            {/* Tree Visualization - Utilisation du nouveau composant dynamique */}
-            <div className="py-4" style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}>
-                {tree && treeId && mainUser && (
-                    <DynamicFamilyTree tree={tree} userId={mainUser.id} refreshTrigger={refreshTrigger} onDelete={handleDelete} onEdit={handleEdit} onDetail={handleDetailMember} />
-                )}
+            {/* Tree Visualization - Version isolée */}
+            <div className="w-full">
+                <div
+                    className=" overflow-x-auto overflow-y-visible py-4 -mx-6"
+                    style={{
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: '#cbd5e1 #f1f5f9'
+                    }}
+                >
+                    <div
+                        className="px-6"
+                        style={{
+                            transform: `scale(${zoom})`,
+                            transformOrigin: "top center",
+                            minWidth: `${100 / zoom}%`
+                        }}
+                    >
+                        {tree && treeId && mainUser && (
+                            <DynamicFamilyTree
+                                tree={tree}
+                                userId={mainUser.id}
+                                refreshTrigger={refreshTrigger}
+                                onDelete={handleDelete}
+                                onEdit={handleEdit}
+                                onDetail={handleDetailMember}
+                            />
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Family Settings Modal - Reste inchangé */}
@@ -1274,13 +1299,17 @@ export const Tree = ({ userId }: { userId?: string }) => {
             )}
 
             {/* Cards des origines et lieux - Reste inchangé */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-slide-up animate-stagger-3">
-                <div>
-                    <GeographicalOrigins />
+            <div className="w-full max-w-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-slide-up animate-stagger-3">
+                    <div className="h-[650px]">
+                        <GeographicalOrigins />
+                    </div>
+                    {members &&
+                        <div className="h-[650px]">
+                            <FamilyLastNamesChart members={members} />
+                        </div>
+                    }
                 </div>
-                {members &&
-                    <FamilyNationalitiesChart members={members} />
-                }
             </div>
         </div>
     )

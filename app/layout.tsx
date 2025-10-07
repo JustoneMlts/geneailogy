@@ -1,9 +1,10 @@
-import type React from "react"
+// app/layout.tsx (Server Component - garde les metadata)
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ReduxProvider } from "./ReduxProvider"
 import { NotificationsProvider } from "./NotificationsProvider"
+import { LayoutContent } from "@/components/layoutContent"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -20,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <ReduxProvider>
           <NotificationsProvider>
-            {children}
+            <LayoutContent>{children}</LayoutContent>
           </NotificationsProvider>
         </ReduxProvider>
       </body>

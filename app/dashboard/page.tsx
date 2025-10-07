@@ -54,26 +54,11 @@ export default function Dashboard() {
   fetchConnections()
 }, [currentUser, dispatch])
 
-  // Calculer la marge gauche dynamiquement
-  const getLeftMargin = () => {
-    if (isExpanded || isPinned) {
-      return "md:ml-64" // 256px
-    }
-    return "md:ml-16" // 64px
-  }
-
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
-      <Sidebar
-        isExpanded={isExpanded}
-        setIsExpanded={setIsExpanded}
-        isPinned={isPinned}
-        setIsPinned={setIsPinned}
-      />
-
+    <div className="flex flex-col md:flex-row min-h-screen">
       {/* Main Content */}
-      <div className={`min-h-screen p-6 w-full transition-all duration-300 ease-in-out ${getLeftMargin()}`}>
-        <div className="p-6">
+      <div className={`min-h-screen w-full transition-all duration-300 ease-in-out`}>
+        <div>
           {activeTab === "feed" && (
             <Feed />
           )}

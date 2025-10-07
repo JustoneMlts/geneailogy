@@ -31,7 +31,7 @@ declare global {
 }
 
 // Composant pour une jauge animée
-const AnimatedGauge: React.FC<{ 
+const AnimatedGauge: React.FC<{
   country: string;
   percentage: number;
   count: number;
@@ -52,8 +52,8 @@ const AnimatedGauge: React.FC<{
     <div className="p-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center space-x-1.5">
-          <div 
-            className="w-2.5 h-2.5 rounded-full" 
+          <div
+            className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: color }}
           />
           <span className="font-medium text-gray-900 text-xs">{country}</span>
@@ -63,7 +63,7 @@ const AnimatedGauge: React.FC<{
           <span className="text-gray-500">({count})</span>
         </div>
       </div>
-      
+
       {/* Barre de progression */}
       <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
         <div
@@ -102,16 +102,16 @@ const GeographicalOrigins: React.FC = () => {
   // Calculer les statistiques par pays
   const locationStats: LocationStats[] = React.useMemo(() => {
     if (birthPlaces.length === 0) return [];
-    
+
     const countryCount: { [key: string]: number } = {};
-    
+
     birthPlaces.forEach(bp => {
       const country = bp.birthPlace.country || "Inconnu";
       countryCount[country] = (countryCount[country] || 0) + 1;
     });
 
     const total = birthPlaces.length;
-    
+
     return Object.entries(countryCount)
       .map(([country, count], index) => ({
         country,
@@ -208,7 +208,7 @@ const GeographicalOrigins: React.FC = () => {
   }, [birthPlaces, isLoading, locationStats]);
 
   return (
-    <div className="bg-white rounded-lg p-6 shadow-sm border">
+    <div className="h-full bg-white rounded-lg p-6 shadow-sm border-0 flex flex-col overflow-hidden">
       <div className="flex items-center space-x-2 mb-4">
         <Globe className="h-5 w-5 text-gray-600" />
         <h2 className="text-lg font-semibold text-gray-900">Origines géographiques</h2>
@@ -242,7 +242,7 @@ const GeographicalOrigins: React.FC = () => {
       {!isLoading && locationStats.length > 0 && (
         <div className="border-t pt-4">
           <h3 className="text-sm font-medium text-gray-900 mb-3">Répartition par pays</h3>
-          
+
           {/* Statistiques de synthèse */}
           <div className="mb-3 px-3 py-2 bg-blue-50 rounded text-xs">
             <div className="flex items-center justify-between">
@@ -252,7 +252,7 @@ const GeographicalOrigins: React.FC = () => {
               </span>
             </div>
           </div>
-          
+
           {/* Jauges par pays */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
             {locationStats.map((stat, index) => (

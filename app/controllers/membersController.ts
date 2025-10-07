@@ -4,125 +4,90 @@ import {
   getAllDataFromCollection,
   getDataFromCollection,
 } from "@/lib/firebase/firebase-functions";
-import { MemberType } from "../../lib/firebase/models";
-import { addDoc, arrayUnion, collection, doc, getDoc, getDocs, setDoc, updateDoc, arrayRemove } from "firebase/firestore";
+import { MemberType, LocationData, TreeType } from "../../lib/firebase/models";
+import {
+  addDoc, arrayUnion, collection, doc, getDoc, getDocs,
+  updateDoc, arrayRemove, deleteDoc,
+  setDoc
+} from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 
 function removeUndefined<T extends object>(obj: T): Partial<T> {
   return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== undefined)) as Partial<T>;
 }
 
-/**
- * Ajoute une relation entre deux membres
- * @param personToAddId - ID de la personne à ajouter dans la liste
- * @param targetPersonId - ID de la personne dont on modifie la liste
- * @param field - Le champ à modifier (ex: childrenIds, parentsIds, etc.)
- * @param reciprocal - Si true, ajoute aussi la relation inverse
- */
+/* -------------------------------------------------------------------------- */
+/*                               RELATIONS                                    */
+/* -------------------------------------------------------------------------- */
+
 export const addRelation = async (
   personToAddId: string,
   targetPersonId: string,
   field: keyof MemberType,
   reciprocal: boolean = false
 ) => {
-  // Éviter l'auto-référence
-  if (personToAddId === targetPersonId) {
-    console.warn(`Tentative d'auto-référence évitée: ${personToAddId} -> ${targetPersonId} pour ${field}`);
-    return;
-  }
-
-  console.log(`Adding relation: ${personToAddId} sera ajouté dans ${field} de ${targetPersonId}`);
+  if (personToAddId === targetPersonId) return;
 
   const targetRef = doc(db, COLLECTIONS.MEMBERS, targetPersonId);
   const targetSnap = await getDoc(targetRef);
-  if (!targetSnap.exists()) {
-    console.warn(`Le membre cible ${targetPersonId} n'existe pas`);
-    return;
-  }
+  if (!targetSnap.exists()) return;
 
-  // Mettre à jour le document cible
   await updateDoc(targetRef, { [field]: arrayUnion(personToAddId) });
 
-  // Si réciproque, mettre à jour le document source
   if (reciprocal) {
     const sourceRef = doc(db, COLLECTIONS.MEMBERS, personToAddId);
     await updateDoc(sourceRef, { [field]: arrayUnion(targetPersonId) });
   }
 };
 
-/**
- * Nettoie les relations incohérentes d'un membre
- */
 export const cleanMemberRelations = async (memberId: string) => {
   const memberRef = doc(db, COLLECTIONS.MEMBERS, memberId);
   const memberSnap = await getDoc(memberRef);
-  
   if (!memberSnap.exists()) return;
-  
+
   const memberData = memberSnap.data() as MemberType;
   const updates: any = {};
-  
-  // Nettoyer les auto-références dans tous les champs de relation
-  const relationFields = ['parentsIds', 'childrenIds', 'brothersIds'] as const;
-  
-  relationFields.forEach(field => {
-    const currentArray = memberData[field] as string[] || [];
-    const cleanedArray = currentArray.filter(id => id !== memberId);
-    
+
+  const relationFields = ["parentsIds", "childrenIds", "brothersIds"] as const;
+
+  relationFields.forEach((field) => {
+    const currentArray = (memberData[field] as string[]) || [];
+    const cleanedArray = currentArray.filter((id) => id !== memberId);
     if (cleanedArray.length !== currentArray.length) {
       updates[field] = cleanedArray;
     }
   });
-  
-  // Appliquer les nettoyages s'il y en a
+
   if (Object.keys(updates).length > 0) {
     await updateDoc(memberRef, updates);
   }
 };
 
-/**
- * Met à jour toutes les relations d'un membre (parents, enfants, frères, conjoint)
- */
 export const updateRelations = async (memberId: string, member: MemberType) => {
-  console.log(`🔄 Mise à jour des relations pour ${member.firstName} ${member.lastName} (${memberId})`);
-  
   const updates: Promise<any>[] = [];
-
-  // Nettoyer d'abord les auto-références
   updates.push(cleanMemberRelations(memberId));
 
-  // 1️⃣ Parents → enfant (unidirectionnel)
-  // Ajouter ce membre comme enfant de ses parents
-  console.log(`Parents à traiter: ${member.parentsIds?.join(', ') || 'aucun'}`);
   for (const parentId of member.parentsIds ?? []) {
-    if (parentId !== memberId) { 
-      console.log(`➡️ Ajout de ${memberId} dans childrenIds de ${parentId}`);
+    if (parentId !== memberId) {
       updates.push(addRelation(memberId, parentId, "childrenIds"));
     }
   }
 
-  // 2️⃣ Enfants → parent (unidirectionnel) 
-  // Ajouter ce membre comme parent de ses enfants
-  console.log(`Enfants à traiter: ${member.childrenIds?.join(', ') || 'aucun'}`);
   for (const childId of member.childrenIds ?? []) {
-    if (childId !== memberId) { 
-      console.log(`➡️ Ajout de ${memberId} dans parentsIds de ${childId}`);
+    if (childId !== memberId) {
       updates.push(addRelation(memberId, childId, "parentsIds"));
     }
   }
 
-  // 3️⃣ Frères explicites → réciproque
   for (const siblingId of member.brothersIds ?? []) {
     if (siblingId !== memberId) {
       updates.push(addRelation(memberId, siblingId, "brothersIds", true));
     }
   }
 
-  // 4️⃣ Frères automatiques via parents
   const siblingSet = new Set(member.brothersIds ?? []);
   for (const parentId of member.parentsIds ?? []) {
-    if (parentId === memberId) continue; // Éviter les parents auto-référentiels
-    
+    if (parentId === memberId) continue;
     const parentSnap = await getDoc(doc(db, COLLECTIONS.MEMBERS, parentId));
     if (!parentSnap.exists()) continue;
 
@@ -134,7 +99,6 @@ export const updateRelations = async (memberId: string, member: MemberType) => {
     }
   }
 
-  // 5️⃣ Conjoint → réciproque
   if (member.mariageId && member.mariageId !== memberId) {
     updates.push(addRelation(memberId, member.mariageId, "mariageId", true));
     updates.push(updateDoc(doc(db, COLLECTIONS.MEMBERS, memberId), { isMarried: true }));
@@ -144,57 +108,209 @@ export const updateRelations = async (memberId: string, member: MemberType) => {
   await Promise.all(updates);
 };
 
-/**
- * Crée un nouveau membre et met à jour ses relations
- */
-export const addMember = async (memberData: Omit<MemberType, "id">): Promise<string> => {
+/* -------------------------------------------------------------------------- */
+/*                                 CRUD                                       */
+/* -------------------------------------------------------------------------- */
+
+export const addMember = async (
+  memberData: Omit<MemberType, "id">,
+  customId?: string
+): Promise<string> => {
   const cleanedData = removeUndefined(memberData);
-  
-  // Nettoyer les auto-références avant même de créer le membre
-  const relationFields = ['parentsIds', 'childrenIds', 'brothersIds'] as const;
-  relationFields.forEach(field => {
+  const relationFields = ["parentsIds", "childrenIds", "brothersIds"] as const;
+
+  relationFields.forEach((field) => {
     if (cleanedData[field]) {
-      cleanedData[field] = (cleanedData[field] as string[]).filter(id => id && id.trim() !== '');
+      cleanedData[field] = (cleanedData[field] as string[]).filter((id) => id && id.trim() !== "");
     }
   });
-  
-  const docRef = await addDoc(collection(db, COLLECTIONS.MEMBERS), cleanedData);
-  const newMemberId = docRef.id;
+
+  let newMemberId: string;
+  if (customId) {
+    // Utiliser le customId fourni
+    await setDoc(doc(db, COLLECTIONS.MEMBERS, customId), cleanedData);
+    newMemberId = customId;
+  } else {
+    // Sinon laisser Firestore générer un id
+    const docRef = await addDoc(collection(db, COLLECTIONS.MEMBERS), cleanedData);
+    newMemberId = docRef.id;
+  }
 
   await updateRelations(newMemberId, { ...cleanedData, id: newMemberId } as MemberType);
+
+  // 🔹 Ajouter le nom de famille dans le tree si nouveau
+  if (cleanedData.treeId && cleanedData.lastName) {
+    const treeRef = doc(db, COLLECTIONS.TREES, cleanedData.treeId);
+    const treeSnap = await getDoc(treeRef);
+    const treeData = treeSnap.exists() ? treeSnap.data() as TreeType : null;
+
+    if (treeData && (!treeData.surnames || !treeData.surnames.includes(cleanedData.lastName))) {
+      await updateDoc(treeRef, { surnames: arrayUnion(cleanedData.lastName) });
+    }
+  }
+
+  // 🔹 Ajouter la nationalité dans le tree si nouvelle
+  if (cleanedData.treeId && typeof cleanedData.nationality === "string") {
+    const treeRef = doc(db, COLLECTIONS.TREES, cleanedData.treeId);
+    await updateDoc(treeRef, { origin: arrayUnion(cleanedData.nationality) });
+  }
+
+  if (cleanedData.treeId && Array.isArray(cleanedData.nationality)) {
+    const treeRef = doc(db, COLLECTIONS.TREES, cleanedData.treeId);
+    for (const nat of cleanedData.nationality) {
+      await updateDoc(treeRef, { origin: arrayUnion(nat) });
+    }
+  }
 
   return newMemberId;
 };
 
-/**
- * Met à jour un membre et ses relations
- */
 export const updateMember = async (memberId: string, memberData: Partial<MemberType>) => {
   const safeData = removeUndefined(memberData);
-  
-  // Nettoyer les auto-références dans les données d'entrée
-  const relationFields = ['parentsIds', 'childrenIds', 'brothersIds'] as const;
-  relationFields.forEach(field => {
+  const relationFields = ["parentsIds", "childrenIds", "brothersIds"] as const;
+
+  relationFields.forEach((field) => {
     if (safeData[field]) {
-      safeData[field] = (safeData[field] as string[]).filter(id => id && id !== memberId);
+      safeData[field] = (safeData[field] as string[]).filter((id) => id && id !== memberId);
     }
   });
-  
+
+  // 🔹 Récupérer l'ancien nom de famille avant mise à jour
+  const oldMemberSnap = await getDoc(doc(db, COLLECTIONS.MEMBERS, memberId));
+  const oldLastName = oldMemberSnap.exists() ? (oldMemberSnap.data() as MemberType).lastName : null;
+  const oldTreeId = oldMemberSnap.exists() ? (oldMemberSnap.data() as MemberType).treeId : null;
+
   await updateDoc(doc(db, COLLECTIONS.MEMBERS, memberId), { ...safeData, updatedDate: Date.now() });
 
   const updatedSnap = await getDoc(doc(db, COLLECTIONS.MEMBERS, memberId));
   if (updatedSnap.exists()) {
     const updatedMember = updatedSnap.data() as MemberType;
     await updateRelations(memberId, updatedMember);
+
+    // 🔹 Gérer le changement de nom de famille
+    if (safeData.lastName && oldLastName && safeData.lastName !== oldLastName && updatedMember.treeId) {
+      const treeRef = doc(db, COLLECTIONS.TREES, updatedMember.treeId);
+      const treeSnap = await getDoc(treeRef);
+      const treeData = treeSnap.exists() ? treeSnap.data() as TreeType : null;
+
+      if (treeData) {
+        // Ajouter le nouveau nom si pas déjà présent
+        if (!treeData.surnames?.includes(safeData.lastName)) {
+          await updateDoc(treeRef, { surnames: arrayUnion(safeData.lastName) });
+        }
+
+        // Vérifier si l'ancien nom est encore utilisé
+        const membersSnap = await getDocs(collection(db, COLLECTIONS.MEMBERS));
+        const stillHasOldName = membersSnap.docs.some((d) => {
+          const data = d.data() as MemberType;
+          return d.id !== memberId && data.treeId === updatedMember.treeId && data.lastName === oldLastName;
+        });
+
+        if (!stillHasOldName) {
+          await updateDoc(treeRef, { surnames: arrayRemove(oldLastName) });
+        }
+      }
+    }
+
   }
 };
 
-// 🔹 Récupérer tutti i membri
+/* -------------------------------------------------------------------------- */
+/*                          REMOVE MEMBER + CLEAN                             */
+/* -------------------------------------------------------------------------- */
+
+function isSameLocation(a: LocationData, b: LocationData): boolean {
+  return (
+    a.city?.toLowerCase() === b.city?.toLowerCase() &&
+    a.country?.toLowerCase() === b.country?.toLowerCase()
+  );
+}
+
+async function cleanTreeAfterMemberRemoval(treeId: string, removedMember: MemberType) {
+  const treeRef = doc(db, COLLECTIONS.TREES, treeId);
+  const membersSnap = await getDocs(collection(db, COLLECTIONS.MEMBERS));
+
+  const remainingMembers = membersSnap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as MemberType) }))
+    .filter((m) => m.treeId === treeId && m.id !== removedMember.id);
+
+  if (removedMember.lastName) {
+    const stillHasName = remainingMembers.some((m) => m.lastName === removedMember.lastName);
+    if (!stillHasName) {
+      const treeRef = doc(db, COLLECTIONS.TREES, treeId);
+      await updateDoc(treeRef, { surnames: arrayRemove(removedMember.lastName) });
+    }
+  }
+
+  if (removedMember.birthPlace) {
+    const stillHasLocation = remainingMembers.some(
+      (m) => m.birthPlace && isSameLocation(m.birthPlace, removedMember.birthPlace!)
+    );
+    if (!stillHasLocation) {
+      await updateDoc(treeRef, { locations: arrayRemove(removedMember.birthPlace) });
+    }
+  }
+
+  // 🔹 Supprimer la nationalité si plus aucun membre ne l'a
+  if (removedMember.nationality) {
+    const stillHasNationality = remainingMembers.some(
+      (m) => m.nationality === removedMember.nationality
+    );
+    if (!stillHasNationality) {
+      await updateDoc(treeRef, { origin: arrayRemove(removedMember.nationality) });
+    }
+  }
+}
+
+export const removeMember = async (memberId: string) => {
+  const memberRef = doc(db, COLLECTIONS.MEMBERS, memberId);
+  const memberSnap = await getDoc(memberRef);
+  if (!memberSnap.exists()) return;
+
+  const memberData = { id: memberId, ...(memberSnap.data() as MemberType) };
+
+  // 🔹 Nettoyer l'arbre (y compris familyNames)
+  if (memberData.treeId) {
+    await cleanTreeAfterMemberRemoval(memberData.treeId, memberData);
+  }
+
+  // 🔹 Nettoyer les relations des autres membres
+  const allMembersSnap = await getDocs(collection(db, COLLECTIONS.MEMBERS));
+  for (const docSnap of allMembersSnap.docs) {
+    const data = docSnap.data() as MemberType;
+    const updates: any = {};
+
+    if (data.parentsIds?.includes(memberId)) {
+      updates.parentsIds = data.parentsIds.filter((id) => id !== memberId);
+    }
+    if (data.childrenIds?.includes(memberId)) {
+      updates.childrenIds = data.childrenIds.filter((id) => id !== memberId);
+    }
+    if (data.brothersIds?.includes(memberId)) {
+      updates.brothersIds = data.brothersIds.filter((id) => id !== memberId);
+    }
+    if (data.mariageId === memberId) {
+      updates.mariageId = null;
+      updates.isMarried = false;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await updateDoc(doc(db, COLLECTIONS.MEMBERS, docSnap.id), updates);
+    }
+  }
+
+  // 🔹 Supprimer le membre
+  await deleteDoc(memberRef);
+};
+
+/* -------------------------------------------------------------------------- */
+/*                              GETTERS                                       */
+/* -------------------------------------------------------------------------- */
+
 export const getMembers = async () => {
   return await getAllDataFromCollection(COLLECTIONS.MEMBERS);
 };
 
-// 🔹 Récupérer un membro par ID
 export const getMemberById = async (memberId: string): Promise<MemberType | null> => {
   try {
     const doc = await getDataFromCollection(COLLECTIONS.MEMBERS, memberId);
@@ -206,7 +322,6 @@ export const getMemberById = async (memberId: string): Promise<MemberType | null
   }
 };
 
-// 🔹 Récupérer più membri
 export const getFamilyMembersByIds = async (memberIds: string[]): Promise<MemberType[]> => {
   if (!memberIds.length) return [];
 
@@ -223,19 +338,15 @@ export const getFamilyMembersByIds = async (memberIds: string[]): Promise<Member
   return memberIds.map((id) => members.find((m) => m?.id === id)).filter((m): m is MemberType => !!m);
 };
 
-/**
- * Fonction utilitaire pour nettoyer toute la base de données des auto-références
- */
 export const cleanAllMembersRelations = async () => {
   const snapshot = await getDocs(collection(db, COLLECTIONS.MEMBERS));
   const cleanupPromises: Promise<void>[] = [];
-  
+
   snapshot.forEach((docSnap) => {
     cleanupPromises.push(cleanMemberRelations(docSnap.id));
   });
-  
+
   await Promise.all(cleanupPromises);
-  console.log("Nettoyage terminé pour tous les membres");
 };
 
 export const getMembersBirthPlaces = async (): Promise<
@@ -251,7 +362,6 @@ export const getMembersBirthPlaces = async (): Promise<
 
   snapshot.forEach((docSnap) => {
     const data = docSnap.data() as MemberType;
-
     if (data.birthPlace && data.birthPlace.latitude && data.birthPlace.longitude) {
       birthPlaces.push({
         id: docSnap.id,
@@ -270,27 +380,15 @@ export const getMembersBirthPlaces = async (): Promise<
   return birthPlaces;
 };
 
-/**
- * Récupère les parents d'un membre à partir de son ID
- */
 export const getParentsByMemberId = async (memberId: string): Promise<MemberType[]> => {
   try {
-    // Récupérer le membre depuis Firestore
     const memberSnap = await getDoc(doc(db, COLLECTIONS.MEMBERS, memberId));
-    if (!memberSnap.exists()) {
-      console.warn(`❌ Membre ${memberId} introuvable`);
-      return [];
-    }
+    if (!memberSnap.exists()) return [];
 
     const memberData = memberSnap.data() as MemberType;
     const parentIds = memberData.parentsIds || [];
+    if (!parentIds.length) return [];
 
-    if (!parentIds.length) {
-      console.log(`ℹ️ Le membre ${memberId} n'a pas de parents définis`);
-      return [];
-    }
-
-    // Charger les parents depuis Firestore
     const parents: MemberType[] = [];
     for (const pid of parentIds) {
       const parentSnap = await getDoc(doc(db, COLLECTIONS.MEMBERS, pid));
@@ -298,7 +396,6 @@ export const getParentsByMemberId = async (memberId: string): Promise<MemberType
         parents.push({ id: parentSnap.id, ...(parentSnap.data() as MemberType) });
       }
     }
-
     return parents;
   } catch (error) {
     console.error("Erreur lors de la récupération des parents :", error);

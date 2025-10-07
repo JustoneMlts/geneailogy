@@ -1,15 +1,19 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useSelector } from "react-redux"
+import { useDispatch, useSelector } from "react-redux"
 import { collection, onSnapshot, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase"
 import { selectUser } from "@/lib/redux/slices/currentUserSlice"
-import { FeedPostType, UserType } from "@/lib/firebase/models"
+import { FeedPostType, LinkStatus, UserLink, UserType } from "@/lib/firebase/models"
 import { CreatePostCard } from "@/components/createPostCard"
 import { PostCard } from "@/components/postCard"
-import { Tree } from "@/components/tree" // ✅ importe ton arbre
 import { useRouter } from "next/navigation"
+import { UserCheck, UserPlus } from "lucide-react"
+import { sendConnectionRequest, updateConnectionStatus } from "@/app/controllers/usersController"
+import { addConnection, selectConnections, updateConnectionStatusInStore } from "@/lib/redux/slices/connectionsSlice"
+import { Button } from "./ui/button"
+
 
 interface OtherWallProps {
     wallOwner: UserType
@@ -19,7 +23,8 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
     const currentUser = useSelector(selectUser)
     const [wallPosts, setWallPosts] = useState<FeedPostType[]>([])
     const [loading, setLoading] = useState(true)
-    const [showTree, setShowTree] = useState(false)
+    const connections = useSelector(selectConnections) // 🔥 synchro en temps réel
+    const dispatch = useDispatch()
     const router = useRouter()
 
 
@@ -38,11 +43,81 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
         return () => unsubscribe()
     }, [wallOwner?.id])
 
+    const getConnectionStatus = (userId: string) => {
+        if (!currentUser) return { status: "none", isSender: false }
+        const conn = connections.find(
+            (c) =>
+                (c.userId === userId && c.senderId === currentUser.id) ||
+                (c.userId === currentUser.id && c.senderId === userId)
+        )
+        if (!conn) return { status: "none", isSender: false }
+        const isSender = conn.senderId === currentUser.id
+        return { status: conn.status, isSender }
+    }
+
     const handlePostCreated = (newPost: FeedPostType) => {
         setWallPosts((prev) => {
             if (prev.some((post) => post.id === newPost.id)) return prev // ⚡ skip doublon
             return [newPost, ...prev]
         })
+    }
+
+    const handleConnectionRequest = async (userId: string) => {
+        if (!currentUser?.id) return
+        await sendConnectionRequest(
+            currentUser.id,
+            userId,
+            currentUser.firstName,
+            currentUser.lastName,
+            currentUser.avatarUrl
+        )
+        dispatch(addConnection({ userId, senderId: currentUser.id, status: "pending" as LinkStatus }))
+    }
+    // ✅ Accepter une demande
+    const handleAcceptRequest = async (userId: string) => {
+        if (!currentUser?.id) return
+        await updateConnectionStatus(
+            userId, // sender
+            currentUser.id, // receiver
+            "accepted",
+            currentUser.firstName,
+            currentUser.lastName,
+            currentUser.avatarUrl ?? ""
+        )
+        dispatch(updateConnectionStatusInStore({ userId, senderId: userId, status: "accepted" }))
+    }
+
+    const renderConnectionButton = (user: UserType) => {
+        const { status, isSender } = getConnectionStatus(user.id!)
+        switch (status) {
+            case "none":
+                return (
+                    <Button 
+                        size="sm" 
+                        onClick={() => { if (wallOwner && wallOwner.id) handleConnectionRequest(wallOwner.id) }}
+                        className="flex items-center justify-center mt-3 w-10 h-10 px-2 py-2 bg-white text-blue-700 text-sm rounded-sm shadow hover:bg-gray-50 transition-colors"
+                    >
+                        <UserPlus className="w-6 h-6" />
+                    </Button>
+                )
+            case "pending":
+                return (
+                    <Button 
+                        size="sm" 
+                        disabled
+                        className="flex items-center justify-center mt-3 w-10 h-10 px-2 py-2 bg-white text-blue-700 text-sm rounded-sm shadow hover:bg-gray-50 transition-colors"
+
+                    >
+                        <UserPlus className="w-6 h-6" />
+                    </Button>
+                ) 
+            case "accepted":
+                return (
+                    <div className="flex items-center justify-center mt-3 w-8 h-8 px-2 py-2 bg-white text-blue-700 text-sm rounded-sm shadow transition-colors">
+                        <UserCheck className="w-6 h-6" />
+                    </div>
+                )
+        }
     }
 
     if (!wallOwner) return <div className="p-6">Utilisateur introuvable.</div>
@@ -51,28 +126,36 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
-            <div className="p-4 max-w-3xl mx-auto">
+            <div className="max-w-6xl mx-auto p-6">
                 {/* Header du mur */}
                 <div className="flex justify-between items-center space-x-4 mb-6">
                     <div className="flex space-x-4">
-                    <img
-                        src={wallOwner.avatarUrl || "/placeholder.svg"}
-                        alt="Avatar"
-                        className="w-10 h-10 rounded-full border"
-                    />
-                    <div>
-                        <h1 className="text-3xl font-bold">
-                            {isOwnWall ? "Mon Journal" : `Mur de ${wallOwner.firstName} ${wallOwner.lastName}`}
-                        </h1>
-                        <p className="text-gray-600">
-                            {isOwnWall
-                                ? "Vos publications et celles de vos connexions"
-                                : "Publications postées ici"}
-                        </p>
+                        <img
+                            src={wallOwner.avatarUrl || "/placeholder.svg"}
+                            alt="Avatar"
+                            className="w-10 h-10 rounded-full border"
+                        />
+                        <div>
+                            <h1 className="text-3xl font-bold">
+                                {isOwnWall ? "Mon Journal" : `Mur de ${wallOwner.firstName} ${wallOwner.lastName}`}
+                            </h1>
+                            <p className="text-gray-600">
+                                {isOwnWall
+                                    ? "Vos publications et celles de vos connexions"
+                                    : "Publications postées ici"}
+                            </p>
 
-                        {/* Bouton pour afficher l’arbre */}
-                        
+                            {/* Bouton pour afficher l’arbre */}
+
+                        </div>
                     </div>
+                    <div>
+                        {!isOwnWall && (
+
+                            <div>
+                                {renderConnectionButton(wallOwner)}
+                            </div>
+                        )}
                     </div>
                     <div>
                         {!isOwnWall && (

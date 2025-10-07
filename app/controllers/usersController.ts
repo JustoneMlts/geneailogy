@@ -48,6 +48,8 @@ export const createUser = async ({
       email,
       firstName,
       lastName,
+      firstNameLower: firstName.toLocaleLowerCase(),
+      lastNameLower: lastName.toLocaleLowerCase(),
       birthDate: undefined,
       nationality: undefined,
       avatarUrl: "",
@@ -118,7 +120,6 @@ export const createUser = async ({
     throw error;
   }
 };
-
 
 export const updateUser = async (user: UserType): Promise<boolean> => {
   try {

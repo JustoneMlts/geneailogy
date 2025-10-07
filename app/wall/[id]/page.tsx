@@ -14,8 +14,6 @@ export default function UserWallPage() {
     const id = params?.id as string;       // récupère "id", pas "userId"
     const [wallOwner, setWallOwner] = useState<UserType | null>(null)
     const [loading, setLoading] = useState(true)
-    const [isExpanded, setIsExpanded] = useState(false)
-    const [isPinned, setIsPinned] = useState(false)
 
     useEffect(() => {
         if (!id) return
@@ -37,13 +35,7 @@ export default function UserWallPage() {
 
     return (
         <div>
-            <Sidebar
-                isExpanded={isExpanded}
-                setIsExpanded={setIsExpanded}
-                isPinned={isPinned}
-                setIsPinned={setIsPinned}
-            />
-            <div className={`min-h-screen transition-all duration-300 ease-in-out ${getLeftMargin(isExpanded, isPinned)}`}>
+            <div className={`min-h-screen transition-all duration-300 ease-in-out`}>
                 <OtherWallPage wallOwner={wallOwner} />
             </div>
         </div>

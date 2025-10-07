@@ -404,7 +404,7 @@ export default function WallPage({ wallOwner }: WallPageProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
-      <div className="p-4 max-w-3xl mx-auto">
+      <div className="max-w-6xl mx-auto p-6">
         {/* Header du mur */}
         <div className="flex items-center space-x-4 mb-6">
           <Avatar className="w-10 h-10">
@@ -415,7 +415,7 @@ export default function WallPage({ wallOwner }: WallPageProps) {
             <h1 className="text-3xl font-bold">
               {isOwnWall
                 ? "Mon Journal"
-                : `Mur de ${effectiveWallOwner.firstName} ${effectiveWallOwner.lastName}`}
+                : `Mur de 3 ${effectiveWallOwner.firstName} ${effectiveWallOwner.lastName}`}
             </h1>
             <p className="text-gray-600">
               {isOwnWall

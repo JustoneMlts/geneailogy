@@ -3,6 +3,8 @@ export interface UserType {
   id?: string
   firstName: string
   lastName: string
+  firstNameLower: string
+  lastNameLower: string
   birthDate?: number // timestamp
   nationality?: string
   bio? : string,
@@ -36,6 +38,7 @@ export interface TreeType {
   ownerId: string // userId
   memberIds: string[] // members in the tree
   origin?: string[] // e.g. ['France', 'Italie']
+  surnames?: string[]
   createdDate?: number
   updatedDate?: number
   isActive?: boolean
@@ -99,6 +102,15 @@ export interface MessageType {
   createdDate: number
   isRead?: boolean
   readBy?: string[] // userIds qui ont lu le message
+}
+
+// AiMessage
+export interface AiMessageType {
+  id?: string
+  userId: string
+  role: "user" | "ai"
+  content: string
+  createdAt: number
 }
 
 export interface CommentDisplayType {

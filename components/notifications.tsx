@@ -80,7 +80,7 @@ export const Notifications = () => {
 
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in max-w-7xl mx-auto p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Notifications</h1>
         <p className="text-gray-600">Restez informé des dernières activités sur votre arbre généalogique</p>

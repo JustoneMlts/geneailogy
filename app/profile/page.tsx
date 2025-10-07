@@ -27,8 +27,6 @@ import { getMemberById, updateMember } from "../controllers/membersController"
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("profile")
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [isPinned, setIsPinned] = useState(false)
   const currentUser = useSelector(selectUser);
   const [openAlert, setOpenAlert] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -105,6 +103,8 @@ const handleSubmit = async () => {
       id: currentUser.id,
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
+      lastNameLower: formData.firstName.trim().toLocaleLowerCase(),
+      firstNameLower: formData.firstName.trim().toLocaleLowerCase(),
       email: formData.email.trim(),
       bio: formData.bio || undefined,
       phoneNumber: formData.phoneNumber || undefined,
@@ -191,8 +191,6 @@ const handleSubmit = async () => {
 
   const handleAlertClose = () => setOpenAlert(false)
 
-  const getLeftMargin = () => (isExpanded || isPinned ? "md:ml-64" : "md:ml-16")
-
   const stats = [
     { label: "Membres de l'arbre", value: "24", icon: Users, color: "text-blue-600" },
     { label: "Connexions", value: "12", icon: MessageCircle, color: "text-green-600" },
@@ -210,15 +208,9 @@ const handleSubmit = async () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
-      <Sidebar
-        isExpanded={isExpanded}
-        setIsExpanded={setIsExpanded}
-        isPinned={isPinned}
-        setIsPinned={setIsPinned}
-      />
 
       {/* Main Content */}
-      <div className={`min-h-screen transition-all duration-300 ease-in-out ${getLeftMargin()}`}>
+      <div className={`min-h-screen transition-all duration-300 ease-in-out`}>
         <div className="p-6">
           <div className="max-w-4xl mx-auto">
             {/* Profile Header */}
