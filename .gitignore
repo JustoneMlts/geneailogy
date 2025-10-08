@@ -29,3 +29,4 @@ next-env.d.ts
 
 #firebase
 lib/firebase/geneailogyFirebaseAdmin.json
+firebase-admin-key.json
