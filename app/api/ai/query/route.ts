@@ -3,17 +3,20 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import admin from "firebase-admin";
 import { MemberType } from "@/lib/firebase/models";
+import type { ChatCompletionMessageParam, ChatCompletionTool } from "openai/resources/chat/completions";
+
+// —————————————————————————————————————
+// Initialisation Firebase Admin
+// —————————————————————————————————————
 
 const getServiceAccount = () => {
   try {
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === "production") {
       const creds = process.env.FIREBASE_ADMIN_CREDENTIALS;
-      if (!creds) {
-        throw new Error("FIREBASE_ADMIN_CREDENTIALS non défini");
-      }
+      if (!creds) throw new Error("FIREBASE_ADMIN_CREDENTIALS non défini");
       return JSON.parse(creds);
     } else {
-      return require('@/firebase-admin-key.json');
+      return require("@/firebase-admin-key.json");
     }
   } catch (error) {
     console.error("❌ Erreur lecture service account:", error);
@@ -34,14 +37,17 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-
-if (!process.env.OPENAI_API_KEY) {
-  console.error("❌ OPENAI_API_KEY non défini");
-}
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
-// 🔹 Fonction pour déterminer la relation
-function determineRelationship(currentMember: any, targetMember: any, allMembers: any[]) {
+// —————————————————————————————————————
+// Fonctions "tools" de recherche
+// —————————————————————————————————————
+
+function determineRelationship(
+  currentMember: any,
+  targetMember: any,
+  allMembers: any[]
+): string {
   const currentId = currentMember.id;
   const targetId = targetMember.id;
 
@@ -51,44 +57,111 @@ function determineRelationship(currentMember: any, targetMember: any, allMembers
   if (currentMember.brothersIds?.includes(targetId)) return "frère/sœur";
 
   const siblings = currentMember.brothersIds || [];
-  for (const siblingId of siblings) {
-    const sibling = allMembers.find(m => m.id === siblingId);
-    if (sibling?.childrenIds?.includes(targetId)) {
-      return "neveu/nièce";
+  if (targetMember.parentsIds) {
+    for (const parentId of targetMember.parentsIds) {
+      if (siblings.includes(parentId)) {
+        return "neveu/nièce";
+      }
     }
   }
 
   const parentIds = currentMember.parentsIds || [];
-  for (const parentId of parentIds) {
-    const parent = allMembers.find(m => m.id === parentId);
-    if (parent?.parentsIds?.includes(targetId)) {
-      return "grand-parent";
+
+  // calcul des grands-parents
+  let grandparentIds: string[] = [];
+  for (const pid of parentIds) {
+    const p = allMembers.find(m => m.id === pid);
+    if (p?.parentsIds) {
+      grandparentIds.push(...p.parentsIds);
     }
   }
 
+  for (const gpId of grandparentIds) {
+    const gp = allMembers.find(m => m.id === gpId);
+    if (gp?.parentsIds?.includes(targetId)) {
+      return "arrière-grand-parent";
+    }
+  }
+  if (grandparentIds.includes(targetId)) {
+    return "grand-parent";
+  }
+
+  // petits-enfants
   const childrenIds = currentMember.childrenIds || [];
-  for (const childId of childrenIds) {
-    const child = allMembers.find(m => m.id === childId);
-    if (child?.childrenIds?.includes(targetId)) {
-      return "petit-enfant";
+  let grandchildrenIds: string[] = [];
+  for (const cid of childrenIds) {
+    const c = allMembers.find(m => m.id === cid);
+    if (c?.childrenIds) {
+      grandchildrenIds.push(...c.childrenIds);
+    }
+  }
+  if (grandchildrenIds.includes(targetId)) {
+    return "petit-enfant";
+  }
+  for (const gcId of grandchildrenIds) {
+    const gc = allMembers.find(m => m.id === gcId);
+    if (gc?.childrenIds?.includes(targetId)) {
+      return "arrière-petit-enfant";
     }
   }
 
-  for (const parentId of parentIds) {
-    const parent = allMembers.find(m => m.id === parentId);
-    if (parent?.brothersIds?.includes(targetId)) {
+  // oncle / tante
+  for (const pid of parentIds) {
+    const p = allMembers.find(m => m.id === pid);
+    if (p?.brothersIds?.includes(targetId)) {
       return "oncle/tante";
     }
   }
 
-  for (const parentId of parentIds) {
-    const parent = allMembers.find(m => m.id === parentId);
-    const unclesAunts = parent?.brothersIds || [];
+  // grand-oncle / grand-tante
+  for (const gpid of grandparentIds) {
+    const gp = allMembers.find(m => m.id === gpid);
+    if (gp?.brothersIds?.includes(targetId)) {
+      return "grand-oncle/tante";
+    }
+  }
 
-    for (const uncleAuntId of unclesAunts) {
-      const uncleAunt = allMembers.find(m => m.id === uncleAuntId);
-      if (uncleAunt?.childrenIds?.includes(targetId)) {
-        return "cousin/cousine";
+  // cousins
+  for (const pid of parentIds) {
+    const p = allMembers.find(m => m.id === pid);
+    const unclesAunts = p?.brothersIds || [];
+    if (targetMember.parentsIds) {
+      for (const tpid of targetMember.parentsIds) {
+        if (unclesAunts.includes(tpid)) {
+          return "cousin/cousine";
+        }
+      }
+    }
+  }
+
+  // petit-neveu / nièce
+  for (const sid of siblings) {
+    const s = allMembers.find(m => m.id === sid);
+    const niecesNephews = s?.childrenIds || [];
+    for (const nnid of niecesNephews) {
+      const nn = allMembers.find(m => m.id === nnid);
+      if (nn?.childrenIds?.includes(targetId)) {
+        return "petit-neveu/nièce";
+      }
+    }
+  }
+
+  // cousin au second degré
+  for (const pid of parentIds) {
+    const p = allMembers.find(m => m.id === pid);
+    const unclesAunts = p?.brothersIds || [];
+    const cousinIds: string[] = [];
+    for (const ua of unclesAunts) {
+      const uam = allMembers.find(m => m.id === ua);
+      if (uam?.childrenIds) {
+        cousinIds.push(...uam.childrenIds);
+      }
+    }
+    if (targetMember.parentsIds) {
+      for (const tpid of targetMember.parentsIds) {
+        if (cousinIds.includes(tpid)) {
+          return "cousin au second degré";
+        }
       }
     }
   }
@@ -96,345 +169,441 @@ function determineRelationship(currentMember: any, targetMember: any, allMembers
   return "autre membre de la famille";
 }
 
-// 🔹 Nouvelle fonction : Rechercher des membres potentiels dans d'autres arbres
-async function searchPotentialRelatives(currentTree: any, currentUserMember: any, allCurrentMembers: any[]) {
-  try {
-    const potentialMatches: any[] = [];
-
-    // Extraire les noms de famille de l'arbre actuel
-    const surnames = currentTree.surnames || [];
-    const userSurname = currentUserMember.lastName;
-
-    if (surnames.length === 0 && !userSurname) {
-      return [];
-    }
-
-    // Chercher dans tous les noms de famille pertinents
-    const searchSurnames = [...new Set([...surnames, userSurname].filter(Boolean))];
-
-    console.log("🔍 Recherche de correspondances pour les noms:", searchSurnames);
-
-    // Rechercher dans d'autres arbres avec les mêmes noms de famille
-    const otherMembersSnap = await db.collection("Members")
-      .where("lastName", "in", searchSurnames.slice(0, 10)) // Firestore limite à 10
-      .get();
-
-    otherMembersSnap.forEach(doc => {
-      const member = { id: doc.id, ...(doc.data() as MemberType) };
-      // Exclure les membres de l'arbre actuel
-      if (member.treeId !== currentTree.id && !allCurrentMembers.some(m => m.id === member.id)) {
-
-        // Calculer un score de correspondance
-        let matchScore = 0;
-        let matchReasons: string[] = [];
-
-        // Même nom de famille
-        if (member.lastName === userSurname) {
-          matchScore += 3;
-          matchReasons.push("même nom de famille");
-        }
-
-        // Même nationalité/origine
-        if (member.nationality && currentTree.origin?.includes(member.nationality)) {
-          matchScore += 2;
-          matchReasons.push("même origine géographique");
-        }
-
-        // Même région de naissance (si disponible)
-        if (member.birthPlace && currentUserMember.birthPlace) {
-          const userCity = currentUserMember.birthPlace.toLowerCase();
-          const memberCity = member.birthPlace.city.toLowerCase();
-
-          if (userCity.includes(memberCity) || memberCity.includes(userCity)) {
-            matchScore += 2;
-            matchReasons.push("région de naissance similaire");
-          }
-        }
-
-        // Période temporelle proche
-        if (member.birthDate && currentUserMember.birthDate) {
-          const memberYear = new Date(member.birthDate).getFullYear();
-          const userYear = new Date(currentUserMember.birthDate).getFullYear();
-          const yearDiff = Math.abs(memberYear - userYear);
-
-          if (yearDiff < 50) {
-            matchScore += 1;
-            matchReasons.push("période similaire");
-          }
-        }
-
-        // Ajouter seulement si score > 2
-        if (matchScore >= 2) {
-          potentialMatches.push({
-            ...member,
-            matchScore,
-            matchReasons,
-          });
-        }
-      }
-    });
-
-    // Trier par score décroissant
-    potentialMatches.sort((a, b) => b.matchScore - a.matchScore);
-
-    console.log(`✅ ${potentialMatches.length} correspondances potentielles trouvées`);
-
-    return potentialMatches.slice(0, 20); // Limiter à 20 résultats
-
-  } catch (error) {
-    console.error("❌ Erreur recherche membres potentiels:", error);
+/**
+ * Recherche de membres potentiels dans d'autres arbres
+ */
+async function searchPotentialRelatives(
+  currentTree: any,
+  currentUserMember: any,
+  allCurrentMembers: any[]
+): Promise<any[]> {
+  const potentialMatches: any[] = [];
+  const surnames = currentTree.surnames || [];
+  const userSurname = currentUserMember.lastName;
+  if (surnames.length === 0 && !userSurname) {
     return [];
   }
+
+  const searchSurnames = [...new Set([...surnames, userSurname].filter(Boolean))];
+  console.log("🔍 Recherche de correspondances pour les noms:", searchSurnames);
+
+  const otherMembersSnap = await db
+    .collection("Members")
+    .where("lastName", "in", searchSurnames.slice(0, 10))
+    .get();
+
+  otherMembersSnap.forEach(doc => {
+    const member = { id: doc.id, ...(doc.data() as MemberType) };
+    if (
+      member.treeId !== currentTree.id &&
+      !allCurrentMembers.some(m => m.id === member.id)
+    ) {
+      let matchScore = 0;
+      const matchReasons: string[] = [];
+
+      if (member.lastName === userSurname) {
+        matchScore += 3;
+        matchReasons.push("même nom de famille");
+      }
+      if (
+        member.nationality &&
+        currentTree.origin?.includes(member.nationality)
+      ) {
+        matchScore += 2;
+        matchReasons.push("même origine géographique");
+      }
+      if (member.birthPlace && currentUserMember.birthPlace) {
+        const userCity =
+          (currentUserMember.birthPlace as any).city?.toLowerCase() ?? "";
+        const memCity =
+          (member.birthPlace as any).city?.toLowerCase() ?? "";
+        if (userCity.includes(memCity) || memCity.includes(userCity)) {
+          matchScore += 2;
+          matchReasons.push("région de naissance similaire");
+        }
+      }
+      if (member.birthDate && currentUserMember.birthDate) {
+        const mYear = new Date(member.birthDate).getFullYear();
+        const uYear = new Date(currentUserMember.birthDate).getFullYear();
+        const diff = Math.abs(mYear - uYear);
+        if (diff < 50) {
+          matchScore += 1;
+          matchReasons.push("période similaire");
+        }
+      }
+
+      if (matchScore >= 2) {
+        potentialMatches.push({
+          ...member,
+          cardType: "member",
+          matchScore,
+          matchReasons,
+        });
+      }
+    }
+  });
+
+  potentialMatches.sort((a, b) => b.matchScore - a.matchScore);
+  console.log(`✅ ${potentialMatches.length} correspondances potentielles trouvées`);
+  return potentialMatches.slice(0, 20);
 }
 
-// 🔹 Détecter si la requête concerne la recherche de parents éloignés
-function isSearchQuery(prompt: string): boolean {
-  const searchKeywords = [
-    'retrouver', 'recherche', 'cherche', 'trouver', 'découvrir',
-    'cousin éloigné', 'cousins éloignés', 'parent éloigné', 'parents éloignés',
-    'lien de parenté', 'correspondance', 'même nom', 'ancêtre commun',
-    'famille élargie', 'branche familiale', 'descendants'
-  ];
+/**
+ * Recherche d'arbres similaires par surname spécifique
+ */
+async function findSimilarFamilies(
+  currentTree: any,
+  searchSurname?: string
+): Promise<any[]> {
+  console.log("🧬 Recherche de familles similaires...");
 
-  const lowerPrompt = prompt.toLowerCase();
-  return searchKeywords.some(keyword => lowerPrompt.includes(keyword));
+  const surnamesLower: string[] = currentTree.surnamesLower || [];
+  const origins: string[] = currentTree.origin || [];
+
+  // Si un surname spécifique est recherché, l'utiliser
+  const targetSurnames = searchSurname
+    ? [searchSurname.toLowerCase()]
+    : surnamesLower;
+
+  if (targetSurnames.length === 0) {
+    return [];
+  }
+
+  const allTreesSnap = await db.collection("Trees").get();
+  const potential: any[] = [];
+
+  allTreesSnap.forEach(doc => {
+    if (doc.id === currentTree.id) return;
+    const other = doc.data();
+
+    // Chercher les noms communs
+    const commonNames = (other.surnamesLower || []).filter((n: string) =>
+      targetSurnames.includes(n)
+    );
+
+    // Chercher les origines communes
+    const commonOrigins = (other.origin || []).filter((o: string) =>
+      origins.includes(o)
+    );
+
+    // Cas 1: Nom + Origine (score plus élevé - match fort)
+    if (commonNames.length > 0 && commonOrigins.length > 0) {
+      const score = commonNames.length * 10 + commonOrigins.length * 5;
+      const reasons: string[] = [];
+
+      reasons.push(`même nom (${commonNames.join(", ")})`);
+      reasons.push(`origine commune (${commonOrigins.join(", ")})`);
+
+      potential.push({
+        id: doc.id,
+        cardType: "tree",
+        name: other.name,
+        surnames: other.surnames,
+        origins: other.origin,
+        matchScore: score,
+        matchReasons: reasons,
+        matchLevel: "strong", // Match fort
+        ownerId: other.ownerId
+      });
+    }
+    // Cas 2: Seulement nom (score plus faible - match faible)
+    else if (commonNames.length > 0) {
+      const score = commonNames.length * 3;
+      const reasons: string[] = [];
+
+      reasons.push(`même nom (${commonNames.join(", ")})`);
+      if (commonOrigins.length === 0) {
+        reasons.push("origines différentes");
+      }
+
+      potential.push({
+        id: doc.id,
+        cardType: "tree",
+        name: other.name,
+        surnames: other.surnames,
+        origins: other.origin,
+        matchScore: score,
+        matchReasons: reasons,
+        matchLevel: "weak", // Match faible
+        ownerId: other.ownerId
+      });
+    }
+  });
+
+  potential.sort((a, b) => b.matchScore - a.matchScore);
+  console.log(`✅ ${potential.length} familles similaires trouvées`);
+  return potential.slice(0, 15); // Augmenté de 10 à 15 pour avoir plus de résultats
 }
+
+/**
+ * Recherche d'ancêtres communs
+ */
+async function findCommonAncestors(
+  currentTree: any,
+  allMembers: any[]
+): Promise<any[]> {
+  console.log("🧬 Recherche d'ancêtres communs...");
+  const ancestorNames = allMembers
+    .filter(m => m.isAncestor)
+    .map(m => m.lastName?.toLowerCase())
+    .filter(Boolean);
+
+  if (ancestorNames.length === 0) {
+    return [];
+  }
+
+  const otherMembersSnap = await db
+    .collection("Members")
+    .where("lastNameLower", "in", ancestorNames.slice(0, 10))
+    .get();
+
+  const results: any[] = [];
+  otherMembersSnap.forEach(doc => {
+    const data = doc.data();
+    if (data.treeId !== currentTree.id) {
+      results.push({
+        id: doc.id,
+        cardType: "member",
+        ...data,
+        matchReason: "nom d'ancêtre commun",
+      });
+    }
+  });
+
+  console.log(`✅ ${results.length} ancêtres communs trouvés`);
+  return results;
+}
+
+// —————————————————————————————————————
+// Définition correcte des tools
+// —————————————————————————————————————
+const tools: ChatCompletionTool[] = [
+  {
+    type: "function",
+    function: {
+      name: "searchPotentialRelatives",
+      description:
+        "Recherche des membres potentiellement liés dans d'autres arbres selon nom, lieu de naissance, etc.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          treeId: { type: "string" },
+          userMemberId: { type: "string" },
+        },
+        required: ["treeId", "userMemberId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "findSimilarFamilies",
+      description:
+        "Recherche des arbres similaires (familles similaires) selon noms de famille ou origines partagées. Peut rechercher un nom de famille spécifique.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          treeId: { type: "string" },
+          surname: { type: "string", description: "Nom de famille spécifique à rechercher (optionnel)" },
+        },
+        required: ["treeId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "findCommonAncestors",
+      description:
+        "Recherche d'ancêtres communs entre arbres",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          treeId: { type: "string" },
+          memberIds: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+        required: ["treeId", "memberIds"],
+      },
+    },
+  },
+];
+
+// —————————————————————————————————————
+// Handler principal
+// —————————————————————————————————————
 
 export async function POST(req: Request) {
   try {
     console.log("📥 Requête reçue");
-
-    let body;
-    try {
-      body = await req.json();
-    } catch (parseError) {
-      console.error("❌ Erreur parsing JSON:", parseError);
-      return NextResponse.json(
-        { error: "Corps de la requête invalide" },
-        { status: 400 }
-      );
-    }
-
+    const body = await req.json();
     const { prompt, userId } = body;
-    console.log("📝 Prompt:", prompt);
-    console.log("👤 UserId:", userId);
 
-    if (!prompt || !userId) {
-      return NextResponse.json(
-        { error: "Prompt ou userId manquant." },
-        { status: 400 }
-      );
-    }
+    if (!prompt || !userId)
+      return NextResponse.json({ error: "Prompt ou userId manquant." }, { status: 400 });
 
-    // 🔹 Récupérer l'utilisateur
-    console.log("🔍 Recherche utilisateur...");
+    // 🔎 Données utilisateur + arbre
     const userDoc = await db.collection("Users").doc(userId).get();
-
-    if (!userDoc.exists) {
-      console.log("❌ Utilisateur non trouvé");
-      return NextResponse.json(
-        { error: "Utilisateur introuvable." },
-        { status: 404 }
-      );
-    }
+    if (!userDoc.exists)
+      return NextResponse.json({ error: "Utilisateur introuvable." }, { status: 404 });
 
     const user = userDoc.data();
-    console.log("✅ Utilisateur trouvé");
-
-    // 🔹 Vérifier si l'utilisateur a un arbre
     const treeId = user?.treesIds?.[0];
-
     if (!treeId) {
-      console.log("⚠️ Utilisateur sans arbre - Mode général");
-
-      const aiPrompt = `
-Tu es Fam, un assistant expert en généalogie.
-L'utilisateur n'a pas encore créé son arbre généalogique.
-
-Question de l'utilisateur : "${prompt}"
-
-Réponds de manière claire et amicale, comme si tu étais un ami qui répondait à un message. Si la question concerne son arbre personnel ou la recherche de parents, explique-lui qu'il doit d'abord créer son arbre généalogique pour pouvoir bénéficier de la fonctionnalité de recherche de parents potentiels.
-`;
-
-      const aiResponse = await openai.chat.completions.create({
+      const aiResponseNoTree = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: "Tu es Fam, assistant expert et amical en généalogie." },
-          { role: "user", content: aiPrompt },
+          { role: "system", content: "Tu es Fam, assistant en généalogie." },
+          {
+            role: "user",
+            content: `L'utilisateur n'a pas encore d'arbre. Réponds à cette question : "${prompt}".`,
+          },
         ],
         temperature: 0.7,
       });
-
-      const answer = aiResponse.choices[0]?.message?.content ?? "Je n'ai pas pu trouver de réponse 😅";
-      return NextResponse.json({ answer });
-    }
-
-    console.log("🌳 TreeId:", treeId);
-    const treeDoc = await db.collection("Trees").doc(treeId).get();
-
-    if (!treeDoc.exists) {
-      console.log("❌ Arbre non trouvé");
-      return NextResponse.json(
-        { error: "Arbre introuvable." },
-        { status: 404 }
-      );
-    }
-
-    const tree = { id: treeId, ...treeDoc.data() };
-    console.log("✅ Arbre trouvé");
-
-    // 🔹 Récupérer TOUS les membres
-    console.log("👥 Récupération des membres...");
-    const allMembersSnap = await db.collection("Members")
-      .where("treeId", "==", treeId)
-      .get();
-
-    const allMembers: any[] = [];
-    allMembersSnap.forEach(doc => {
-      allMembers.push({
-        id: doc.id,
-        ...doc.data()
+      return NextResponse.json({
+        answer: aiResponseNoTree.choices[0]?.message?.content ?? "",
       });
-    });
-
-    console.log(`✅ ${allMembers.length} membres trouvés`);
-
-    // 🔹 Trouver le membre correspondant à l'utilisateur
-    let currentUserMember = allMembers.find(m => m.id === userId);
-
-    if (!currentUserMember && user.memberId) {
-      currentUserMember = allMembers.find(m => m.id === user.memberId);
     }
 
-    console.log("👤 Membre utilisateur:", currentUserMember?.firstName, currentUserMember?.lastName);
+    const treeDoc = await db.collection("Trees").doc(treeId).get();
+    if (!treeDoc.exists)
+      return NextResponse.json({ error: "Arbre introuvable." }, { status: 404 });
 
-    if (!currentUserMember) {
-      console.log("⚠️ Membre utilisateur non trouvé dans l'arbre");
-      return NextResponse.json(
-        { error: "Votre profil n'est pas lié à un membre de l'arbre." },
-        { status: 400 }
-      );
-    }
+    const tree = { id: treeId, ...(treeDoc.data() as any) };
+    const allMembersSnap = await db.collection("Members").where("treeId", "==", treeId).get();
+    const allMembers: any[] = [];
+    allMembersSnap.forEach(doc => allMembers.push({ id: doc.id, ...(doc.data() as MemberType) }));
 
-    // 🔹 Enrichir avec les relations
-    const membersWithRelations = allMembers.map(member => {
-      const relationship = determineRelationship(currentUserMember, member, allMembers);
+    let currentUserMember =
+      allMembers.find(m => m.id === userId) ||
+      allMembers.find(m => m.id === (user as any).memberId);
+    if (!currentUserMember)
+      return NextResponse.json({
+        error: "Votre profil n'est pas lié à un membre de cet arbre.",
+      });
 
-      return {
-        id: member.id,
-        firstName: member.firstName,
-        lastName: member.lastName,
-        birthDate: member.birthDate || null,
-        nationality: member.nationality || null,
-        relationship: relationship,
-      };
-    });
+    // —————————————————————————————————————
+    // 1️⃣ Premier appel à GPT (choix d'une fonction)
+    // —————————————————————————————————————
+    const messages: ChatCompletionMessageParam[] = [
+      {
+        role: "system",
+        content: `Tu es Fam, assistant IA spécialisé en généalogie. Tu peux utiliser les outils suivants : searchPotentialRelatives, findSimilarFamilies, findCommonAncestors.
 
-    // 🔹 NOUVEAU : Détecter si c'est une recherche de parents éloignés
-    const isSearchRequest = isSearchQuery(prompt);
-    let potentialRelatives: any[] = [];
+**STYLE DE RÉPONSE (TRÈS IMPORTANT):**
+- Sois CONCIS et DIRECT (max 2-3 phrases par idée)
+- Utilise une structure claire avec des tirets ou numérotation si nécessaire
+- Sois AMICAL et BIENVEILLANT dans le ton
+- Évite les pavés de texte
+- Va droit au but sans détails superflus
+- Si tu trouves des résultats, résume-les rapidement
 
-    if (isSearchRequest) {
-      console.log("🔍 Requête de recherche détectée - Recherche de correspondances...");
-      potentialRelatives = await searchPotentialRelatives(tree, currentUserMember, allMembers);
-    }
+**EXEMPLES:**
+❌ "Nous avons effectué une recherche exhaustive dans notre base de données et avons trouvé plusieurs correspondances potentielles qui pourraient présenter un intérêt généalogique..."
+✅ "J'ai trouvé 3 Bonanno dans d'autres arbres ! Ils ont tous l'origine italienne comme toi 🎯"
 
-    // 🔹 Log pour déboguer
-    console.log("🔗 Relations identifiées:");
-    membersWithRelations.forEach(m => {
-      if (m.relationship !== "autre membre de la famille") {
-        console.log(`  - ${m.firstName} ${m.lastName}: ${m.relationship}`);
-      }
-    });
+**IMPORTANT - QUAND UTILISER findSimilarFamilies:**
+L'utilisateur cherche des noms de famille dans les AUTRES ARBRES généalogiques, pas dans le sien.
+Tu dois appeler findSimilarFamilies avec le surname extrait de la demande.
+Exemple: "Peux-tu chercher des Maltese" → appelle findSimilarFamilies avec surname: "Maltese"
 
-    // 🔹 Appel OpenAI avec contexte enrichi
-    console.log("🤖 Appel OpenAI...");
+**CONTEXTE:**
+- L'ID de l'arbre actuel: ${tree.id}
+- Nom de l'arbre: ${tree.name}
+- Noms de famille DANS CET ARBRE: ${(tree.surnames || []).join(", ")}
 
-    let contextInfo = `
-Tu es Fam, un assistant expert en généalogie.
-
-Voici l'arbre généalogique de l'utilisateur avec les RELATIONS EXACTES :
-${JSON.stringify(membersWithRelations, null, 2)}
-
-DÉFINITIONS IMPORTANTES :
-- "moi-même" = l'utilisateur
-- "parent" = père ou mère
-- "enfant" = fils ou fille
-- "frère/sœur" = partage les mêmes parents
-- "neveu/nièce" = enfants des frères/sœurs
-- "oncle/tante" = frères/sœurs des parents
-- "cousin/cousine" = enfants des oncles/tantes (PAS les neveux !)
-- "grand-parent" = parents des parents
-`;
-
-    // Ajouter les correspondances potentielles si recherche
-    if (isSearchRequest && potentialRelatives.length > 0) {
-      contextInfo += `
-
-🔍 CORRESPONDANCES POTENTIELLES TROUVÉES DANS D'AUTRES ARBRES :
-${JSON.stringify(potentialRelatives.map(m => ({
-        firstName: m.firstName,
-        lastName: m.lastName,
-        birthDate: m.birthDate,
-        birthPlace: m.birthPlace,
-        nationality: m.nationality,
-        matchScore: m.matchScore,
-        matchReasons: m.matchReasons,
-        treeId: m.treeId
-      })), null, 2)}
-
-Ces personnes partagent des similarités avec ton arbre (même nom de famille, origine, etc.) et pourraient être des parents éloignés. Tu peux les contacter pour vérifier les liens de parenté !
-`;
-    } else if (isSearchRequest && potentialRelatives.length === 0) {
-      contextInfo += `
-
-🔍 RECHERCHE DE CORRESPONDANCES :
-Aucune correspondance potentielle n'a été trouvée pour le moment dans les autres arbres de la plateforme. Cela peut signifier :
-- Il n'y a pas encore d'autres utilisateurs avec des noms de famille similaires
-- Les correspondances potentielles n'ont pas encore rejoint la plateforme
-- Il faut peut-être élargir les critères de recherche
-
-Suggestions : Encourage l'utilisateur à inviter des membres de sa famille à rejoindre la plateforme, ou à rechercher activement avec des noms de famille spécifiques.
-`;
-    }
-
-    const aiPrompt = `
-${contextInfo}
-
-Question de l'utilisateur : "${prompt}"
-
-IMPORTANT : Formate ta réponse en Markdown pour une meilleure lisibilité :
-- Utilise **gras** pour les noms importants
-- Utilise des listes numérotées ou à puces quand approprié
-- Structure ta réponse en paragraphes clairs
-- Utilise des émojis pour rendre la réponse plus agréable 😊
-${isSearchRequest ? '\n- Si des correspondances ont été trouvées, présente-les de manière attractive avec leurs points communs\n- Propose des actions concrètes (contacter, comparer les arbres, etc.)' : ''}
-
-Réponds de manière claire, structurée et conviviale en te basant STRICTEMENT sur les données fournies.
-`;
+IMPORTANT: Utilise TOUJOURS l'ID réel de l'arbre, pas le nom.`,
+      },
+      { role: "user", content: prompt },
+    ];
 
     const aiResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "Tu es Fam, expert en généalogie. Tu aides les utilisateurs à explorer leur arbre et à retrouver des parents éloignés." },
-        { role: "user", content: aiPrompt },
-      ],
-      temperature: 0.6,
+      messages,
+      tools,
+      tool_choice: "auto",
+      temperature: 0,
     });
 
-    const answer = aiResponse.choices[0]?.message?.content ?? "Je n'ai pas pu trouver de réponse 😅";
-    console.log("✅ Réponse générée");
+    const message0 = aiResponse.choices[0].message;
+    const toolCalls = (message0 as any).tool_calls;
 
-    return NextResponse.json({ answer });
+    // —————————————————————————————————————
+    // 2️⃣ Si GPT appelle une ou plusieurs fonctions
+    // —————————————————————————————————————
+    if (toolCalls && toolCalls.length > 0) {
+      const allResults: any[] = [];
+      const toolResponses: ChatCompletionMessageParam[] = [
+        ...messages,
+        message0 as ChatCompletionMessageParam,
+      ];
 
+      // Traiter TOUS les tool_calls
+      for (const toolCall of toolCalls) {
+        const { function: fn, id: callId } = toolCall;
+        const name = fn.name;
+        let args: any = {};
+
+        try {
+          args = JSON.parse(fn.arguments || "{}");
+        } catch {
+          console.warn("⚠️ Impossible de parser les arguments du tool_call");
+        }
+
+        let result: any = null;
+        console.log(`🛠️ GPT appelle ${name} avec`, args);
+
+        if (name === "searchPotentialRelatives")
+          result = await searchPotentialRelatives(tree, currentUserMember, allMembers);
+        else if (name === "findSimilarFamilies") {
+          const searchSurname = args.surname || undefined;
+          result = await findSimilarFamilies(tree, searchSurname);
+        }
+        else if (name === "findCommonAncestors")
+          result = await findCommonAncestors(tree, allMembers);
+        else throw new Error(`Fonction inconnue appelée : ${name}`);
+
+        // Ajouter la réponse du tool
+        toolResponses.push({
+          role: "tool",
+          tool_call_id: callId,
+          content: JSON.stringify(result),
+        });
+
+        allResults.push(...result);
+      }
+
+      // —————————————————————————————————————
+      // 3️⃣ Second appel GPT : réponse finale avec résultats
+      // —————————————————————————————————————
+      const secondResponse = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: toolResponses,
+        temperature: 0.7,
+      });
+
+      const finalAnswer = secondResponse.choices[0]?.message?.content ?? "";
+      return NextResponse.json({
+        answer: finalAnswer,
+        cards: allResults,
+        calledFunction: toolCalls.map((tc: any) => tc.function.name).join(", "),
+      });
+    }
+
+    // —————————————————————————————————————
+    // 4️⃣ Sinon : GPT répond directement
+    // —————————————————————————————————————
+    const finalText = message0?.content ?? "";
+    return NextResponse.json({ answer: finalText });
   } catch (error: any) {
     console.error("❌ ERREUR SERVEUR:", error);
-    console.error("Stack:", error?.stack);
-
     return NextResponse.json(
       {
-        error: "Erreur interne du serveur",
-        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+        error: "Erreur interne serveur",
+        details: process.env.NODE_ENV === "development" ? error.message : undefined,
       },
       { status: 500 }
     );

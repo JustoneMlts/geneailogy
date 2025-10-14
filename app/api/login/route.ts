@@ -1,5 +1,5 @@
 export const runtime = 'nodejs';
-import { auth } from '@/lib/firebase/auth/firebase-admin';
+import { adminAuth } from '@/lib/firebase/auth/firebase-admin';
 import { cookies } from 'next/headers';
 
 export async function POST(req: Request) {
@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
 
   try {
-    const authInstance = await auth;
+    const authInstance = await adminAuth;
     const sessionCookie = await authInstance.createSessionCookie(idToken, { expiresIn });
     console.log('session cookie', sessionCookie)
     const cookiesStore = await cookies();

@@ -32,16 +32,17 @@ export interface UserLink {
 
 // Tree (Arbre généalogique)
 export interface TreeType {
-  id?: string
-  name: string
-  description?: string
-  ownerId: string // userId
-  memberIds: string[] // members in the tree
-  origin?: string[] // e.g. ['France', 'Italie']
-  surnames?: string[]
-  createdDate?: number
-  updatedDate?: number
-  isActive?: boolean
+  id?: string;
+  name: string;
+  description?: string;
+  ownerId: string; // userId
+  memberIds: string[]; // members in the tree
+  origin?: string[]; // e.g. ['France', 'Italie']
+  surnames?: string[];
+  surnamesLower?: string[]; // ✅ ajouté
+  createdDate?: number;
+  updatedDate?: number;
+  isActive?: boolean;
 }
 
 // Family Member (nœud de l'arbre)
@@ -104,13 +105,45 @@ export interface MessageType {
   readBy?: string[] // userIds qui ont lu le message
 }
 
-// AiMessage
+// Modèles de cards individuelles
+export interface MemberCard {
+  cardType: "member";
+  id: string;
+  firstName: string;
+  lastName: string;
+  birthDate?: string;
+  birthPlace?: {
+    city?: string;
+    country?: string;
+  };
+  nationality?: string;
+  matchScore?: number;
+  matchReasons?: string[];
+  treeId: string;
+}
+
+export interface TreeCard {
+  cardType: "tree";
+  id: string;
+  name: string;
+  surnames?: string[];
+  origins?: string[];
+  matchScore?: number;
+  matchReasons?: string[];
+  ownerId?: string
+}
+
+// Type union pour les cards
+export type Card = MemberCard | TreeCard;
+
+// Interface du message IA
 export interface AiMessageType {
-  id?: string
-  userId: string
-  role: "user" | "ai"
-  content: string
-  createdAt: number
+  userId: string;
+  role: "user" | "ai";
+  content: string;
+  createdAt: number;
+  cards?: Card[] | null;
+  calledFunction?: "searchPotentialRelatives" | "findSimilarFamilies" | "findCommonAncestors" | null;
 }
 
 export interface CommentDisplayType {

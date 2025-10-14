@@ -28,7 +28,7 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
   // const shouldHideWidgets = hideWidgets.includes(activeTab)
 
   const isOnWallRoute = !!pathname && (pathname === "/wall" || pathname.startsWith("/wall/"))
-  const shouldHideWidgets = hideWidgets.includes(activeTab) && !isOnWallRoute
+  const shouldHideWidgets = hideWidgets.includes(activeTab) && !isOnWallRoute || pathname.startsWith("/tree/")
 
   useEffect(() => {
     const checkMobile = () => {

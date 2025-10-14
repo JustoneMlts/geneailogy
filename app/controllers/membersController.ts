@@ -142,10 +142,24 @@ export const addMember = async (
   if (cleanedData.treeId && cleanedData.lastName) {
     const treeRef = doc(db, COLLECTIONS.TREES, cleanedData.treeId);
     const treeSnap = await getDoc(treeRef);
-    const treeData = treeSnap.exists() ? treeSnap.data() as TreeType : null;
+    const treeData = treeSnap.exists() ? (treeSnap.data() as TreeType) : null;
 
-    if (treeData && (!treeData.surnames || !treeData.surnames.includes(cleanedData.lastName))) {
-      await updateDoc(treeRef, { surnames: arrayUnion(cleanedData.lastName) });
+    if (treeData) {
+      const lastName = cleanedData.lastName.trim();
+      const lastNameLower = lastName.toLowerCase();
+
+      const updates: any = {};
+
+      if (!treeData.surnames?.includes(lastName)) {
+        updates.surnames = arrayUnion(lastName);
+      }
+      if (!treeData.surnamesLower?.includes(lastNameLower)) {
+        updates.surnamesLower = arrayUnion(lastNameLower);
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(treeRef, updates);
+      }
     }
   }
 
@@ -188,18 +202,28 @@ export const updateMember = async (memberId: string, memberData: Partial<MemberT
     await updateRelations(memberId, updatedMember);
 
     // 🔹 Gérer le changement de nom de famille
+    // 🔹 Gérer le changement de nom de famille
     if (safeData.lastName && oldLastName && safeData.lastName !== oldLastName && updatedMember.treeId) {
       const treeRef = doc(db, COLLECTIONS.TREES, updatedMember.treeId);
       const treeSnap = await getDoc(treeRef);
-      const treeData = treeSnap.exists() ? treeSnap.data() as TreeType : null;
+      const treeData = treeSnap.exists() ? (treeSnap.data() as TreeType) : null;
 
       if (treeData) {
-        // Ajouter le nouveau nom si pas déjà présent
-        if (!treeData.surnames?.includes(safeData.lastName)) {
-          await updateDoc(treeRef, { surnames: arrayUnion(safeData.lastName) });
+        const newName = safeData.lastName.trim();
+        const newNameLower = newName.toLowerCase();
+        const oldNameLower = oldLastName.toLowerCase();
+
+        const updates: any = {};
+
+        // Ajouter le nouveau nom s’il n’existe pas encore
+        if (!treeData.surnames?.includes(newName)) {
+          updates.surnames = arrayUnion(newName);
+        }
+        if (!treeData.surnamesLower?.includes(newNameLower)) {
+          updates.surnamesLower = arrayUnion(newNameLower);
         }
 
-        // Vérifier si l'ancien nom est encore utilisé
+        // Vérifier si l’ancien nom est encore utilisé
         const membersSnap = await getDocs(collection(db, COLLECTIONS.MEMBERS));
         const stillHasOldName = membersSnap.docs.some((d) => {
           const data = d.data() as MemberType;
@@ -207,10 +231,16 @@ export const updateMember = async (memberId: string, memberData: Partial<MemberT
         });
 
         if (!stillHasOldName) {
-          await updateDoc(treeRef, { surnames: arrayRemove(oldLastName) });
+          updates.surnames = arrayRemove(oldLastName);
+          updates.surnamesLower = arrayRemove(oldNameLower);
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await updateDoc(treeRef, updates);
         }
       }
     }
+
 
   }
 };
@@ -235,10 +265,15 @@ async function cleanTreeAfterMemberRemoval(treeId: string, removedMember: Member
     .filter((m) => m.treeId === treeId && m.id !== removedMember.id);
 
   if (removedMember.lastName) {
-    const stillHasName = remainingMembers.some((m) => m.lastName === removedMember.lastName);
+    const lastName = removedMember.lastName.trim();
+    const lastNameLower = lastName.toLowerCase();
+    const stillHasName = remainingMembers.some((m) => m.lastName === lastName);
+
     if (!stillHasName) {
-      const treeRef = doc(db, COLLECTIONS.TREES, treeId);
-      await updateDoc(treeRef, { surnames: arrayRemove(removedMember.lastName) });
+      await updateDoc(treeRef, {
+        surnames: arrayRemove(lastName),
+        surnamesLower: arrayRemove(lastNameLower),
+      });
     }
   }
 

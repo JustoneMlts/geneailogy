@@ -217,73 +217,6 @@ export const DirectMessages = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-          {/* ---- Messages ---- */}
-          <Card className="lg:col-span-2 flex flex-col min-h-0">
-            <CardHeader className="pb-2 flex-shrink-0">
-              <div className="flex items-center space-x-3">
-                <Avatar className="flex-shrink-0">
-                  <AvatarImage src={selectedConversation ? participantsMap[selectedConversation.participantIds.find(id => id !== currentUser?.id)!]?.avatarUrl || "/placeholder.svg" : "/placeholder.svg"} />
-                  <AvatarFallback>?</AvatarFallback>
-                </Avatar>
-                <div>
-                  <CardTitle className="text-sm">{selectedConversation ? getParticipantDisplay(selectedConversation) : "Sélectionnez une conversation"}</CardTitle>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="flex flex-col flex-1 pt-0 min-h-0">
-              <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-3">
-                {messagesWithAvatarFlag.map(m => (
-                  <div key={m.id} className={`flex items-center ${m.senderId === currentUser?.id ? "justify-end" : "justify-start"}`}>
-                    {m.senderId !== currentUser?.id && m.showAvatar && (
-                      <Avatar className="w-8 h-8 mr-2">
-                        <AvatarImage src={participantsMap[m.senderId]?.avatarUrl || "/placeholder.svg"} />
-                        <AvatarFallback>{participantsMap[m.senderId] && handleGetUserNameInitials(participantsMap[m.senderId]) || "?"}</AvatarFallback>
-                      </Avatar>
-                    )}
-
-                    <div className={`max-w-[70%] relative`}>
-                      <div
-                        className={`flex items-center justify-center px-3 py-2 ${m.text &&
-                          m.text.length < 50
-                          ? 'rounded-full'
-                          : m.text && m.text.length < 150
-                            ? 'rounded-3xl'
-                            : 'rounded-2xl'
-                          } ${m.senderId === currentUser?.id
-                            ? "bg-blue-500 text-white"
-                            : "bg-gray-100 text-gray-800"
-                          }`}
-                      >
-                        <p className="text-sm">{m.text}</p>
-                      </div>
-                    </div>
-
-                    {m.senderId === currentUser?.id && m.showAvatar && (
-                      <Avatar className="w-8 h-8 ml-2">
-                        <AvatarImage src={currentUser?.avatarUrl || "/placeholder.svg"} />
-                        <AvatarFallback>{handleGetUserNameInitials(currentUser) || "?"}</AvatarFallback>
-                      </Avatar>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="px-4 py-3 border-t flex-shrink-0">
-                <div className="flex space-x-2">
-                  <Input
-                    placeholder="Tapez votre message..."
-                    value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage() }}
-                    className="flex-1"
-                  />
-                  <Button onClick={handleSendMessage}>Envoyer</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* ---- Conversations ---- */}
           <Card className="lg:col-span-1 flex flex-col h-screen overflow-hidden">
             <CardHeader className="pb-2 pt-4 px-4 flex-shrink-0">
@@ -350,6 +283,72 @@ export const DirectMessages = () => {
                   }
                 })
               )}
+            </CardContent>
+          </Card>
+          {/* ---- Messages ---- */}
+          <Card className="lg:col-span-2 flex flex-col min-h-0">
+            <CardHeader className="pb-2 flex-shrink-0">
+              <div className="flex items-center space-x-3">
+                <Avatar className="flex-shrink-0">
+                  <AvatarImage src={selectedConversation ? participantsMap[selectedConversation.participantIds.find(id => id !== currentUser?.id)!]?.avatarUrl || "/placeholder.svg" : "/placeholder.svg"} />
+                  <AvatarFallback>?</AvatarFallback>
+                </Avatar>
+                <div>
+                  <CardTitle className="text-sm">{selectedConversation ? getParticipantDisplay(selectedConversation) : "Sélectionnez une conversation"}</CardTitle>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="flex flex-col flex-1 pt-0 min-h-0">
+              <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-3">
+                {messagesWithAvatarFlag.map(m => (
+                  <div key={m.id} className={`flex items-center ${m.senderId === currentUser?.id ? "justify-end" : "justify-start"}`}>
+                    {m.senderId !== currentUser?.id && m.showAvatar && (
+                      <Avatar className="w-8 h-8 mr-2">
+                        <AvatarImage src={participantsMap[m.senderId]?.avatarUrl || "/placeholder.svg"} />
+                        <AvatarFallback>{participantsMap[m.senderId] && handleGetUserNameInitials(participantsMap[m.senderId]) || "?"}</AvatarFallback>
+                      </Avatar>
+                    )}
+
+                    <div className={`max-w-[70%] relative`}>
+                      <div
+                        className={`flex items-center justify-center px-3 py-2 ${m.text &&
+                          m.text.length < 50
+                          ? 'rounded-full'
+                          : m.text && m.text.length < 150
+                            ? 'rounded-3xl'
+                            : 'rounded-2xl'
+                          } ${m.senderId === currentUser?.id
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-100 text-gray-800"
+                          }`}
+                      >
+                        <p className="text-sm">{m.text}</p>
+                      </div>
+                    </div>
+
+                    {m.senderId === currentUser?.id && m.showAvatar && (
+                      <Avatar className="w-8 h-8 ml-2">
+                        <AvatarImage src={currentUser?.avatarUrl || "/placeholder.svg"} />
+                        <AvatarFallback>{handleGetUserNameInitials(currentUser) || "?"}</AvatarFallback>
+                      </Avatar>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="px-4 py-3 border-t flex-shrink-0">
+                <div className="flex space-x-2">
+                  <Input
+                    placeholder="Tapez votre message..."
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage() }}
+                    className="flex-1"
+                  />
+                  <Button onClick={handleSendMessage}>Envoyer</Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

@@ -144,6 +144,12 @@ const GeographicalOrigins: React.FC = () => {
     if (!mapRef.current || map || !window.L || birthPlaces.length === 0) return;
 
     try {
+
+    const container = mapRef.current as any;
+    if (container._leaflet_id) {
+      container._leaflet_id = null;
+    }
+      
       const newMap = window.L.map(mapRef.current);
 
       window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
