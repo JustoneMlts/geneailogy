@@ -13,6 +13,7 @@ import { logInWithEmailAndPassword } from "@/lib/firebase/firebase-authenticatio
 import { useDispatch } from "react-redux"
 import { getUserById } from "../controllers/usersController"
 import { setCurrentUser } from "@/lib/redux/slices/currentUserSlice"
+import { setActiveTab } from "@/lib/redux/slices/uiSlice"
 
 interface FormData {
   email: string;
@@ -52,6 +53,7 @@ export default function LoginPage() {
       const userId = userCredential.user.uid
       const currentUser = await getUserById(userId);
       dispatch(setCurrentUser(currentUser))
+      dispatch(setActiveTab(""))
       route.push("/dashboard")
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue lors de la connexion');

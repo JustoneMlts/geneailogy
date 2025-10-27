@@ -468,3 +468,27 @@ export const findUserByInfo = async (
     return null;
   }
 };
+
+// Ajouter cette fonction pour mettre à jour les conversationsIds
+export const addConversationToUser = async (userId: string, conversationId: string) => {
+  try {
+    const userRef = doc(db, "Users", userId);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      console.error("Utilisateur non trouvé");
+      return;
+    }
+
+    const currentConversations = userSnap.data()?.conversationsIds || [];
+    
+    // Éviter les doublons
+    if (!currentConversations.includes(conversationId)) {
+      await updateDoc(userRef, {
+        conversationsIds: [...currentConversations, conversationId],
+      });
+    }
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour des conversations:", error);
+  }
+};

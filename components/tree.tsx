@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Camera, Crown, FileText, Globe, Heart, MapPin, Plus, RotateCcw, Save, Search, Settings, Trash2, User, X, ZoomIn, ZoomOut } from "lucide-react"
+import { Calendar, Camera, Crown, FileText, Globe, Heart, MapPin, MessageCircle, Plus, RotateCcw, Save, Search, Settings, Trash2, User, X, ZoomIn, ZoomOut } from "lucide-react"
 import { Button } from "./ui/button"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -13,10 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { UserType, TreeType, MemberType } from "../lib/firebase/models"
 import { useEffect, useRef, useState } from "react";
 import AddMemberModal from "./addMember";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { selectUser } from "@/lib/redux/slices/currentUserSlice";
 import { getMembersByTreeId, getTreeById } from "@/app/controllers/treesController";
-import { getUserById } from "@/app/controllers/usersController";
+import { addConversationToUser, getUserById } from "@/app/controllers/usersController";
 import { getFamilyMembersByIds } from "@/app/controllers/membersController";
 import { MariageLines } from "@/components/mariageLine"
 import { DynamicFamilyTree } from "./dynamicFamilyTree";
@@ -26,6 +26,10 @@ import { current } from "@reduxjs/toolkit";
 import { nationalityToEmoji } from "@/app/helpers/memberHelper";
 import { MemberProfileModal } from "./memberProfilModal";
 import { FamilyLastNamesChart } from "./FamilyNationalitiesChart";
+import { createOrUpdateConversation, findExistingConversation } from "@/app/controllers/messagesController";
+import { useRouter } from "next/navigation";
+import { setActiveTab } from "@/lib/redux/slices/uiSlice";
+import DeleteMemberModal from "./deleteMemberModal";
 
 // Types et utilitaires inchangés
 const getYearFromADate = (timestamp: number): number => {
@@ -711,7 +715,7 @@ export const Tree = ({ userId }: { userId?: string }) => {
     const currentUser = useSelector(selectUser)
     const [mainUser, setMainUser] = useState<UserType | null>(null)
     const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
-    const [delitingMemberId, setDeletingMemberId] = useState<string | null>(null);
+    const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
     const [detailMemberId, setDetailMemberId] = useState("")
     const [showModal, setShowModal] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
@@ -813,6 +817,8 @@ export const Tree = ({ userId }: { userId?: string }) => {
     }
 
     const [zoom, setZoom] = useState(1)
+    const dispatch = useDispatch()
+    const router = useRouter()
     const [showFamilySettings, setShowFamilySettings] = useState(false)
     const [selectedMember, setSelectedMember] = useState<MemberType | null>(null)
     const [origins, setOrigins] = useState([
@@ -846,6 +852,77 @@ export const Tree = ({ userId }: { userId?: string }) => {
         if (memberAdded) refreshTree()
     }
 
+    const handleContactTreeOwner = async () => {
+        if (!tree?.ownerId || !currentUser?.id) {
+            console.error("Owner ID ou Current User manquant");
+            return;
+        }
+
+        if (tree.ownerId === currentUser.id) {
+            console.warn("Vous ne pouvez pas vous contacter vous-même");
+            return;
+        }
+
+        try {
+            const existingConversationId = await findExistingConversation(currentUser.id, tree.ownerId);
+
+            let conversationId: string;
+
+            if (existingConversationId) {
+                console.log("Conversation existante trouvée:", existingConversationId);
+                conversationId = existingConversationId;
+            } else {
+                const treeOwner = await getUserById(tree.ownerId);
+                if (!treeOwner) {
+                    console.error("Propriétaire de l'arbre introuvable");
+                    return;
+                }
+
+                // ✅ Crée le tableau de participants complet
+                const participant1 =
+                {
+                    userId: currentUser.id,
+                    firstName: currentUser.firstName,
+                    lastName: currentUser.lastName,
+                    avatarUrl: currentUser.avatarUrl,
+                    location: currentUser.localisation,
+                }
+
+                const participant2 = {
+                    userId: treeOwner.id ? treeOwner.id : "",
+                    firstName: treeOwner.firstName,
+                    lastName: treeOwner.lastName,
+                    avatarUrl: treeOwner.avatarUrl,
+                    location: treeOwner.localisation,
+                }
+
+                // ✅ Passe `participants` à Firestore
+                const newConversationId = await createOrUpdateConversation(undefined, {
+                    participantIds: [currentUser.id, tree.ownerId],
+                    participants: [participant1, participant2], // ✅ au pluriel        
+                    isActive: true,
+                });
+
+                if (!newConversationId) {
+                    console.error("Erreur lors de la création de la conversation");
+                    return;
+                }
+
+                conversationId = newConversationId;
+            }
+
+            if (!window.location.pathname.startsWith("/dashboard")) {
+                router.push("/dashboard");
+            }
+
+            setTimeout(() => {
+                dispatch(setActiveTab("messages"));
+            }, 100);
+        } catch (error) {
+            console.error("Erreur lors de la création de la conversation:", error);
+        }
+    };
+
     return (
         <div className="animate-fade-in w-full mx-auto p-6 ">
             <div className="flex flex-col px-6 md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
@@ -859,6 +936,14 @@ export const Tree = ({ userId }: { userId?: string }) => {
                         Explorez {mainUser && userId ? `l’histoire familiale de ${mainUser.firstName}` : "votre histoire familiale"} de génération en génération
                     </p>
                 </div>
+                {tree && currentUser && tree.ownerId !== currentUser.id &&
+                    <div>
+                        <Button onClick={handleContactTreeOwner} className="bg-gradient-to-r from-blue-600 to-purple-600">
+                            Contacter le créateur de l'arbre
+                            <MessageCircle />
+                        </Button>
+                    </div>
+                }
                 <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
                     {/* Zoom */}
                     <div className="flex items-center space-x-2 bg-white/50 rounded-lg p-2">
@@ -893,6 +978,16 @@ export const Tree = ({ userId }: { userId?: string }) => {
                                         isEdit={true}
                                     />
                                 )}
+
+                            {deletingMemberId && (
+                                <DeleteMemberModal
+                                    memberId={deletingMemberId}
+                                    // memberName={deletingMemberName}
+                                    isOpen={!!deletingMemberId}
+                                    onClose={handleDeleteClose}
+                                    // onDeleteSuccess={handleDeleteSuccess}
+                                />
+                            )}
 
                             </div>
                         </>

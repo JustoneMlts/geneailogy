@@ -20,6 +20,7 @@ export interface UserType {
   updatedDate?: number
   isActive?: boolean
   treesIds?: string[]
+  conversationsIds? : string[]
 }
 
 export type LinkStatus = "pending" | "accepted"
@@ -82,15 +83,24 @@ export interface LocationData {
     postcode?: string;
 }
 
-// Conversation (entre deux ou plusieurs users)
+export interface ConversationParticipant {
+  userId: string
+  firstName: string
+  lastName: string
+  avatarUrl?: string
+  location?: string
+}
+
+// Conversation optimisée
 export interface ConversationType {
   id?: string
-  participantIds: string[] // userIds
+  participantIds: string[] // userIds (pour compatibilité)
+  participants: ConversationParticipant[] // ✨ NOUVEAU: Infos complètes
   createdDate?: number
   updatedDate?: number
   isActive?: boolean
   lastMessage?: string
-  lastMessageSenderId?: string
+  lastSenderId?: string // ✨ Renommé pour clarté
 }
 
 // Message
