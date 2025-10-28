@@ -9,7 +9,6 @@ import WidgetTreeStats from "@/components/widgets/widgetTreeStats"
 import WidgetAISuggestions from "@/components/widgets/widgetAiSuggestions"
 import WidgetRecentActivity from "@/components/widgets/widgetRecentActivity"
 import WidgetNotifications from "@/components/widgets/widgetNotifications"
-import { path } from "@/app/backend/sever"
 import WidgetFamilyDiversity from "./widgets/widgetFamilyDiversity"
 import WidgetUpcomingEvents from "./widgets/widgetUpcomingEvents"
 import FloatingAiAssistant from "./floatingAssistant/floatingAssistant"
@@ -24,16 +23,11 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
   const hideHeaderRoutes = ["/", "/login", "/signup"]
   const shouldHideHeader = hideHeaderRoutes.includes(pathname)
   const hideWidgets = ["tree", "messages", "connections", "ai", "notifications"]
-  const showWidgets = ["/wall"]
-  // const shouldHideWidgets = hideWidgets.includes(activeTab)
-
   const isOnWallRoute = !!pathname && (pathname === "/wall" || pathname.startsWith("/wall/"))
   const shouldHideWidgets = hideWidgets.includes(activeTab) && !isOnWallRoute || pathname.startsWith("/tree/")
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024)
-    }
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024)
     checkMobile()
     window.addEventListener("resize", checkMobile)
     return () => window.removeEventListener("resize", checkMobile)
@@ -43,7 +37,6 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
     if (currentUser) setIsLoading(false)
   }, [currentUser])
 
-  // --- Cas 1 : Pages publiques (accueil, login, signup)
   if (shouldHideHeader) {
     return (
       <div className="min-h-screen w-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
@@ -52,7 +45,6 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // --- Cas 2 : Pages connectées (dashboard, etc.)
   if (!currentUser) return null
 
   return (
@@ -60,7 +52,9 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
       {!shouldHideHeader && currentUser && <Header currentUser={currentUser} />}
 
       <div className="flex-1 flex overflow-y-auto overflow-x-hidden py-6 gap-12">
-        {/* Widgets gauche */}
+        
+        {/* --- Widgets gauche (désactivés) --- */}
+        {/*
         {!isMobile && !shouldHideWidgets && (
           <aside className="hidden lg:flex flex-col w-1/4 space-y-6 mt-6 py-2 pl-10">
             <h2 className="text-gray-800 font-semibold text-sm uppercase tracking-wide pl-1 mb-1">
@@ -68,16 +62,18 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
             </h2>
             <WidgetAISuggestions />
             <WidgetTreeStats />
-            <WidgetFamilyDiversity /> {/* 🩵 Nouveau */}
+            <WidgetFamilyDiversity /> 
           </aside>
         )}
+        */}
 
         {/* Contenu principal */}
         <main className="flex-1 min-w-0 px-6">
           {children}
         </main>
 
-        {/* Widgets droite */}
+        {/* --- Widgets droite (désactivés) --- */}
+        {/*
         {!isMobile && !shouldHideWidgets && (
           <aside className="hidden lg:flex flex-col w-1/4 space-y-6 mt-6 py-2 pr-10">
             <h2 className="text-gray-800 font-semibold text-sm uppercase tracking-wide pl-1 mb-1">
@@ -85,10 +81,12 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
             </h2>
             <WidgetNotifications />
             <WidgetRecentActivity />
-            <WidgetUpcomingEvents /> {/* 💛 Nouveau */}
+            <WidgetUpcomingEvents />
           </aside>
         )}
+        */}
       </div>
+
       <FloatingAiAssistant />
     </div>
   )
