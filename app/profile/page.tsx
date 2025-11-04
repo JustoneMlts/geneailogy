@@ -36,20 +36,28 @@ export default function ProfilePage() {
   const [horizontal, setHorizontal] = useState<"left" | "center" | "right">("center")
   const [member, setMember] = useState<MemberType | null>()
 
+  // ✅ Ref pour éviter les fetches multiples
+  const hasFetched = useRef(false)
+
+  // ✅ Fetch member une seule fois au montage
   useEffect(() => {
+    if (!currentUser?.id || hasFetched.current) return
+
+    hasFetched.current = true
+
     const fetchMember = async () => {
       try {
         if (currentUser && currentUser.id) {
           const data = await getMemberById(currentUser.id)
           setMember(data)
         }
-      } catch {
-        console.log("Une erreur est survenue lors de la récupération du member.")
+      } catch (err) {
+        console.error("Erreur lors du chargement du member :", err)
       }
     }
 
     fetchMember()
-  })
+  }, []) // ⚠️ Tableau vide pour ne s'exécuter qu'une fois
 
   const [notifications, setNotifications] = useState({
     email: true,
@@ -59,16 +67,16 @@ export default function ProfilePage() {
   })
 
   function removeUndefined<T extends object>(obj: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([_, v]) => v !== undefined)
-  ) as Partial<T>
-}
+    return Object.fromEntries(
+      Object.entries(obj).filter(([_, v]) => v !== undefined)
+    ) as Partial<T>
+  }
 
   interface FormData {
     firstName: string
     lastName: string
     email: string
-    birthDate: string // ✅ date sous forme de string (ex: "1990-05-10")
+    birthDate: string
     bio?: string
     phoneNumber?: string
     localisation?: string
@@ -94,65 +102,85 @@ export default function ProfilePage() {
     researchInterests: currentUser?.researchInterests ?? "",
   });
 
-const handleSubmit = async () => {
-  if (!currentUser?.id) return console.error("User non identifié")
-
-  try {
-    // Mise à jour du User
-    const updatedUser: UserType = {
-      id: currentUser.id,
-      firstName: formData.firstName.trim(),
-      lastName: formData.lastName.trim(),
-      lastNameLower: formData.firstName.trim().toLocaleLowerCase(),
-      firstNameLower: formData.firstName.trim().toLocaleLowerCase(),
-      email: formData.email.trim(),
-      bio: formData.bio || undefined,
-      phoneNumber: formData.phoneNumber || undefined,
-      localisation: formData.localisation || undefined,
-      familyOrigin: formData.familyOrigin || undefined,
-      oldestAncestor: formData.oldestAncestor || undefined,
-      researchInterests: formData.researchInterests || undefined,
-      links: formData.links ?? [],
-      birthDate: formData.birthDate ? new Date(formData.birthDate).getTime() : undefined,
-      avatarUrl: currentUser.avatarUrl,
-      nationality: currentUser.nationality,
-      createdDate: currentUser.createdDate,
-      isActive: currentUser.isActive ?? true,
-      treesIds: currentUser.treesIds ?? [],
-      updatedDate: Date.now(),
-    }
-
-    await updateUser(updatedUser)
-    dispatch(setCurrentUser(updatedUser))
-
-    // Récupérer le member correspondant
-    const member = await getMemberById(currentUser.id)
-    console.log("member récupéré:", member)
-
-    if (member?.id) {
-      const updatedMember: Partial<MemberType> = removeUndefined({
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
-        birthDate: updatedUser.birthDate,
-        bio: updatedUser.bio,
-        nationality: updatedUser.nationality,
-        avatar: updatedUser.avatarUrl,
-        updatedDate: Date.now(),
+  // ✅ Synchronise formData avec currentUser uniquement au premier rendu
+  useEffect(() => {
+    if (currentUser) {
+      setFormData({
+        firstName: currentUser.firstName ?? "",
+        lastName: currentUser.lastName ?? "",
+        email: currentUser.email ?? "",
+        birthDate: currentUser.birthDate
+          ? new Date(currentUser.birthDate).toISOString().split("T")[0]
+          : "",
+        bio: currentUser.bio ?? "",
+        phoneNumber: currentUser.phoneNumber ?? "",
+        localisation: currentUser.localisation ?? "",
+        links: currentUser.links ?? [],
+        familyOrigin: currentUser.familyOrigin ?? "",
+        oldestAncestor: currentUser.oldestAncestor ?? "",
+        researchInterests: currentUser.researchInterests ?? "",
       })
-
-      console.log("updatedMember:", updatedMember)
-      await updateMember(member.id, updatedMember)
     }
+  }, []) // ⚠️ Tableau vide = une seule fois
 
-    setIsError(false)
-    setOpenAlert(true)
-  } catch (error) {
-    console.error("Erreur lors de la mise à jour :", error)
-    setIsError(true)
-    setOpenAlert(true)
+  const handleSubmit = async () => {
+    if (!currentUser?.id) return console.error("User non identifié")
+
+    try {
+      // Mise à jour du User
+      const updatedUser: UserType = {
+        id: currentUser.id,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        lastNameLower: formData.lastName.trim().toLowerCase(),
+        firstNameLower: formData.firstName.trim().toLowerCase(),
+        email: formData.email.trim(),
+        bio: formData.bio || undefined,
+        phoneNumber: formData.phoneNumber || undefined,
+        localisation: formData.localisation || undefined,
+        familyOrigin: formData.familyOrigin || undefined,
+        oldestAncestor: formData.oldestAncestor || undefined,
+        researchInterests: formData.researchInterests || undefined,
+        links: formData.links ?? [],
+        birthDate: formData.birthDate ? new Date(formData.birthDate).getTime() : undefined,
+        avatarUrl: currentUser.avatarUrl,
+        nationality: currentUser.nationality,
+        createdDate: currentUser.createdDate,
+        isActive: currentUser.isActive ?? true,
+        treesIds: currentUser.treesIds ?? [],
+        updatedDate: Date.now(),
+      }
+
+      await updateUser(updatedUser)
+      dispatch(setCurrentUser(updatedUser))
+
+      // Récupérer le member correspondant
+      const member = await getMemberById(currentUser.id)
+      console.log("member récupéré:", member)
+
+      if (member?.id) {
+        const updatedMember: Partial<MemberType> = removeUndefined({
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName,
+          birthDate: updatedUser.birthDate,
+          bio: updatedUser.bio,
+          nationality: updatedUser.nationality,
+          avatar: updatedUser.avatarUrl,
+          updatedDate: Date.now(),
+        })
+
+        console.log("updatedMember:", updatedMember)
+        await updateMember(member.id, updatedMember)
+      }
+
+      setIsError(false)
+      setOpenAlert(true)
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour :", error)
+      setIsError(true)
+      setOpenAlert(true)
+    }
   }
-}
-
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -165,7 +193,7 @@ const handleSubmit = async () => {
         const newAvatarUrl = await updateUserAvatar(file, currentUser.id);
         const updatedUser: UserType = {
           ...currentUser,
-          avatarUrl: newAvatarUrl ?? undefined // ✅ Convertit null → undefined
+          avatarUrl: newAvatarUrl ?? undefined
         };
         dispatch(setCurrentUser(updatedUser));
       } catch (err) {
@@ -208,8 +236,6 @@ const handleSubmit = async () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
-
-      {/* Main Content */}
       <div className={`min-h-screen transition-all duration-300 ease-in-out`}>
         <div className="p-6">
           <div className="max-w-4xl mx-auto">
@@ -220,7 +246,9 @@ const handleSubmit = async () => {
                   <div className="relative">
                     <Avatar className="w-24 h-24">
                       <AvatarImage src={currentUser?.avatarUrl} />
-                      <AvatarFallback className="text-4xl"> {currentUser && currentUser?.firstName[0] + currentUser?.lastName[0]} </AvatarFallback>
+                      <AvatarFallback className="text-4xl">
+                        {currentUser && currentUser?.firstName[0] + currentUser?.lastName[0]}
+                      </AvatarFallback>
                     </Avatar>
                     <>
                       <input
@@ -241,7 +269,9 @@ const handleSubmit = async () => {
                   </div>
 
                   <div className="text-center md:text-left flex-1">
-                    <h1 className="text-3xl font-bold text-gray-800 mb-2">{currentUser && currentUser?.firstName + " " + currentUser?.lastName}</h1>
+                    <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                      {currentUser && currentUser?.firstName + " " + currentUser?.lastName}
+                    </h1>
                     <div className="flex flex-wrap justify-center md:justify-start gap-2">
                       <Badge className="bg-blue-100 text-blue-800">Membre Premium</Badge>
                       <Badge className="bg-green-100 text-green-800">Vérifié</Badge>
@@ -277,25 +307,6 @@ const handleSubmit = async () => {
 
             {/* Main Content */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              {/* <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="profile" className="flex items-center">
-                  <User className="w-4 h-4 mr-2" />
-                  Profil
-                </TabsTrigger>
-                <TabsTrigger value="settings" className="flex items-center">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Paramètres
-                </TabsTrigger>
-                <TabsTrigger value="privacy" className="flex items-center">
-                  <Shield className="w-4 h-4 mr-2" />
-                  Confidentialité
-                </TabsTrigger>
-                <TabsTrigger value="achievements" className="flex items-center">
-                  <Trophy className="w-4 h-4 mr-2" />
-                  Succès
-                </TabsTrigger>
-              </TabsList> */}
-
               <TabsContent value="profile" className="space-y-6">
                 <Card>
                   <CardHeader>
@@ -334,8 +345,8 @@ const handleSubmit = async () => {
                         <Input
                           id="localisation"
                           name="localisation"
-                          value={formData.localisation}          // ✅ contrôlé par React
-                          onChange={handleChange}                // ✅ met à jour formData
+                          value={formData.localisation}
+                          onChange={handleChange}
                           placeholder="Ex: Paris, France"
                         />
                       </div>
@@ -368,7 +379,11 @@ const handleSubmit = async () => {
                     <div className="space-y-2">
                       <Label htmlFor="researchInterests">Centres d'intérêt de recherche</Label>
                       <Textarea
-                        id="researchInterests" name="researchInterests" value={formData.researchInterests} onChange={handleChange} />
+                        id="researchInterests"
+                        name="researchInterests"
+                        value={formData.researchInterests}
+                        onChange={handleChange}
+                      />
                     </div>
                   </CardContent>
                 </Card>
@@ -543,12 +558,22 @@ const handleSubmit = async () => {
 
             {/* Save Button */}
             <div className="flex justify-end mt-8">
-              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700" onClick={handleSubmit}>
+              <Button
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                onClick={handleSubmit}
+              >
                 <Save className="mr-2 h-4 w-4" />
                 Enregistrer les modifications
               </Button>
             </div>
-            <Snackbar open={openAlert} autoHideDuration={3000} onClose={handleClose} anchorOrigin={{ vertical, horizontal }} key={vertical + horizontal}>
+
+            <Snackbar
+              open={openAlert}
+              autoHideDuration={3000}
+              onClose={handleClose}
+              anchorOrigin={{ vertical, horizontal }}
+              key={vertical + horizontal}
+            >
               <Alert
                 onClose={handleAlertClose}
                 severity={!isError ? "success" : "error"}

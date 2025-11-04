@@ -35,12 +35,14 @@ export const createUser = async ({
   email,
   firstName,
   lastName,
-  uid
+  uid,
+  avatarUrl
 }: {
   email: string;
   firstName: string;
   lastName: string;
   uid: string;
+  avatarUrl?: string;
 }) => {
   try {
     // 1. Créer les données utilisateur selon UserType
@@ -52,7 +54,7 @@ export const createUser = async ({
       lastNameLower: lastName.toLocaleLowerCase(),
       birthDate: undefined,
       nationality: undefined,
-      avatarUrl: "",
+      avatarUrl: avatarUrl ? avatarUrl : "",
       bio: "",
       phoneNumber: "",
       localisation: "",

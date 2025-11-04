@@ -9,11 +9,13 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { TreePine, ArrowLeft, Eye, EyeOff } from "lucide-react"
 import { useRouter } from 'next/navigation';
 import Link from "next/link"
-import { logInWithEmailAndPassword } from "@/lib/firebase/firebase-authentication"
+import { logInWithEmailAndPassword, signInWithGoogle } from "@/lib/firebase/firebase-authentication"
 import { useDispatch } from "react-redux"
-import { getUserById } from "../controllers/usersController"
+import { createUser, getUserById } from "../controllers/usersController"
 import { setCurrentUser } from "@/lib/redux/slices/currentUserSlice"
 import { setActiveTab } from "@/lib/redux/slices/uiSlice"
+import { FcGoogle } from "react-icons/fc";
+import { UserType } from "@/lib/firebase/models"
 
 interface FormData {
   email: string;
@@ -41,6 +43,64 @@ export default function LoginPage() {
       ...prevState,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const user = await signInWithGoogle();
+      const userId = user.uid;
+
+      // Vérifie si l'utilisateur existe déjà dans ta base
+      let currentUser = await getUserById(userId);
+
+      // Si l'utilisateur n'existe pas encore, on le crée
+      if (!currentUser) {
+        const [firstName = "", lastName = ""] = (user.displayName || "").split(" ");
+
+        const newUserData: UserType = {
+          email: user.email || "",
+          firstName,
+          lastName,
+          firstNameLower: firstName.toLowerCase(),
+          lastNameLower: lastName.toLowerCase(),
+          bio: "",
+          avatarUrl: user.photoURL || "",
+          localisation: "",
+          nationality: "",
+          familyOrigin: "",
+          researchInterests: "",
+          links: [],
+          createdDate: Date.now(),
+          updatedDate: Date.now(),
+          isActive: true,
+        };
+
+        await createUser({
+          email: newUserData.email,
+          firstName: newUserData.firstName,
+          lastName: newUserData.lastName,
+          avatarUrl: newUserData.avatarUrl ? newUserData.avatarUrl : "",
+          uid: user.uid,
+        });
+
+        // 🔹 Ensuite, récupère le User créé :
+        currentUser = await getUserById(user.uid);
+        console.log("Nouvel utilisateur Google créé:", currentUser);
+      }
+
+      // Enregistre dans Redux + redirige
+      dispatch(setCurrentUser(currentUser));
+      dispatch(setActiveTab("feed"));
+      route.push("/dashboard");
+
+    } catch (err: any) {
+      setError(err.message || "Une erreur est survenue lors de la connexion avec Google");
+      console.error("Erreur Google Sign-In:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -180,20 +240,14 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-11 bg-white/50 border-gray-200">
-                  {/* Google icon */}
-                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92..." />
-                  </svg>
+              <div className="grid grid-cols-1 gap-3">
+                <Button
+                  variant="outline"
+                  className="h-11 bg-white/50 border-gray-200"
+                  onClick={handleGoogleSignIn}
+                >
+                  <FcGoogle size={4} />
                   Google
-                </Button>
-                <Button variant="outline" className="h-11 bg-white/50 border-gray-200">
-                  {/* Facebook icon */}
-                  <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12..." />
-                  </svg>
-                  Facebook
                 </Button>
               </div>
 
