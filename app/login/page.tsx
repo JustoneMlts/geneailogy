@@ -53,7 +53,7 @@ export default function LoginPage() {
       const userId = userCredential.user.uid
       const currentUser = await getUserById(userId);
       dispatch(setCurrentUser(currentUser))
-      dispatch(setActiveTab(""))
+      dispatch(setActiveTab("feed"))
       route.push("/dashboard")
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue lors de la connexion');
