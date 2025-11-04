@@ -181,9 +181,8 @@ export const Connections = () => {
         return <ConnectionsSkeleton />
     }
 
-
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        <div className="min-h-screen">
             <div className="animate-fade-in p-6 max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="mb-8">
@@ -201,7 +200,7 @@ export const Connections = () => {
                     </div>
 
                     {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
                             <CardContent className="p-6">
                                 <div className="flex items-center justify-between">
@@ -243,7 +242,7 @@ export const Connections = () => {
                                 </div>
                             </CardContent>
                         </Card>
-                    </div>
+                    </div> */}
                 </div>
 
                 {/* Tabs + Search */}

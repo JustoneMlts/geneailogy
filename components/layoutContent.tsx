@@ -51,7 +51,7 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
       {!shouldHideHeader && currentUser && <Header currentUser={currentUser} />}
 
-      <div className="flex-1 flex overflow-y-auto overflow-x-hidden py-6 gap-12">
+      <div className="flex-1 flex overflow-y-auto scrollbar-thin overflow-x-hidden py-6 gap-12">
         
         {/* --- Widgets gauche (désactivés) --- */}
         {/*

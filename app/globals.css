@@ -187,3 +187,12 @@ body::-webkit-scrollbar-track {
 .scrollbar-custom:hover::-webkit-scrollbar-thumb {
   background-color: rgba(100,100,100,0.7);
 }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE et Edge */
+  scrollbar-width: none;     /* Firefox */
+}

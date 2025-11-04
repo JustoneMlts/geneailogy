@@ -36,6 +36,7 @@ export const createOrUpdateConversation = async (
         ...conversationData,
         createdDate: Date.now(),
         updatedDate: Date.now(),
+        hasUnreadMessages: false, // ✨ Initialisation
       });
 
       const newConversationId = ref.id;
@@ -83,6 +84,7 @@ export const sendMessage = async (
       lastMessage: message.text || "",
       updatedDate: Date.now(),
       lastSenderId: message.senderId,
+      hasUnreadMessages: true, // ✨ Nouveau message = messages non lus
     } as any);
 
     return docRef.id;
@@ -132,7 +134,7 @@ export const listenConversationMessages = (
   return unsub;
 };
 
-// Marquer une conversation comme lue
+// ✨ Marquer une conversation comme lue (version améliorée)
 export const markConversationAsRead = async (
   conversationId: string,
   readerId: string
@@ -144,18 +146,48 @@ export const markConversationAsRead = async (
       where("conversationId", "==", conversationId),
       where("isRead", "==", false)
     );
+
     const querySnapshot = await getDocs(q);
     const batch = writeBatch(db);
-    
-    querySnapshot.docs.forEach(docSnap => {
+
+    let hasUnreadForOthers = false;
+
+    querySnapshot.docs.forEach((docSnap) => {
       const data = docSnap.data();
-      if (data.senderId !== readerId) {
-        batch.update(doc(db, COLLECTIONS.MESSAGES, docSnap.id), { isRead: true });
+
+      // On ne marque pas comme lu les messages envoyés par soi-même
+      if (data.senderId === readerId) {
+        // Mais on vérifie s'il y a d'autres lecteurs qui n'ont pas lu
+        if (data.isRead === false) {
+          hasUnreadForOthers = true;
+        }
+        return;
       }
+
+      const messageRef = doc(db, COLLECTIONS.MESSAGES, docSnap.id);
+
+      // Système hybride :
+      // - on garde isRead pour compatibilité
+      // - on ajoute un tableau readBy[] pour plus de granularité
+      const updates: any = { isRead: true };
+      if (data.readBy && Array.isArray(data.readBy)) {
+        if (!data.readBy.includes(readerId)) {
+          updates.readBy = arrayUnion(readerId);
+        }
+      } else {
+        updates.readBy = [readerId];
+      }
+
+      batch.update(messageRef, updates);
     });
 
+    // ✨ Mettre à jour hasUnreadMessages dans la conversation
     const convRef = doc(db, COLLECTIONS.CONVERSATIONS, conversationId);
-    batch.update(convRef, { [`lastSeen.${readerId}`]: Date.now() });
+    batch.update(convRef, { 
+      [`lastSeen.${readerId}`]: Date.now(),
+      hasUnreadMessages: hasUnreadForOthers // false si tous les messages sont lus
+    });
+
     await batch.commit();
   } catch (err) {
     console.error("markConversationAsRead", err);
@@ -190,7 +222,7 @@ export const findExistingConversation = async (
   }
 };
 
-// ✨ NOUVELLE FONCTION: Créer les participants à partir des UserTypes
+// Créer les participants à partir des UserTypes
 export const createConversationParticipants = (
   users: Array<{ id: string; firstName: string; lastName: string; avatarUrl?: string; location?: string }>
 ): ConversationParticipant[] => {

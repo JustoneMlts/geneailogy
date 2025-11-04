@@ -125,3 +125,30 @@ export const markConnectionNotificationsAsReadInDB = async (userId: string) => {
 
   await batch.commit()
 }
+
+export const markMessagesNotificationsAsRead = async (userId: string) => {
+  try {
+    const q = query(
+      collection(db, COLLECTIONS.NOTIFICATIONS),
+      where("recipientId", "==", userId),
+      where("type", "==", "message"),
+      where("unread", "==", true)
+    )
+
+    const snap = await getDocs(q)
+    if (snap.empty) {
+      console.log("📭 Aucune notification de message non lue")
+      return
+    }
+
+    const batch = writeBatch(db)
+    snap.forEach((docSnap) => {
+      batch.update(doc(db, COLLECTIONS.NOTIFICATIONS, docSnap.id), { unread: false })
+    })
+
+    await batch.commit()
+    console.log(`✅ ${snap.size} notifications de messages marquées comme lues`)
+  } catch (error) {
+    console.error("❌ Erreur lors du marquage des notifications de messages :", error)
+  }
+}

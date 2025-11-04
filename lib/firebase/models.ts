@@ -101,6 +101,7 @@ export interface ConversationType {
   isActive?: boolean
   lastMessage?: string
   lastSenderId?: string // ✨ Renommé pour clarté
+  hasUnreadMessages?: boolean
 }
 
 // Message

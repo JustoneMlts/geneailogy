@@ -52,7 +52,7 @@ export const Header = ({ currentUser }: HeaderProps) => {
   const navigationItems = [
     { id: "feed", icon: Home, label: "Feed" },
     { id: "tree", icon: TreePine, label: "Mon arbre" },
-    { id: "ai", icon: Sparkles, label: "Suggestions IA" },
+    // { id: "ai", icon: Sparkles, label: "Suggestions IA" },
     { id: "connections", icon: Users, label: "Connexions", badge: unreadConnections },
     { id: "messages", icon: MessageCircle, label: "Messages", badge: unreadMessages },
     { id: "notifications", icon: Bell, label: "Notifications", badge: unreadCount },
@@ -137,14 +137,14 @@ export const Header = ({ currentUser }: HeaderProps) => {
 
           {/* Avatar + Search button Desktop */}
           <div className="hidden md:flex items-center gap-2">
-            <Button
+            {/* <Button
               variant="ghost"
               size="icon"
               onClick={() => dispatch(setActiveTab("search"))}
               className={activeTab === "search" ? "text-blue-600 bg-blue-50" : ""}
             >
               <Search className="w-5 h-5" />
-            </Button>
+            </Button> */}
             
             {/* Avatar avec menu déroulant */}
             <div className="relative" ref={profileMenuRef}>

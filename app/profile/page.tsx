@@ -277,7 +277,7 @@ const handleSubmit = async () => {
 
             {/* Main Content */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4">
+              {/* <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="profile" className="flex items-center">
                   <User className="w-4 h-4 mr-2" />
                   Profil
@@ -294,7 +294,7 @@ const handleSubmit = async () => {
                   <Trophy className="w-4 h-4 mr-2" />
                   Succès
                 </TabsTrigger>
-              </TabsList>
+              </TabsList> */}
 
               <TabsContent value="profile" className="space-y-6">
                 <Card>

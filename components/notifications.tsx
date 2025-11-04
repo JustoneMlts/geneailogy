@@ -1,20 +1,29 @@
 import { Card, CardContent } from "./ui/card"
 import { useDispatch, useSelector } from "react-redux"
 import { selectUser } from "../lib/redux/slices/currentUserSlice"
-import { selectActivePage, selectNotifications,setActivePage } from "@/lib/redux/slices/notificationSlice"
-import { useEffect, useRef } from "react"
+import { selectActivePage, selectNotifications, setActivePage } from "@/lib/redux/slices/notificationSlice"
+import { useEffect, useRef, useState } from "react"
 import { markAllNotificationsAsRead, markNotificationAsRead } from "@/app/controllers/notificationsController"
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar"
 import { handleGetUserNameInitialsFromName } from "@/app/helpers/userHelper"
 import { Button } from "./ui/button"
 import { Check } from "lucide-react"
 import { setActiveTab } from "@/lib/redux/slices/uiSlice"
+import NotificationsSkeleton from "./notificationsSkeleton"
 
 export const Notifications = () => {
   const notifications = useSelector(selectNotifications)
+  const [isLoading, setIsLoading] = useState(true)
   const user = useSelector(selectUser)
   const notifRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const dispatch = useDispatch()
+
+  useEffect(() => {
+    // Petit délai pour éviter le clignotement si la data arrive trop vite
+    const timer = setTimeout(() => setIsLoading(false), 400)
+    return () => clearTimeout(timer)
+  }, [])
+
 
   // ✅ Observer uniquement en mobile
   useEffect(() => {
@@ -74,6 +83,10 @@ export const Notifications = () => {
       default:
         dispatch(setActiveTab("feed"))
     }
+  }
+
+  if (isLoading) {
+    return <NotificationsSkeleton />
   }
 
   //  type: "suggestion" | "message" | "connection" | "update" | "like" | "comment"
