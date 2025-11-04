@@ -4,11 +4,18 @@ import { useState, useEffect, useRef } from "react"
 import { useSelector } from "react-redux"
 import { selectUser } from "@/lib/redux/slices/currentUserSlice"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { getAiMessages, saveAiMessage } from "@/app/controllers/aiChatController"
 import { AiMessageType } from "@/lib/firebase/models"
 import ReactMarkdown from "react-markdown"
 import { MemberCard } from "../ai/memberCard"
 import TreeCard from "../treeCard"
+
+const TEMPLATE_QUESTIONS = [
+    "Ai-je des potentiels liens avec d'autres membres?",
+    "Est-ce que j'ai des membres de ma famille que je ne connais pas?",
+    "Peux-tu me trouver des cousins éloignés?",
+    "Est-ce qu'il y a des branches de ma famille que je ne connais pas?",
+    "Est-ce que des membres de famille ont une nationalité différente de la mienne?"
+]
 
 export default function AiChatBox({ onClose }: { onClose: () => void }) {
     const currentUser = useSelector(selectUser)
@@ -18,6 +25,7 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
 
     // 🔹 Référence du conteneur de messages
     const messagesEndRef = useRef<HTMLDivElement | null>(null)
+    const scrollContainerRef = useRef<HTMLDivElement | null>(null)
 
     // 🔹 Fonction pour scroller tout en bas
     const scrollToBottom = () => {
@@ -29,41 +37,23 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
         scrollToBottom()
     }, [messages])
 
-    // 🔹 Charger les messages existants
+    // 🔹 Initialiser avec un message de bienvenue uniquement
     useEffect(() => {
         if (!currentUser?.id) return
 
-        const fetchMessages = async () => {
-            try {
-                if (currentUser && currentUser.id) {
-                    const msgs = await getAiMessages(currentUser.id)
-                    if (msgs.length > 0) {
-                        setMessages(msgs)
-                    } else {
-                        const welcome: AiMessageType = {
-                            userId: currentUser.id,
-                            role: "ai",
-                            content: "Salut 👋, je suis **Fam**, ton assistant IA en généalogie ! Comment puis-je t'aider aujourd'hui ? 😊",
-                            createdAt: Date.now(),
-                        }
-                        setMessages([welcome])
-                        await saveAiMessage(welcome)
-                    }
-                }
-            } catch {
-                console.log("Une erreur est survenue lors de la récupération des messages du chatbot.")
-            }
+        const welcome: AiMessageType = {
+            userId: currentUser.id,
+            role: "ai",
+            content: "Salut 👋, je suis **Fam**, ton assistant IA en généalogie ! Comment puis-je t'aider aujourd'hui ? 😊",
+            createdAt: Date.now(),
         }
-
-        fetchMessages()
+        setMessages([welcome])
     }, [currentUser])
 
     // 🔹 Déterminer le type de card à afficher
     const getCardType = (card: any): "member" | "tree" | null => {
-        // Si cardType est explicitement défini
         if (card.cardType) return card.cardType
 
-        // Détection automatique basée sur les propriétés
         if (card.membersIds && card.surnames && card.origin) {
             return "tree"
         }
@@ -75,20 +65,20 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
     }
 
     // 🔹 Envoyer un message utilisateur
-    const sendMessage = async () => {
-        if (!input.trim() || !currentUser?.id) return
+    const sendMessage = async (messageText?: string) => {
+        const textToSend = messageText || input.trim()
+        if (!textToSend || !currentUser?.id) return
 
         const userMsg: AiMessageType = {
             userId: currentUser.id,
             role: "user",
-            content: input.trim(),
+            content: textToSend,
             createdAt: Date.now(),
         }
 
         setMessages(prev => [...prev, userMsg])
         setInput("")
         setLoading(true)
-        await saveAiMessage(userMsg)
 
         try {
             const res = await fetch("/api/ai/query", {
@@ -103,7 +93,6 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || "Erreur de l'API")
 
-            // 🔹 Traiter les cards retournées
             const processedCards = data.cards
                 ? data.cards.map((card: any, idx: number) => ({
                     ...card,
@@ -122,7 +111,6 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
             }
 
             setMessages(prev => [...prev, aiMsg])
-            await saveAiMessage(aiMsg)
         } catch (err) {
             console.error("Erreur chatbot :", err)
             const errorMsg: AiMessageType = {
@@ -132,10 +120,14 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
                 createdAt: Date.now(),
             }
             setMessages(prev => [...prev, errorMsg])
-            await saveAiMessage(errorMsg)
         } finally {
             setLoading(false)
         }
+    }
+
+    // 🔹 Gérer le clic sur une question template
+    const handleTemplateClick = (question: string) => {
+        sendMessage(question)
     }
 
     // 🔹 Renderer pour les cards
@@ -181,7 +173,7 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
     }
 
     return (
-        <div className="flex flex-col h-96 bg-white rounded-2xl shadow-md">
+        <div className="flex flex-col h-[500px] bg-white rounded-2xl shadow-md">
             {/* 🔹 En-tête */}
             <div className="flex justify-between items-center px-4 py-2 border-b bg-gray-50 rounded-t-2xl">
                 <h3 className="font-semibold text-sm text-gray-700">Assistant IA - Fam 🤖</h3>
@@ -191,7 +183,7 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
             </div>
 
             {/* 🔹 Messages */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3 space-y-3">
                 {messages.map((m, i) => {
                     const isUser = m.role === "user"
                     return (
@@ -240,7 +232,6 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
                                         const cardType = getCardType(card)
 
                                         if (!cardType) {
-                                            // Fallback : afficher les données brutes si le type ne peut pas être déterminé
                                             return (
                                                 <div
                                                     key={card._key}
@@ -262,23 +253,47 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
                 })}
                 {loading && <p className="text-xs text-gray-400 italic">Analyse en cours...</p>}
 
-                {/* 👇 Élément invisible qui sert d'ancre pour scroller */}
                 <div ref={messagesEndRef} />
             </div>
+
+            {/* 🆕 Questions templates défilantes */}
+            <div className="border-t border-gray-200 px-3 py-2 overflow-hidden">
+                <div className="relative w-full overflow-hidden">
+                    <div className="flex gap-2 animate-scroll whitespace-nowrap">
+                        {[...TEMPLATE_QUESTIONS, ...TEMPLATE_QUESTIONS].map((question, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => handleTemplateClick(question)}
+                                disabled={loading}
+                                className="flex-shrink-0 text-xs px-3 py-1.5 bg-gradient-to-r from-blue-50 to-purple-50 
+                     text-gray-700 rounded-full border border-gray-200 
+                     hover:from-blue-100 hover:to-purple-100 hover:border-blue-300
+                     transition-all duration-200 whitespace-nowrap
+                     disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {question}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
 
             {/* 🔹 Input */}
             <div className="border-t p-2 flex space-x-2">
                 <input
-                    className="flex-1 text-sm border rounded-lg px-3 py-1 focus:outline-none"
+                    className="flex-1 text-sm border rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Posez une question..."
                     value={input}
                     onChange={e => setInput(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && sendMessage()}
+                    onKeyDown={e => e.key === "Enter" && !loading && sendMessage()}
+                    disabled={loading}
                 />
                 <button
-                    onClick={sendMessage}
+                    onClick={() => sendMessage()}
                     disabled={loading}
-                    className="bg-blue-500 text-white text-sm px-3 py-1 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                    className="bg-blue-500 text-white text-sm px-3 py-1 rounded-lg hover:bg-blue-600 
+                             disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                     Envoyer
                 </button>

@@ -196,3 +196,17 @@ body::-webkit-scrollbar-track {
   -ms-overflow-style: none;  /* IE et Edge */
   scrollbar-width: none;     /* Firefox */
 }
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-scroll {
+  display: inline-flex;
+  animation: scroll 30s linear infinite;
+}
