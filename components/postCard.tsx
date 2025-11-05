@@ -11,6 +11,8 @@ import { Separator } from "@/components/ui/separator"
 import { useSelector } from "react-redux"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { createNotification } from "@/app/controllers/notificationsController"
+import { FeedPostType } from "@/lib/firebase/models"
 
 export function PostCard({ post }: { post: any }) {
   const currentUser = useSelector(selectUser)
@@ -21,20 +23,31 @@ export function PostCard({ post }: { post: any }) {
   const [showLikers, setShowLikers] = useState(false) // 🔥 Nouveau
   const router = useRouter()
 
-  const handleLike = () => {
+  const handleLike = async (post: FeedPostType) => {
     if (!currentUser?.id) return
     const alreadyLiked = post.likesIds.includes(currentUser.id)
     setLiked(!alreadyLiked)
     setLikeCount(alreadyLiked ? likeCount - 1 : likeCount + 1)
-
+    if (post.author.id !== currentUser.id) {
+      await createNotification({
+        recipientId: post.author.id ?? "",
+        senderId: currentUser.id,
+        senderName: `${currentUser.firstName} ${currentUser.lastName}`,
+        senderAvatarUrl: currentUser.avatarUrl ?? "",
+        type: "like",
+        message: `${currentUser.firstName} ${currentUser.lastName} a aimé votre publication.`,
+        relatedId: post.id,
+        title: "Vous avez reçu un like"
+      })
+    }
     // Mise à jour Firestore
     toggleLikePost(post.id!, currentUser.id, alreadyLiked)
   }
 
-  const handleComment = async () => {
+  const handleComment = async (post: FeedPostType) => {
     if (!currentUser) return
     const content = newComment.trim()
-      if (!content) return
+    if (!content) return
 
     await addCommentToPost(post.id!, {
       author: {
@@ -44,8 +57,19 @@ export function PostCard({ post }: { post: any }) {
       content,
       timeAgo: "À l'instant",
     })
-
-    setNewComment("") // ✅ on reset l’input
+    if (post.author.id !== currentUser.id) {
+      await createNotification({
+        recipientId: post.author.id ?? "",
+        senderId: currentUser.id,
+        senderName: `${currentUser.firstName} ${currentUser.lastName}`,
+        senderAvatarUrl: currentUser.avatarUrl ?? "",
+        type: "comment",
+        message: content,
+        relatedId: post.id,
+        title: `${currentUser.firstName} ${currentUser.lastName} a commenté votre publication`
+      })
+    }
+    setNewComment("")
   }
 
   const handleNavigate = (userId: string) => {
@@ -146,7 +170,7 @@ export function PostCard({ post }: { post: any }) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleLike}
+              onClick={() => { handleLike(post) }}
               className={`flex-1 text-xs sm:text-sm ${liked ? "text-blue-600 hover:text-blue-700" : "text-gray-600 hover:text-blue-600"
                 }`}
             >
@@ -189,11 +213,11 @@ export function PostCard({ post }: { post: any }) {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault()
-                        handleComment()
+                        handleComment(post)
                       }
                     }}
                   />
-                  <Button size="sm" onClick={handleComment} disabled={!newComment.trim()} className="flex-shrink-0">
+                  <Button size="sm" onClick={() => { handleComment(post) }} disabled={!newComment.trim()} className="flex-shrink-0">
                     <Send className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
                 </div>

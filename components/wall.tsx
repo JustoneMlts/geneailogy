@@ -27,9 +27,10 @@ import { handleGetUserNameInitials } from "@/app/helpers/userHelper"
 import { selectUser } from "@/lib/redux/slices/currentUserSlice"
 import { useSelector } from "react-redux"
 import { UserType, FeedPostType } from "@/lib/firebase/models"
-import { createFeedPost, getPostsByUserId, toggleLikePost } from "../app/controllers/feedController"
+import { addCommentToPost, createFeedPost, getPostsByUserId, toggleLikePost } from "../app/controllers/feedController"
 import { collection, onSnapshot, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase/firebase"
+import { createNotification } from "@/app/controllers/notificationsController"
 
 interface CreatePostCardProps {
   user: UserType
@@ -179,21 +180,53 @@ function PostCard({ post }: { post: any }) {
   const [newComment, setNewComment] = useState("")
   const [showLikers, setShowLikers] = useState(false) // 🔥 Nouveau
 
-  const handleLike = () => {
+  const handleLike = async (post: FeedPostType) => {
     if (!currentUser?.id) return
     const alreadyLiked = post.likesIds.includes(currentUser.id)
     setLiked(!alreadyLiked)
     setLikeCount(alreadyLiked ? likeCount - 1 : likeCount + 1)
-
+    if (post.author.id !== currentUser.id) {
+      await createNotification({
+        recipientId: post.author.id ?? "",
+        senderId: currentUser.id,
+        senderName: `${currentUser.firstName} ${currentUser.lastName}`,
+        senderAvatarUrl: currentUser.avatarUrl ?? "",
+        type: "like",
+        message: `${currentUser.firstName} ${currentUser.lastName} a aimé votre publication.`,
+        relatedId: post.id,
+        title: "Vous avez reçu un like"
+      })
+    }
     // Mise à jour Firestore
     toggleLikePost(post.id!, currentUser.id, alreadyLiked)
   }
 
-  const handleComment = () => {
-    if (newComment.trim()) {
-      // Ajouter le commentaire
-      setNewComment("")
+  const handleComment = async (post: FeedPostType) => {
+    if (!currentUser) return
+    const content = newComment.trim()
+    if (!content) return
+
+    await addCommentToPost(post.id!, {
+      author: {
+        name: `${currentUser.firstName} ${currentUser.lastName}`,
+        avatar: currentUser.avatarUrl || "/placeholder.svg",
+      },
+      content,
+      timeAgo: "À l'instant",
+    })
+    if (post.author.id !== currentUser.id) {
+      await createNotification({
+        recipientId: post.author.id ?? "",
+        senderId: currentUser.id,
+        senderName: `${currentUser.firstName} ${currentUser.lastName}`,
+        senderAvatarUrl: currentUser.avatarUrl ?? "",
+        type: "comment",
+        message: content,
+        relatedId: post.id,
+        title: `${currentUser.firstName} ${currentUser.lastName} a commenté votre publication`
+      })
     }
+    setNewComment("")
   }
 
   return (
@@ -290,7 +323,7 @@ function PostCard({ post }: { post: any }) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleLike}
+              onClick={() => { handleLike(post) }}
               className={`flex-1 text-xs sm:text-sm ${liked ? "text-blue-600 hover:text-blue-700" : "text-gray-600 hover:text-blue-600"
                 }`}
             >
@@ -330,9 +363,9 @@ function PostCard({ post }: { post: any }) {
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     className="flex-1 text-xs sm:text-sm"
-                    onKeyPress={(e) => e.key === "Enter" && handleComment()}
+                    onKeyPress={(e) => e.key === "Enter" && handleComment(post)}
                   />
-                  <Button size="sm" onClick={handleComment} disabled={!newComment.trim()} className="flex-shrink-0">
+                  <Button size="sm" onClick={() => handleComment(post)} disabled={!newComment.trim()} className="flex-shrink-0">
                     <Send className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
                 </div>

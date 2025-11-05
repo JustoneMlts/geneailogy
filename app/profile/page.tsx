@@ -42,22 +42,20 @@ export default function ProfilePage() {
   // ✅ Fetch member une seule fois au montage
   useEffect(() => {
     if (!currentUser?.id || hasFetched.current) return
-
     hasFetched.current = true
 
-    const fetchMember = async () => {
-      try {
-        if (currentUser && currentUser.id) {
-          const data = await getMemberById(currentUser.id)
-          setMember(data)
-        }
-      } catch (err) {
-        console.error("Erreur lors du chargement du member :", err)
-      }
-    }
+      ; (async () => {
+        try {
+          if (currentUser && currentUser.id) {
+            const data = await getMemberById(currentUser.id)
+            setMember(data ?? null)
+          }
 
-    fetchMember()
-  }, []) // ⚠️ Tableau vide pour ne s'exécuter qu'une fois
+        } catch (err) {
+          console.error("Erreur lors du chargement du member :", err)
+        }
+      })()
+  }, [currentUser])
 
   const [notifications, setNotifications] = useState({
     email: true,
@@ -156,7 +154,6 @@ export default function ProfilePage() {
 
       // Récupérer le member correspondant
       const member = await getMemberById(currentUser.id)
-      console.log("member récupéré:", member)
 
       if (member?.id) {
         const updatedMember: Partial<MemberType> = removeUndefined({
@@ -168,8 +165,6 @@ export default function ProfilePage() {
           avatar: updatedUser.avatarUrl,
           updatedDate: Date.now(),
         })
-
-        console.log("updatedMember:", updatedMember)
         await updateMember(member.id, updatedMember)
       }
 

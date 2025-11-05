@@ -378,18 +378,17 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
               borderColor: "#f3f4f6",
               display: "flex",
               alignItems: "center",
-              flexDirection: "column",
-              gap: 1,
               p: 1.5,
               borderRadius: 2,
               minWidth: 280,
               maxWidth: 400,
+              width: "100%",
               boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
               cursor: currentNotif.type === "message" ? "default" : "pointer",
-              position: "relative", // ✨ Pour positionner la croix
+              position: "relative",
             }}
             message={
-              <div className="flex flex-col w-full gap-2">
+              <div className="flex flex-col w-full gap-2 text-left relative">
                 {/* ✨ Bouton de fermeture en haut à droite */}
                 <IconButton
                   size="small"
@@ -420,11 +419,15 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
                   </Avatar>
                   <span className="font-medium">{currentNotif.senderName}</span>
                 </div>
-                <p className="text-sm text-gray-700">{currentNotif.message}</p>
+
+                {/* ✅ Correction de l’alignement du message */}
+                <p className="text-sm text-gray-700 w-full break-words whitespace-pre-wrap">
+                  {currentNotif.message}
+                </p>
 
                 {/* ✅ Zone de réponse rapide uniquement pour les notifs de message */}
                 {currentNotif.type === "message" && currentNotif.relatedId && (
-                  <QuickReplyBox conversationId={currentNotif.relatedId} setOpen={setOpen}/>
+                  <QuickReplyBox conversationId={currentNotif.relatedId} setOpen={setOpen} />
                 )}
               </div>
             }
@@ -433,4 +436,5 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       </Snackbar>
     </>
   )
+
 }
