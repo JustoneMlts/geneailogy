@@ -11,8 +11,8 @@ import { Input } from "./ui/input";
 import { useSelector } from "react-redux";
 import { selectUser } from "@/lib/redux/slices/currentUserSlice";
 import { handleGetUserNameInitials } from "@/app/helpers/userHelper";
-import { useEffect, useRef, useState } from "react";
-import { createFeedPost } from "@/app/controllers/feedController";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createFeedPost, listenPostsByUserIds } from "@/app/controllers/feedController";
 import { FeedPostType, UserLink, UserType } from "@/lib/firebase/models";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
@@ -56,31 +56,32 @@ export const Feed = () => {
     setFileUrl(null);
   };
 
-  // 🔹 Écoute en temps réel des posts
-  const listenPostsByUserIds = (
-    userIds: string[],
-    callback: (posts: FeedPostType[]) => void
-  ) => {
-    if (userIds.length === 0) return () => { };
-    const limitedIds = userIds.slice(0, 10);
-    const q = query(collection(db, "Feed"), where("author.id", "in", limitedIds));
+  const acceptedConnectionsIds = useMemo(() => {
+    const linksArray: UserLink[] = Array.isArray(currentUser?.links)
+      ? currentUser.links
+      : Object.values(currentUser?.links ?? {}) as UserLink[];
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedPosts: FeedPostType[] = snapshot.docs.map(
-        (doc) =>
-        ({
-          id: doc.id,
-          ...doc.data(),
-        } as FeedPostType)
-      );
+    return linksArray
+      .filter(link => link.status === "accepted") // plus besoin de "link is UserLink"
+      .map(link => link.userId);
+  }, [currentUser?.links]);
 
-      fetchedPosts.sort((a, b) => b.createdAt - a.createdAt);
-      callback(fetchedPosts);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const userIdsToListen = [currentUser.id, ...acceptedConnectionsIds];
+
+    const userIdsSet = new Set(userIdsToListen);
+
+    const unsubscribe = listenPostsByUserIds(userIdsToListen, (fetched) => {
+      const filteredPosts = fetched.filter(post => userIdsSet.has(post.author.id));
+      setPosts(filteredPosts);
+      setLoading(false);
     });
 
-    return unsubscribe;
-  };
-
+    return () => unsubscribe();
+  }, [currentUser?.id, acceptedConnectionsIds]);
   // 🔹 Récupération des posts de l'utilisateur + ses amis
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -91,8 +92,8 @@ export const Feed = () => {
 
     const acceptedConnectionsIds = linksArray
       .filter((link) => link.status === "accepted")
-      .map((link) => link.userId);
-
+      .map((link) => link.userId ?? link.senderId);
+    console.log("acceptedConnectionsIds: ", acceptedConnectionsIds)
     const userIdsToListen = [currentUser.id, ...acceptedConnectionsIds];
 
     const unsubscribe = listenPostsByUserIds(userIdsToListen, (fetched) => {
