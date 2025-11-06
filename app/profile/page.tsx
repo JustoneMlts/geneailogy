@@ -35,11 +35,8 @@ export default function ProfilePage() {
   const [vertical, setVertical] = useState<"top" | "bottom">("bottom")
   const [horizontal, setHorizontal] = useState<"left" | "center" | "right">("center")
   const [member, setMember] = useState<MemberType | null>()
-
-  // ✅ Ref pour éviter les fetches multiples
   const hasFetched = useRef(false)
 
-  // ✅ Fetch member une seule fois au montage
   useEffect(() => {
     if (!currentUser?.id || hasFetched.current) return
     hasFetched.current = true

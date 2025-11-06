@@ -1,7 +1,7 @@
 import { addCommentToPost, toggleLikePost } from "@/app/controllers/feedController"
 import { handleGetUserNameInitials } from "@/app/helpers/userHelper"
 import { selectUser } from "@/lib/redux/slices/currentUserSlice"
-import { Globe, Users, MoreHorizontal, MapPin, Heart, MessageCircle, Share2, Send, Lock } from "lucide-react"
+import { Globe, Users, MoreHorizontal, MapPin, Heart, MessageCircle, Share2, Send, Lock, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -124,8 +124,33 @@ export function PostCard({ post }: { post: any }) {
               <img
                 src={post.image || "/placeholder.svg"}
                 alt="Post image"
-                className="w-full h-auto max-h-64 sm:max-h-80 lg:max-h-96 object-cover"
+                className="w-36 h-auto max-h-40 sm:max-h-26 lg:max-h-40 object-cover rounded-lg"
               />
+            </div>
+          )}
+          {post.documentUrl && (
+            <div className="mt-3 sm:mt-4 w-1/3  rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between px-3 py-2">
+                <div className="flex items-center space-x-2 truncate">
+                  <FileText className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  <a
+                    href={post.documentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 over:underline text-sm font-medium truncate"
+                  >
+                    {post.documentName || "Voir le document"}
+                  </a>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => window.open(post.documentUrl, "_blank")}
+                  className="text-gray-600 hover:text-blue-600 flex-shrink-0"
+                >
+                  Ouvrir
+                </Button>
+              </div>
             </div>
           )}
           {post.location && (

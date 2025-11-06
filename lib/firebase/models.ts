@@ -187,6 +187,8 @@ export interface FeedPostType {
   isLiked?: boolean
   isOnWall: boolean
   image?: string
+  documentUrl?: string
+  documentName?: string
   location?: string
   comments: CommentDisplayType[]
   createdAt: number

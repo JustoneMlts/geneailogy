@@ -1,42 +1,65 @@
 "use client"
-import { useState, useEffect } from "react"
+
+import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  ImageIcon,
-  Video,
-  Smile,
-  Send,
-  MapPin,
-} from "lucide-react"
+import { Camera, FileText, Send, X } from "lucide-react"
 import { handleGetUserNameInitials } from "@/app/helpers/userHelper"
 import { FeedPostType, UserType } from "@/lib/firebase/models"
-import { createFeedPost} from "../app/controllers/feedController"
+import { createFeedPost } from "@/app/controllers/feedController"
+import { uploadFileToStorage } from "@/lib/firebase/firebase-functions"
 
 interface CreatePostCardProps {
   user: UserType
-  wallOwner: UserType // Le propriétaire du mur
+  wallOwner: UserType
   onPostCreated?: (post: FeedPostType) => void
 }
 
 export function CreatePostCard({ user, wallOwner, onPostCreated }: CreatePostCardProps) {
-  const [postContent, setPostContent] = useState("")
-  const [privacy, setPrivacy] = useState("public")
+  const [postMessage, setPostMessage] = useState<string>("")
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [fileUrl, setFileUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const imageInputRef = useRef<HTMLInputElement | null>(null)
+  const docInputRef = useRef<HTMLInputElement | null>(null)
 
   const isOwnWall = user.id === wallOwner.id
 
+  // 🔹 Gestion de l’upload (image ou document)
+  const handleFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: "image" | "document"
+  ) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      const url = await uploadFileToStorage(
+        file,
+        type === "image" ? "feed-images" : "feed-documents"
+      )
+      setSelectedFile(file)
+      setFileUrl(url)
+    } catch (err) {
+      console.error("Erreur lors de l’upload :", err)
+    }
+  }
+
+  // 🔹 Supprimer le fichier uploadé
+  const handleRemoveFile = () => {
+    setSelectedFile(null)
+    setFileUrl(null)
+  }
+
+  // 🔹 Création du post
   const handleSubmitPost = async () => {
-    if (!postContent.trim() || !user?.id || !wallOwner.id || isLoading) return
+    if (!user?.id || (!postMessage.trim() && !fileUrl) || isLoading) return
 
     setIsLoading(true)
 
-    const now = Date.now()
-
     const newPost: FeedPostType = {
-      // Firestore va générer l'id automatiquement
       author: {
         id: user.id,
         firstName: user.firstName,
@@ -44,120 +67,173 @@ export function CreatePostCard({ user, wallOwner, onPostCreated }: CreatePostCar
         avatar: user.avatarUrl || "/placeholder.svg",
       },
       destinator: {
-        id: wallOwner.id,
+        id: wallOwner.id ? wallOwner.id : "",
         firstName: wallOwner.firstName,
         lastName: wallOwner.lastName,
         avatar: wallOwner.avatarUrl || "/placeholder.svg",
       },
-      content: postContent,
-      timeAgo: "À l'instant", // tu peux remplacer par une vraie logique ensuite
-      privacy: "public", // ou autre selon la logique métier
+      content: postMessage.trim(),
+      image: selectedFile?.type.startsWith("image/") ? fileUrl ?? "" : "",
+      documentUrl:
+        selectedFile &&
+        !selectedFile.type.startsWith("image/") &&
+        fileUrl
+          ? fileUrl
+          : undefined,
+      documentName:
+        selectedFile && !selectedFile.type.startsWith("image/")
+          ? selectedFile.name
+          : undefined,
+      createdAt: Date.now(),
+      timeAgo: "À l'instant",
       likesIds: [],
-      isLiked: false,
-      isOnWall: user.id !== wallOwner.id,
-      image: "", // à gérer si upload
-      location: "", // à gérer plus tard
       comments: [],
-      createdAt: now,
+      privacy: "public",
+      isOnWall: user.id !== wallOwner.id,
     }
 
     try {
-      const postId = await createFeedPost(newPost)
-      const postWithId = { ...newPost, id: postId }
+      const cleanPost = Object.fromEntries(
+        Object.entries(newPost).filter(([_, v]) => v !== undefined)
+      ) as FeedPostType
 
-      setPostContent("")
+      const postId = await createFeedPost(cleanPost)
+      const postWithId = { ...cleanPost, id: postId }
+
+      setPostMessage("")
+      setSelectedFile(null)
+      setFileUrl(null)
       onPostCreated?.(postWithId)
-
-    } catch (error) {
-      console.error("Erreur lors de la création du post:", error)
+    } catch (err) {
+      console.error("Erreur lors de la création du post :", err)
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <Card className="mb-4 sm:mb-6">
-      <CardContent className="py-3 sm:p-4 lg:py-6">
-        {/* Message contextuel si ce n'est pas son propre mur */}
+    <Card className="shadow-md border-0 animate-slide-up card-hover mb-6">
+      <CardContent className="p-4">
         {!isOwnWall && (
-          <div className="mb-3 p-2 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-700">
-              Vous écrivez sur le mur de{" "}
-              <span className="font-semibold">
-                {wallOwner.firstName} {wallOwner.lastName}
-              </span>
-            </p>
+          <div className="mb-3 p-2 bg-blue-50 rounded-lg text-sm text-blue-700">
+            Vous écrivez sur le mur de{" "}
+            <span className="font-semibold">
+              {wallOwner.firstName} {wallOwner.lastName}
+            </span>
           </div>
         )}
 
-        <div className="flex space-x-2 sm:space-x-3 lg:space-x-4">
-          <Avatar className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 flex-shrink-0">
-            <AvatarImage src={user?.avatarUrl} />
-            <AvatarFallback className="text-lg sm:text-xl">
-              {user && handleGetUserNameInitials(user)}
+        <div className="flex items-start space-x-4">
+          <Avatar className="animate-scale-in">
+            <AvatarImage src={user.avatarUrl} />
+            <AvatarFallback>
+              {handleGetUserNameInitials(user)}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <Textarea
-              placeholder={
-                isOwnWall
-                  ? "Que voulez-vous partager sur votre mur ?"
-                  : `Écrivez quelque chose sur le mur de ${wallOwner.firstName}...`
-              }
-              value={postContent}
-              onChange={(e) => setPostContent(e.target.value)}
-              className="min-h-[80px] sm:min-h-[100px] resize-none border-none shadow-none focus-visible:ring-0 text-sm sm:text-base lg:text-lg placeholder:text-gray-500"
-            />
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-100 space-y-3 sm:space-y-0">
-              <div className="flex flex-wrap gap-2 sm:gap-3 lg:gap-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-600 hover:text-blue-600 text-xs sm:text-sm p-1 sm:p-2"
-                >
-                  <ImageIcon className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Photo</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-600 hover:text-green-600 text-xs sm:text-sm p-1 sm:p-2"
-                >
-                  <Video className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Vidéo</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-600 hover:text-red-600 text-xs sm:text-sm p-1 sm:p-2"
-                >
-                  <MapPin className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Lieu</span>
-                </Button>
+
+          <div className="flex-1">
+            {/* Aperçu du fichier au-dessus */}
+            {fileUrl && (
+              <div className="relative mb-3 inline-block">
+                {selectedFile?.type.startsWith("image/") ? (
+                  <div className="relative inline-block">
+                    <img
+                      src={fileUrl}
+                      alt="aperçu"
+                      className="rounded-lg border border-gray-200 shadow-sm max-w-28 max-h-32 object-cover"
+                    />
+                    <button
+                      onClick={handleRemoveFile}
+                      className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100 transition"
+                    >
+                      <X className="w-3 h-3 text-gray-700" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between bg-gray-100 rounded-md px-3 py-2 border border-gray-200 relative">
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 font-medium truncate max-w-[80%]"
+                    >
+                      {selectedFile?.name}
+                    </a>
+                    <button
+                      onClick={handleRemoveFile}
+                      className="absolute top-1 right-1 bg-white rounded-full p-1 shadow-md hover:bg-gray-100 transition"
+                    >
+                      <X className="w-3 h-3 text-gray-700" />
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center space-x-2 sm:space-x-3">
-                <select
-                  value={privacy}
-                  onChange={(e) => setPrivacy(e.target.value)}
-                  className="text-xs sm:text-sm border rounded-md px-2 py-1 bg-gray-50 min-w-0 w-1/2"
-                >
-                  <option value="public">🌍 Public</option>
-                  <option value="connections">👥 Connexions</option>
-                  <option value="private">🔒 Privé</option>
-                </select>
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm px-2 sm:px-4"
-                  disabled={!postContent.trim() || isLoading}
-                  size="sm"
-                  onClick={handleSubmitPost}
-                >
-                  <Send className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                  {isLoading ? "Publication..." : "Publier"}
-                </Button>
-              </div>
+            )}
+
+            {/* Input texte */}
+            <div className="relative">
+              <Input
+                placeholder={
+                  isOwnWall
+                    ? "Partagez une découverte ou une histoire familiale..."
+                    : `Écrivez quelque chose sur le mur de ${wallOwner.firstName}...`
+                }
+                className="bg-gray-100 pr-10"
+                value={postMessage}
+                onChange={(e) => setPostMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    handleSubmitPost()
+                  }
+                }}
+              />
+              <Send
+                className="absolute w-5 h-5 right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-500 cursor-pointer transition-all duration-200 ease-in-out hover:scale-110"
+                onClick={handleSubmitPost}
+              />
             </div>
           </div>
         </div>
+
+        {/* Boutons photo / document */}
+        <div className="flex w-full justify-center mt-4 pt-4 border-t border-gray-100">
+          <div className="flex w-1/2 items-center justify-between">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+              onClick={() => imageInputRef.current?.click()}
+            >
+              <Camera className="h-4 w-4 mr-2" /> Photo
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-600 hover:text-blue-600 transition-colors duration-200"
+              onClick={() => docInputRef.current?.click()}
+            >
+              <FileText className="h-4 w-4 mr-2" /> Document
+            </Button>
+          </div>
+        </div>
+
+        {/* Inputs cachés */}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, "image")}
+        />
+        <input
+          ref={docInputRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.txt"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, "document")}
+        />
       </CardContent>
     </Card>
   )
