@@ -1,8 +1,8 @@
 import { COLLECTIONS } from "@/lib/firebase/collections";
 import { db } from "@/lib/firebase/firebase";
 import { addDocumentToCollection, getAllDataFromCollection, getDataFromCollection, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
-import { FeedPostType } from "@/lib/firebase/models";
-import { addDoc, arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, or, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import { FeedPostType, Links } from "@/lib/firebase/models";
+import { addDoc, arrayRemove, arrayUnion, collection, doc, documentId, getDocs, onSnapshot, or, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 
 export const createFeedPost = async (postData: FeedPostType) => {
   try {
@@ -94,24 +94,98 @@ export const getPostsByUserIds = async (userIds: string[]): Promise<FeedPostType
   }
 };
 
+export const getUserIdsFromLinkIds = async (
+  linkIds: string[],
+  currentUserId: string
+): Promise<string[]> => {
+  if (!linkIds || linkIds.length === 0) return [];
 
-export const listenPostsByUserIds = (userIds: string[], callback: (posts: FeedPostType[]) => void) => {
-  const q = query(
-    collection(db, "Feed"),
-    where("author.id", "in", userIds) // on récupère seulement les posts des IDs donnés
-  );
+  try {
+    // Firestore limite les "in" queries à 30 éléments
+    // On découpe en chunks de 30
+    const chunks: string[][] = [];
+    for (let i = 0; i < linkIds.length; i += 30) {
+      chunks.push(linkIds.slice(i, i + 30));
+    }
 
-  const unsubscribe = onSnapshot(q, (snapshot) => {
-    const posts: FeedPostType[] = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    } as FeedPostType));
-    // Tri décroissant par date
-    posts.sort((a, b) => b.createdAt - a.createdAt);
-    callback(posts);
+    const allUserIds = new Set<string>();
+
+    for (const chunk of chunks) {
+      const q = query(
+        collection(db, COLLECTIONS.LINKS),
+        where(documentId(), "in", chunk)
+      );
+
+      const snapshot = await getDocs(q);
+      
+      snapshot.forEach(doc => {
+        const link = doc.data() as Links;
+        // Ajouter l'autre utilisateur (pas moi)
+        if (link.senderId === currentUserId) {
+          allUserIds.add(link.receiverId);
+        } else {
+          allUserIds.add(link.senderId);
+        }
+      });
+    }
+
+    return Array.from(allUserIds);
+  } catch (error) {
+    console.error("Erreur getUserIdsFromLinkIds:", error);
+    return [];
+  }
+};
+
+/**
+ * Écoute en temps réel les posts des utilisateurs spécifiés
+ */
+export const listenPostsByUserIds = (
+  userIds: string[],
+  callback: (posts: FeedPostType[]) => void
+) => {
+  if (!userIds || userIds.length === 0) {
+    callback([]);
+    return () => {};
+  }
+
+  // Firestore limite les "in" queries à 30 éléments maximum
+  // On découpe en chunks de 10 pour être sûr
+  const chunks: string[][] = [];
+  for (let i = 0; i < userIds.length; i += 10) {
+    chunks.push(userIds.slice(i, i + 10));
+  }
+
+  // Map pour stocker les posts par chunk
+  const postsMap = new Map<number, FeedPostType[]>();
+
+  const unsubscribes = chunks.map((idsChunk, chunkIndex) => {
+    const q = query(
+      collection(db, COLLECTIONS.FEED),
+      where("author.id", "in", idsChunk)
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const posts: FeedPostType[] = snapshot.docs.map(
+        (doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        } as FeedPostType)
+      );
+
+      // Stocke les posts de CE chunk
+      postsMap.set(chunkIndex, posts);
+
+      // Fusionne tous les chunks et trie par date
+      const allPosts = Array.from(postsMap.values())
+        .flat()
+        .sort((a, b) => b.createdAt - a.createdAt);
+
+      callback(allPosts);
+    });
   });
 
-  return unsubscribe;
+  // Retourne une fonction pour se désabonner de tous les listeners
+  return () => unsubscribes.forEach((unsub) => unsub());
 };
 
 /** Ajoute ou retire un like */

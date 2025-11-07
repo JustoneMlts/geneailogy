@@ -43,18 +43,22 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
         return () => unsubscribe()
     }, [wallOwner?.id])
 
-    const getConnectionStatus = (userId: string) => {
+    type ConnectionStatus = LinkStatus | "none"
+
+    const getConnectionStatus = (userId: string): { status: ConnectionStatus; isSender: boolean } => {
         if (!currentUser) return { status: "none", isSender: false }
+
         const conn = connections.find(
             (c) =>
-                (c.userId === userId && c.senderId === currentUser.id) ||
-                (c.userId === currentUser.id && c.senderId === userId)
+                (c.receiverId === userId && c.senderId === currentUser.id) ||
+                (c.senderId === userId && c.receiverId === currentUser.id)
         )
+
         if (!conn) return { status: "none", isSender: false }
+
         const isSender = conn.senderId === currentUser.id
         return { status: conn.status, isSender }
     }
-
     const handlePostCreated = (newPost: FeedPostType) => {
         setWallPosts((prev) => {
             if (prev.some((post) => post.id === newPost.id)) return prev // ⚡ skip doublon
@@ -62,29 +66,24 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
         })
     }
 
-    const handleConnectionRequest = async (userId: string) => {
+    const handleConnectionRequest = async (receiverId: string) => {
         if (!currentUser?.id) return
-        await sendConnectionRequest(
-            currentUser.id,
-            userId,
-            currentUser.firstName,
-            currentUser.lastName,
-            currentUser.avatarUrl
-        )
-        dispatch(addConnection({ userId, senderId: currentUser.id, status: "pending" as LinkStatus }))
-    }
-    // ✅ Accepter une demande
-    const handleAcceptRequest = async (userId: string) => {
-        if (!currentUser?.id) return
-        await updateConnectionStatus(
-            userId, // sender
-            currentUser.id, // receiver
-            "accepted",
+
+        const link = await sendConnectionRequest(
+            currentUser.id,        // sender
+            receiverId,            // receiver
             currentUser.firstName,
             currentUser.lastName,
             currentUser.avatarUrl ?? ""
         )
-        dispatch(updateConnectionStatusInStore({ userId, senderId: userId, status: "accepted" }))
+        console.log("link : ", link)
+        dispatch(
+            addConnection({
+                senderId: currentUser.id,
+                receiverId,
+                status: "pending" as LinkStatus,
+            })
+        )
     }
 
     const renderConnectionButton = (user: UserType) => {
@@ -92,31 +91,35 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
         switch (status) {
             case "none":
                 return (
-                    <Button 
-                        size="sm" 
-                        onClick={() => { if (wallOwner && wallOwner.id) handleConnectionRequest(wallOwner.id) }}
+                    <Button
+                        size="sm"
+                        onClick={() => handleConnectionRequest(user.id!)}
                         className="flex items-center justify-center mt-3 w-10 h-10 px-2 py-2 bg-white text-blue-700 text-sm rounded-sm shadow hover:bg-gray-50 transition-colors"
                     >
                         <UserPlus className="w-6 h-6" />
                     </Button>
                 )
+
             case "pending":
                 return (
-                    <Button 
-                        size="sm" 
+                    <Button
+                        size="sm"
                         disabled
                         className="flex items-center justify-center mt-3 w-10 h-10 px-2 py-2 bg-white text-blue-700 text-sm rounded-sm shadow hover:bg-gray-50 transition-colors"
-
                     >
                         <UserPlus className="w-6 h-6" />
                     </Button>
-                ) 
+                )
+
             case "accepted":
                 return (
                     <div className="flex items-center justify-center mt-3 w-8 h-8 px-2 py-2 bg-white text-blue-700 text-sm rounded-sm shadow transition-colors">
                         <UserCheck className="w-6 h-6" />
                     </div>
                 )
+
+            default:
+                return null
         }
     }
 

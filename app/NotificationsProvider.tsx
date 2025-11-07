@@ -192,7 +192,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       const changes = snapshot.docChanges()
       const newMessages = changes.filter(change => change.type === "added")
 
-      console.log("📨 Message changes detected:", newMessages.length)
 
       for (const change of newMessages) {
         const msg = change.doc.data() as any
@@ -201,28 +200,17 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
         // Skip if already processed
         if (processedMessagesRef.current.has(messageId)) {
-          console.log("⏭️ Message already processed:", messageId)
           continue
         }
 
         // Vérifier si le message est nouveau (après la connexion)
         if (connectionTimestampRef.current && messageTimestamp <= connectionTimestampRef.current) {
-          console.log("⏳ Old message, marking as processed:", messageId)
           processedMessagesRef.current.add(messageId)
           continue
         }
 
-        console.log("💬 Processing new message:", {
-          id: messageId,
-          senderId: msg.senderId,
-          conversationId: msg.conversationId,
-          text: msg.text,
-          createdDate: msg.createdDate
-        })
-
         // Éviter les notifs pour ses propres messages
         if (msg.senderId === user.id) {
-          console.log("⏭️ Message sent by current user, skipped")
           processedMessagesRef.current.add(messageId)
           continue
         }
@@ -230,14 +218,12 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         // ✨ Ne pas afficher de notification si l'utilisateur est sur /dashboard avec activeTab === "messages"
         const isOnMessagesScreen = pathname === "/dashboard" && activeTab === "messages"
         if (isOnMessagesScreen) {
-          console.log("⏭️ User is on messages screen, notification skipped")
           processedMessagesRef.current.add(messageId)
           continue
         }
 
         // Vérifier si ce message appartient à une conversation de l'utilisateur
         if (!msg.conversationId) {
-          console.log("⚠️ Message without conversationId, skipped")
           processedMessagesRef.current.add(messageId)
           continue
         }
@@ -253,24 +239,19 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
           const userConversation = conversationsSnapshot.docs.find(doc => doc.id === msg.conversationId)
 
           if (!userConversation) {
-            console.log("⏭️ User is not part of this conversation")
             processedMessagesRef.current.add(messageId)
             continue
           }
 
           const convData = userConversation.data()
-          console.log("✅ Found conversation:", convData)
 
           // Trouver les infos de l'expéditeur dans participants
           const senderInfo = convData.participants?.find((p: any) => p.userId === msg.senderId)
 
           if (!senderInfo) {
-            console.log("⚠️ Sender info not found in conversation")
             processedMessagesRef.current.add(messageId)
             continue
           }
-
-          console.log("✅ Creating notification for message")
 
           // Créer une notification
           await createNotification({

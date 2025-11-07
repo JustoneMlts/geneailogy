@@ -1,3 +1,11 @@
+export type LinkStatus = "pending" | "accepted"
+
+export interface UserLink {
+  senderId: string;   
+  receiverId: string;  
+  status: LinkStatus;
+}
+
 // User
 export interface UserType {
   id?: string
@@ -15,7 +23,8 @@ export interface UserType {
   email: string
   familyOrigin? : string
   researchInterests?: string
-  links: UserLink[]
+  links?: UserLink[]
+  friends?: string[]
   createdDate?: number
   updatedDate?: number
   isActive?: boolean
@@ -23,12 +32,13 @@ export interface UserType {
   conversationsIds? : string[]
 }
 
-export type LinkStatus = "pending" | "accepted"
-
-export interface UserLink {
-  userId: string        // l'autre utilisateur
-  status: LinkStatus
-  senderId: string      // qui a envoyé la demande
+export interface Links {
+  linkId: string;
+  receiverId: string;
+  senderId: string;
+  status: LinkStatus;
+  createdDate: number;
+  updatedDate?: number;
 }
 
 // Tree (Arbre généalogique)

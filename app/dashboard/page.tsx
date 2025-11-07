@@ -5,7 +5,6 @@ import { Feed } from "@/components/feed"
 import { Notifications } from "@/components/notifications"
 import { Tree } from "@/components/tree"
 import { Ai } from "@/components/ai"
-import { SearchPage } from "@/components/search"
 import { DirectMessages } from "@/components/directMessages"
 import { Connections } from "@/components/connections"
 import { selectUser, setCurrentUser } from "@/lib/redux/slices/currentUserSlice"
@@ -73,10 +72,6 @@ export default function Dashboard() {
 
           {activeTab === "ai" && (
             <Ai />
-          )}
-
-          {activeTab === "search" && (
-            <SearchPage />
           )}
 
           {activeTab === "connections" && (

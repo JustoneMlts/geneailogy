@@ -1,8 +1,8 @@
 import { addDocumentToCollection, getAllDataFromCollectionWithWhereArray, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
 import { COLLECTIONS } from "@/lib/firebase/collections";
-import { arrayUnion, collection, deleteField, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db, storage  } from "@/lib/firebase/firebase";
-import { LinkStatus, MemberType, TreeType, UserLink, UserType } from "@/lib/firebase/models";
+import { Links, LinkStatus, MemberType, TreeType, UserLink, UserType } from "@/lib/firebase/models";
 import { createOrReplaceAvatar } from "./filesController";
 import { createNotification } from "./notificationsController"
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
@@ -168,7 +168,7 @@ export const getUserById = async (id: string): Promise<UserType | null> => {
 export const getUsersByIds = async (userIds: string[]): Promise<UserType[]> => {
   if (userIds.length === 0) return []
 
-  const q = query(collection(db, "users"), where("id", "in", userIds))
+  const q = query(collection(db, "Users"), where("id", "in", userIds))
   const snapshot = await getDocs(q)
   return snapshot.docs.map((doc) => doc.data() as UserType)
 }
@@ -234,48 +234,6 @@ export const updateUserStatus = async (userId: string, isActive: boolean) => {
   }
 };
 
-export const updateLinkStatus = async (userId: string, targetUserId: string, newStatus: LinkStatus) => {
-  const userRef = doc(db, "Users", userId);
-  const targetUserRef = doc(db, "Users", targetUserId);
-
-  const userSnap = await getDoc(userRef);
-  const targetSnap = await getDoc(targetUserRef);
-
-  if (!userSnap.exists() || !targetSnap.exists()) throw new Error("User not found");
-
-  const userLinks: UserLink[] = userSnap.data().links || [];
-  const targetLinks: UserLink[] = targetSnap.data().links || [];
-
-  const updatedUserLinks = userLinks.map(link =>
-    link.userId === targetUserId ? { ...link, status: newStatus } : link
-  );
-  const updatedTargetLinks = targetLinks.map(link =>
-    link.userId === userId ? { ...link, status: newStatus } : link
-  );
-
-  await updateDoc(userRef, { links: updatedUserLinks });
-  await updateDoc(targetUserRef, { links: updatedTargetLinks });
-};
-
-export const removeLink = async (userId: string, targetUserId: string) => {
-  const userRef = doc(db, "Users", userId);
-  const targetUserRef = doc(db, "Users", targetUserId);
-
-  const userSnap = await getDoc(userRef);
-  const targetSnap = await getDoc(targetUserRef);
-
-  if (!userSnap.exists() || !targetSnap.exists()) throw new Error("User not found");
-
-  const userLinks: UserLink[] = userSnap.data().links || [];
-  const targetLinks: UserLink[] = targetSnap.data().links || [];
-
-  const filteredUserLinks = userLinks.filter(link => link.userId !== targetUserId);
-  const filteredTargetLinks = targetLinks.filter(link => link.userId !== userId);
-
-  await updateDoc(userRef, { links: filteredUserLinks });
-  await updateDoc(targetUserRef, { links: filteredTargetLinks });
-};
-
 export const getUserLinks = async (userId: string): Promise<UserLink[]> => {
   const userRef = doc(db, "Users", userId);
   const userSnap = await getDoc(userRef);
@@ -303,114 +261,156 @@ export const getUsers = async (): Promise<UserType[]> => {
   }
 };
 
-export const sendConnectionRequest = async (senderId: string, receiverId: string, senderFirstName: string, senderLastName: string, senderAvatar?: string) => {
+export const sendConnectionRequest = async (
+  senderId: string,
+  receiverId: string,
+  senderFirstName: string,
+  senderLastName: string,
+  senderAvatar?: string
+) => {
   try {
-    const senderRef = doc(db, COLLECTIONS.USERS, senderId);
-    const receiverRef = doc(db, COLLECTIONS.USERS, receiverId);
+    // Créer un nouveau document dans la collection Links
+    const linksCollection = collection(db, COLLECTIONS.LINKS);
+    
+    const newLink: Omit<Links, 'linkId'> = {
+      senderId,
+      receiverId,
+      status: "pending",
+      createdDate: Date.now(),
+      updatedDate: Date.now(),
+    };
 
-    const senderLink: UserLink = { userId: receiverId, status: "pending", senderId };
-    const receiverLink: UserLink = { userId: senderId, status: "pending", senderId };
+    // ⚠️ CORRECTION : Un seul addDoc au lieu de deux
+    const linkDocRef = await addDoc(linksCollection, newLink);
+    
+    // Créer la notification
+    const senderName = `${senderFirstName} ${senderLastName}`;
+    await createNotification({
+      recipientId: receiverId,
+      senderId,
+      senderName,
+      senderAvatarUrl: senderAvatar || "",
+      type: "connection",
+      title: "Demande de connexion",
+      message: `${senderName} veut t'ajouter en ami !`,
+    });
 
-    await updateDoc(senderRef, { [`links.${receiverId}`]: senderLink });
-    await updateDoc(receiverRef, { [`links.${senderId}`]: receiverLink });
-
-    const senderName = senderFirstName + " " + senderLastName;
-    if (senderAvatar !== "") {
-      await createNotification({
-        recipientId: receiverId,
-        senderId: senderId,
-        senderName: senderName,
-        senderAvatarUrl: senderAvatar,
-        type: "connection",
-        title: "Demande de connexion",
-        message: `${senderName} veut t'ajouter en ami !`,
-      })
-    }
-    else {
-      await createNotification({
-        recipientId: receiverId,
-        senderId: senderId,
-        senderName: senderName,
-        type: "connection",
-        title: "Demande de connexion",
-        message: `${senderName} veut t'ajouter en ami !`,
-      })
-    }
-
-    return receiverLink;
+    return { ...newLink, linkId: linkDocRef.id };
   } catch (error) {
     console.error("Erreur lors de l'envoi de la demande :", error);
     throw error;
   }
 };
 
-// Accepter/refuser une demande (récepteur)
-export const updateConnectionStatus = async (senderId: string, receiverId: string, status: string, senderFirstName: string, senderLastName: string, senderAvatar?: string) => {
+export const updateConnectionStatus = async (
+  linkId: string,
+  status: LinkStatus,
+  receiverFirstName: string,
+  receiverLastName: string,
+  receiverAvatar?: string
+) => {
   try {
-    const userRef = doc(db, COLLECTIONS.USERS, receiverId);
-    const senderRef = doc(db, COLLECTIONS.USERS, senderId);
-
-    // Mise à jour du lien côté receiver
-    await updateDoc(userRef, { [`links.${senderId}.status`]: status });
-
-    // Si accepté, mise à jour côté sender pour symétrie
-    if (status === "accepted") {
-      await updateDoc(senderRef, { [`links.${receiverId}.status`]: status });
-      const senderName = senderFirstName + " " + senderLastName;
-      if (senderAvatar !== "") {
-        await createNotification({
-          recipientId: receiverId,
-          senderId: senderId,
-          senderName: senderName,
-          senderAvatarUrl: senderAvatar,
-          type: "connection",
-          title: "Acceptation de connexion",
-          message: `${senderName} à accepter ta demande !`,
-        })
-      }
-      else {
-        await createNotification({
-          recipientId: receiverId,
-          senderId: senderId,
-          senderName: senderName,
-          type: "connection",
-          title: "Demande de connexion",
-          message: `${senderName} à accepter ta demande !`,
-        })
-      }
+    const linkRef = doc(db, COLLECTIONS.LINKS, linkId);
+    const linkDoc = await getDoc(linkRef);
+    
+    if (!linkDoc.exists()) {
+      throw new Error("Le lien n'existe pas");
     }
+
+    const linkData = linkDoc.data() as Links;
+    const { senderId, receiverId } = linkData;
+
+    // Mettre à jour le statut du lien
+    await updateDoc(linkRef, { 
+      status,
+      updatedDate: Date.now()
+    });
+
+    // Si accepté, ajouter le linkId dans le tableau friends des deux utilisateurs
+    if (status === "accepted") {
+      const senderRef = doc(db, COLLECTIONS.USERS, senderId);
+      const receiverRef = doc(db, COLLECTIONS.USERS, receiverId);
+
+      await Promise.all([
+        updateDoc(senderRef, { 
+          friends: arrayUnion(linkId)
+        }),
+        updateDoc(receiverRef, { 
+          friends: arrayUnion(linkId)
+        })
+      ]);
+
+      // Créer une notification d'acceptation
+      const receiverName = `${receiverFirstName} ${receiverLastName}`;
+      await createNotification({
+        recipientId: senderId,
+        senderId: receiverId,
+        senderName: receiverName,
+        senderAvatarUrl: receiverAvatar || "",
+        type: "connection",
+        title: "Connexion acceptée",
+        message: `${receiverName} a accepté votre demande !`,
+      });
+    }
+
+    return { linkId, status };
   } catch (error) {
     console.error("Erreur lors de la mise à jour du statut :", error);
     throw error;
   }
 };
 
-// Annuler une demande (uniquement par l'expéditeur)
-export const cancelConnectionRequest = async (senderId: string, receiverId: string) => {
+export const cancelConnectionRequest = async (linkId: string) => {
   try {
-    const senderRef = doc(db, COLLECTIONS.USERS, senderId);
-    const receiverRef = doc(db, COLLECTIONS.USERS, receiverId);
+    const linkRef = doc(db, COLLECTIONS.LINKS, linkId);
+    const linkDoc = await getDoc(linkRef);
+    
+    if (!linkDoc.exists()) {
+      throw new Error("Le lien n'existe pas");
+    }
 
-    await Promise.all([
-      updateDoc(senderRef, { [`links.${receiverId}`]: deleteField() }),
-      updateDoc(receiverRef, { [`links.${senderId}`]: deleteField() }),
-    ]);
+    const linkData = linkDoc.data() as Links;
+    
+    // Vérifier que le statut est bien "pending"
+    if (linkData.status !== "pending") {
+      throw new Error("Seules les demandes en attente peuvent être annulées");
+    }
+
+    // Supprimer le document de la collection Links
+    await deleteDoc(linkRef);
   } catch (error) {
     console.error("Erreur lors de l'annulation :", error);
     throw error;
   }
 };
 
-// Supprimer un ami
-export const deleteConnection = async (userId1: string, userId2: string) => {
+export const deleteConnection = async (linkId: string) => {
   try {
-    const user1Ref = doc(db, COLLECTIONS.USERS, userId1);
-    const user2Ref = doc(db, COLLECTIONS.USERS, userId2);
+    const linkRef = doc(db, COLLECTIONS.LINKS, linkId);
+    const linkDoc = await getDoc(linkRef);
+    
+    if (!linkDoc.exists()) {
+      throw new Error("Le lien n'existe pas");
+    }
+
+    const linkData = linkDoc.data() as Links;
+    const { senderId, receiverId } = linkData;
+
+    // Supprimer le linkId du tableau friends des deux utilisateurs
+    const senderRef = doc(db, COLLECTIONS.USERS, senderId);
+    const receiverRef = doc(db, COLLECTIONS.USERS, receiverId);
 
     await Promise.all([
-      updateDoc(user1Ref, { [`links.${userId2}`]: deleteField() }),
-      updateDoc(user2Ref, { [`links.${userId1}`]: deleteField() }),
+      updateDoc(senderRef, { 
+        friends: arrayRemove(linkId)
+      }),
+      updateDoc(receiverRef, { 
+        friends: arrayRemove(linkId)
+      })
     ]);
+
+    // Supprimer le document de la collection Links
+    await deleteDoc(linkRef);
   } catch (error) {
     console.error("Erreur lors de la suppression :", error);
     throw error;

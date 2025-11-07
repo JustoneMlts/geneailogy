@@ -8,5 +8,6 @@ export enum COLLECTIONS {
   FILES = 'Files',
   NOTIFICATIONS = "Notifications",
   CONNEXIONS = "Connexions",
-  AICHAT = 'AiChat'
+  AICHAT = 'AiChat',
+  LINKS = 'Links'
 };

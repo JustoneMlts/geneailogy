@@ -1,7 +1,13 @@
 // lib/redux/slices/connectionsSlice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit"
 import { RootState } from "../store"
-import { UserLink, LinkStatus } from "@/lib/firebase/models"
+import { LinkStatus } from "@/lib/firebase/models"
+
+export interface UserLink {
+  senderId: string
+  receiverId: string
+  status: LinkStatus
+}
 
 interface ConnectionsState {
   links: UserLink[]
@@ -21,34 +27,50 @@ const connectionsSlice = createSlice({
       state.links = action.payload
       state.isLoading = false
     },
+
     clearConnections: (state) => {
       state.links = []
       state.isLoading = false
     },
+
     addConnection: (state, action: PayloadAction<UserLink>) => {
-      // Ajoute une nouvelle connexion (optimiste)
+      // Évite les doublons (peu importe le sens)
       const exists = state.links.some(
         (c) =>
-          c.userId === action.payload.userId &&
-          c.senderId === action.payload.senderId
+          (c.senderId === action.payload.senderId &&
+            c.receiverId === action.payload.receiverId) ||
+          (c.senderId === action.payload.receiverId &&
+            c.receiverId === action.payload.senderId)
       )
       if (!exists) {
         state.links.push(action.payload)
       }
     },
+
     updateConnectionStatusInStore: (
       state,
-      action: PayloadAction<{ userId: string; senderId: string; status: LinkStatus }>
+      action: PayloadAction<{ senderId: string; receiverId: string; status: LinkStatus }>
     ) => {
+      const { senderId, receiverId, status } = action.payload
       state.links = state.links.map((c) =>
-        c.userId === action.payload.userId && c.senderId === action.payload.senderId
-          ? { ...c, status: action.payload.status }
+        (c.senderId === senderId && c.receiverId === receiverId) ||
+        (c.senderId === receiverId && c.receiverId === senderId)
+          ? { ...c, status }
           : c
       )
     },
-    removeConnectionFromStore: (state, action: PayloadAction<{ userId: string; senderId: string }>) => {
+
+    removeConnectionFromStore: (
+      state,
+      action: PayloadAction<{ senderId: string; receiverId: string }>
+    ) => {
+      const { senderId, receiverId } = action.payload
       state.links = state.links.filter(
-        (c) => !(c.userId === action.payload.userId && c.senderId === action.payload.senderId)
+        (c) =>
+          !(
+            (c.senderId === senderId && c.receiverId === receiverId) ||
+            (c.senderId === receiverId && c.receiverId === senderId)
+          )
       )
     },
   },
@@ -61,13 +83,14 @@ export const {
   updateConnectionStatusInStore,
   removeConnectionFromStore,
 } = connectionsSlice.actions
+
 export default connectionsSlice.reducer
 
-// Selectors
+// --- 🔍 Selectors ---
 export const selectConnections = (state: RootState) => state.connections.links
 
 export const selectPendingRequestsCount =
-  (userId: string) => (state: RootState) =>
+  (currentUserId: string) => (state: RootState) =>
     state.connections.links.filter(
-      (c) => c.status === "pending" && c.senderId !== userId
+      (c) => c.status === "pending" && c.receiverId === currentUserId
     ).length

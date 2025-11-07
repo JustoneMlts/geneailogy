@@ -12,10 +12,12 @@ import { useSelector } from "react-redux";
 import { selectUser } from "@/lib/redux/slices/currentUserSlice";
 import { handleGetUserNameInitials } from "@/app/helpers/userHelper";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createFeedPost, listenPostsByUserIds } from "@/app/controllers/feedController";
-import { FeedPostType, UserLink, UserType } from "@/lib/firebase/models";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase/firebase";
+import { 
+  createFeedPost, 
+  listenPostsByUserIds,
+  getUserIdsFromLinkIds 
+} from "@/app/controllers/feedController";
+import { FeedPostType } from "@/lib/firebase/models";
 import { FeedSkeleton } from "./feedSkeleton";
 import { PostCard } from "./postCard";
 import { uploadFileToStorage } from "@/lib/firebase/firebase-functions";
@@ -27,10 +29,11 @@ export const Feed = () => {
   const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [friendsUserIds, setFriendsUserIds] = useState<string[]>([]);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const docInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 🔹 Gestion de l’upload (image ou document)
+  // 🔹 Gestion de l'upload (image ou document)
   const handleFileChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
     type: "image" | "document"
@@ -46,7 +49,7 @@ export const Feed = () => {
       setSelectedFile(file);
       setFileUrl(url);
     } catch (err) {
-      console.error("Erreur lors de l’upload :", err);
+      console.error("Erreur lors de l'upload :", err);
     }
   };
 
@@ -56,55 +59,91 @@ export const Feed = () => {
     setFileUrl(null);
   };
 
-  const acceptedConnectionsIds = useMemo(() => {
-    const linksArray: UserLink[] = Array.isArray(currentUser?.links)
-      ? currentUser.links
-      : Object.values(currentUser?.links ?? {}) as UserLink[];
-
-    return linksArray
-      .filter(link => link.status === "accepted") // plus besoin de "link is UserLink"
-      .map(link => link.userId);
-  }, [currentUser?.links]);
-
-
   useEffect(() => {
-    if (!currentUser?.id) return;
+    console.log("currentUser : ",currentUser)
+  }, [currentUser])
 
-    const userIdsToListen = [currentUser.id, ...acceptedConnectionsIds];
+  // 🔄 ÉTAPE 1 : Convertir les linkIds en userIds (se déclenche à chaque changement de friends)
+  useEffect(() => {
+    console.log("🔄 [1/3] Détection changement currentUser.friends:", currentUser?.friends);
+    
+    if (!currentUser?.id || !currentUser?.friends || currentUser.friends.length === 0) {
+      console.log("❌ Pas de friends, reset friendsUserIds");
+      setFriendsUserIds([]);
+      return;
+    }
 
-    const userIdsSet = new Set(userIdsToListen);
+    let isMounted = true;
 
-    const unsubscribe = listenPostsByUserIds(userIdsToListen, (fetched) => {
-      const filteredPosts = fetched.filter(post => userIdsSet.has(post.author.id));
+    const convertLinkIds = async () => {
+      try {
+        console.log("⏳ Conversion des linkIds en userIds...");
+        const userIds = await getUserIdsFromLinkIds(
+          currentUser.friends!,
+          currentUser.id!
+        );
+        
+        if (isMounted) {
+          console.log("✅ [1/3] friendsUserIds mis à jour:", userIds);
+          setFriendsUserIds(userIds);
+        }
+      } catch (error) {
+        console.error("❌ Erreur conversion linkIds:", error);
+        if (isMounted) {
+          setFriendsUserIds([]);
+        }
+      }
+    };
+
+    convertLinkIds();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.id, currentUser?.friends]); // Se déclenche quand friends change
+
+  // 🎯 ÉTAPE 2 : Calculer les IDs autorisés (moi + mes amis)
+  const authorizedUserIds = useMemo(() => {
+    if (!currentUser?.id) {
+      console.log("❌ [2/3] Pas de currentUser.id");
+      return [];
+    }
+    
+    const result = [currentUser.id, ...friendsUserIds];
+    console.log("✅ [2/3] authorizedUserIds calculés:", result);
+    return result;
+  }, [currentUser?.id, friendsUserIds]);
+
+  // 👂 ÉTAPE 3 : Écouter les posts en temps réel
+  useEffect(() => {
+    console.log("👂 [3/3] Mise à jour du listener avec authorizedUserIds:", authorizedUserIds);
+    
+    if (authorizedUserIds.length === 0) {
+      console.log("⚠️ Aucun userId autorisé, pas de posts à afficher");
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+
+    console.log("🚀 Démarrage du listener pour", authorizedUserIds.length, "utilisateurs");
+    
+    const unsubscribe = listenPostsByUserIds(authorizedUserIds, (fetched) => {
+      // Double filtrage pour s'assurer qu'on affiche uniquement les posts autorisés
+      const authorizedSet = new Set(authorizedUserIds);
+      const filteredPosts = fetched.filter(post => authorizedSet.has(post.author.id));
+
+      console.log("📮 Posts reçus:", filteredPosts.length, "posts");
       setPosts(filteredPosts);
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [currentUser?.id, acceptedConnectionsIds]);
-  // 🔹 Récupération des posts de l'utilisateur + ses amis
-  useEffect(() => {
-    if (!currentUser?.id) return;
+    return () => {
+      console.log("🛑 Nettoyage du listener");
+      unsubscribe();
+    };
+  }, [authorizedUserIds]); // Se déclenche quand authorizedUserIds change
 
-    const linksArray: UserLink[] = Array.isArray(currentUser.links)
-      ? currentUser.links
-      : (Object.values(currentUser.links ?? []) as UserLink[]);
-
-    const acceptedConnectionsIds = linksArray
-      .filter((link) => link.status === "accepted")
-      .map((link) => link.userId ?? link.senderId);
-    console.log("acceptedConnectionsIds: ", acceptedConnectionsIds)
-    const userIdsToListen = [currentUser.id, ...acceptedConnectionsIds];
-
-    const unsubscribe = listenPostsByUserIds(userIdsToListen, (fetched) => {
-      setPosts(fetched);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [currentUser]);
-
-  // 🔹 Création d’un post
+  // 🔹 Création d'un post
   const handleSubmitInput = async () => {
     if (!currentUser?.id || (!postMessage.trim() && !fileUrl)) return;
 
@@ -188,7 +227,6 @@ export const Feed = () => {
                                   alt="aperçu"
                                   className="rounded-lg border border-gray-200 shadow-sm max-w-28 max-h-32 object-cover"
                                 />
-                                {/* Bouton croix placé correctement */}
                                 <button
                                   onClick={handleRemoveFile}
                                   className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100 transition"
@@ -206,7 +244,6 @@ export const Feed = () => {
                                 >
                                   {selectedFile?.name}
                                 </a>
-                                {/* Croix pour les documents aussi */}
                                 <button
                                   onClick={handleRemoveFile}
                                   className="absolute top-1 right-1 bg-white rounded-full p-1 shadow-md hover:bg-gray-100 transition"
@@ -282,9 +319,16 @@ export const Feed = () => {
                 {loading ? (
                   <FeedSkeleton />
                 ) : posts.length === 0 ? (
-                  <p className="text-gray-500 text-center py-10">
-                    Aucun post pour le moment.
-                  </p>
+                  <Card className="p-12 text-center bg-white/80">
+                    <p className="text-xl font-semibold text-gray-700 mb-2">
+                      Aucun post pour le moment
+                    </p>
+                    <p className="text-gray-500">
+                      {friendsUserIds.length === 0 
+                        ? "Ajoutez des amis pour voir leur contenu !" 
+                        : "Soyez le premier à partager quelque chose !"}
+                    </p>
+                  </Card>
                 ) : (
                   posts.map((post) => (
                     <PostCard
