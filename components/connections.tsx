@@ -71,7 +71,7 @@ export const Connections = () => {
     // 🔔 Marquer les notifs "connection" comme lues
     useEffect(() => {
         if (!currentUser?.id) return
-        if (notifications.some(n => n.type === "connection" && n.unread)) {
+        if (notifications.some((n: { type: string; unread: any }) => n.type === "connection" && n.unread)) {
             dispatch(markConnectionNotificationsAsRead())
             markConnectionNotificationsAsReadInDB(currentUser.id).catch(console.error)
         }

@@ -13,6 +13,7 @@ import {
   listenConversationMessages,
   sendMessage as sendMessageCtrl,
   markConversationAsRead,
+  createOrGetConversation,
 } from "@/app/controllers/messagesController"
 import { ConversationType, MessageType, UserType, ConversationParticipant } from "@/lib/firebase/models"
 import { handleGetUserNameInitials } from "@/app/helpers/userHelper"
@@ -26,13 +27,23 @@ import {
   Smile,
   Paperclip,
   ThumbsUp,
-  MessageCircle
+  MessageCircle,
+  ArrowLeft
 } from "lucide-react"
 import { markMessagesNotificationsAsRead } from "@/app/controllers/notificationsController"
 import MessagesSkeleton from "./messagesSkeleton"
+import { getUsersByIds } from "@/app/controllers/usersController"
 
 interface MessageWithAvatar extends MessageType {
   showAvatar: boolean
+}
+
+// Interface simplifiée pour les contacts
+interface SimpleContact {
+  id: string
+  firstName: string
+  lastName: string
+  avatarUrl?: string
 }
 
 export const DirectMessages: React.FC = () => {
@@ -43,8 +54,39 @@ export const DirectMessages: React.FC = () => {
   const [queryText, setQueryText] = useState<string>("")
   const [messageText, setMessageText] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false)
+  const [friends, setFriends] = useState<SimpleContact[]>([])
+  const [isLoadingFriends, setIsLoadingFriends] = useState<boolean>(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const hasSelectedInitial = useRef(false)
+
+  // ✅ Charger les amis au montage
+  useEffect(() => {
+    if (!currentUser?.friends || currentUser.friends.length === 0) return
+
+    setIsLoadingFriends(true)
+    getUsersByIds(currentUser.friends)
+      .then((users) => {
+        // On ne garde que les infos essentielles et on filtre les users sans ID
+        const simpleContacts: SimpleContact[] = users
+          .filter((u) => u.id) // Filtrer ceux qui n'ont pas d'ID
+          .map((u) => ({
+            id: u.id!,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            avatarUrl: u.avatarUrl,
+          }))
+        setFriends(simpleContacts)
+      })
+      .catch((err) => console.error("Erreur chargement amis:", err))
+      .finally(() => setIsLoadingFriends(false))
+  }, [currentUser?.id])
+
+  // ✅ Marquer toutes les notifications "message" comme lues à l'ouverture
+  useEffect(() => {
+    if (!currentUser?.id) return
+    markMessagesNotificationsAsRead(currentUser.id)
+  }, [currentUser?.id])
 
   // ✅ Marquer toutes les notifications "message" comme lues à l'ouverture
   useEffect(() => {
@@ -156,6 +198,16 @@ export const DirectMessages: React.FC = () => {
     })
   }, [conversations, queryText, currentUser?.id])
 
+  // ✅ Filtrage des amis (tous les contacts)
+  const filteredFriends = useMemo<SimpleContact[]>(() => {
+    if (!queryText.trim()) return friends
+    const q = queryText.toLowerCase()
+    return friends.filter((friend) => {
+      const fullName = `${friend.firstName} ${friend.lastName}`.toLowerCase()
+      return fullName.includes(q)
+    })
+  }, [friends, queryText])
+
   // ✅ Format date
   const formatLastMessageTime = (timestamp?: number): string => {
     if (!timestamp) return ""
@@ -176,87 +228,189 @@ export const DirectMessages: React.FC = () => {
     }
   }
 
+  // ✅ Démarrer une conversation avec un ami
+  const handleStartConversation = async (friend: SimpleContact): Promise<void> => {
+    if (!currentUser?.id) return
+
+    try {
+      // Créer ou récupérer la conversation existante
+      const conversation = await createOrGetConversation(currentUser.id, friend.id, {
+        firstName: friend.firstName,
+        lastName: friend.lastName,
+        avatarUrl: friend.avatarUrl,
+      })
+
+      // Sélectionner cette conversation
+      setSelectedConversation(conversation)
+
+      // Réinitialiser la recherche
+      setQueryText("")
+      setIsSearchFocused(false)
+    } catch (err) {
+      console.error("Erreur création conversation:", err)
+    }
+  }
+
+  // ✅ Gestion du focus de la recherche
+  const handleSearchFocus = () => {
+    setIsSearchFocused(true)
+  }
+
+  const handleSearchBlur = () => {
+    // Petit délai pour permettre le clic sur un contact
+    setTimeout(() => {
+      if (!queryText.trim()) {
+        setIsSearchFocused(false)
+      }
+    }, 200)
+  }
+
+  const handleBackToConversations = () => {
+    setQueryText("")
+    setIsSearchFocused(false)
+  }
+
   return (
     <div className="h-screen overflow-y-hidden flex flex-col">
       {isLoading && <MessagesSkeleton />}
 
       <div className="flex-1 flex overflow-hidden w-full p-6 gap-4">
-        {/* ✅ Liste des conversations */}
+        {/* ✅ Liste des conversations / contacts */}
         <div className="w-full md:w-96 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl flex flex-col h-5/6 overflow-y-auto border border-white/20">
           <div className="p-6 border-b border-gray-200/50 bg-white/50">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-3">
-              Messages
-            </h1>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Rechercher dans Messenger"
-                value={queryText}
-                onChange={(e) => setQueryText(e.target.value)}
-                className="pl-10 bg-white/70 border-0 focus:bg-white focus:ring-2 focus:ring-blue-500 rounded-full shadow-sm"
-              />
+            <div className="flex items-center gap-3 mb-3">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                {isSearchFocused ? "Rechercher" : "Messages"}
+              </h1>
+            </div>
+            <div className="flex">
+              {isSearchFocused && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleBackToConversations}
+                  className="rounded-full"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+              )}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Rechercher dans Messenger"
+                  value={queryText}
+                  onChange={(e) => setQueryText(e.target.value)}
+                  onFocus={handleSearchFocus}
+                  onBlur={handleSearchBlur}
+                  className="pl-10 bg-white/70 border-0 focus:bg-white focus:ring-2 focus:ring-blue-500 rounded-full shadow-sm"
+                />
+              </div>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {filteredConversations.length === 0 ? (
-              <div className="text-center py-12 px-4">
-                <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 font-medium">Aucune conversation</p>
-                <p className="text-gray-400 text-sm mt-1">Commencez à discuter avec vos connexions</p>
-              </div>
-            ) : (
-              filteredConversations.map((conv) => {
-                const other = getOtherParticipant(conv)
-                if (!other) return null
-                const isSelected = selectedConversation?.id === conv.id
-
-                // ✨ Utilisation du champ hasUnreadMessages + vérification que ce n'est pas l'user actuel qui a envoyé
-                const hasUnread = conv.hasUnreadMessages && conv.lastSenderId !== currentUser?.id
-
-                const displayName = `${other.firstName} ${other.lastName}`
-
-                return (
-                  <div
-                    key={conv.id}
-                    className={`px-4 py-3 hover:bg-white/50 cursor-pointer transition-all relative rounded-xl mx-2 my-1 ${
-                      isSelected ? "bg-gradient-to-r from-blue-50 to-purple-50 shadow-md" : ""
-                    }`}
-                    onClick={() => setSelectedConversation(conv)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <Avatar className="w-14 h-14">
-                          <AvatarImage src={other.avatarUrl || "/placeholder.svg"} />
-                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
-                            {displayName[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <h3 className={`text-sm truncate ${hasUnread ? "font-bold" : "font-semibold"}`}>
-                            {displayName}
-                          </h3>
-                          <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                            {formatLastMessageTime(conv.updatedDate)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <p className={`text-sm truncate flex-1 ${hasUnread ? "font-semibold text-gray-900" : "text-gray-500"}`}>
-                            {conv.lastMessage || "Démarrer la conversation"}
-                          </p>
-                          {hasUnread && (
-                            <div className="w-3 h-3 bg-blue-600 rounded-full flex-shrink-0"></div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+            {/* Mode recherche : afficher tous les contacts */}
+            {isSearchFocused ? (
+              <>
+                {isLoadingFriends ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+                    <p className="text-gray-500 text-sm mt-3">Chargement des contacts...</p>
                   </div>
-                )
-              })
+                ) : filteredFriends.length === 0 ? (
+                  <div className="text-center py-12 px-4">
+                    <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 font-medium">Aucun contact trouvé</p>
+                    <p className="text-gray-400 text-sm mt-1">Essayez une autre recherche</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
+                      Vos contacts
+                    </div>
+                    {filteredFriends.map((friend) => (
+                      <div
+                        key={friend.id}
+                        className="px-4 py-3 hover:bg-white/50 cursor-pointer transition-all rounded-xl mx-2 my-1"
+                        onClick={() => handleStartConversation(friend)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar className="w-12 h-12">
+                            <AvatarImage src={friend.avatarUrl || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
+                              {friend.firstName[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold truncate">
+                              {friend.firstName} {friend.lastName}
+                            </h3>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Mode normal : afficher les conversations */
+              <>
+                {filteredConversations.length === 0 ? (
+                  <div className="text-center py-12 px-4">
+                    <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 font-medium">Aucune conversation</p>
+                    <p className="text-gray-400 text-sm mt-1">Commencez à discuter avec vos connexions</p>
+                  </div>
+                ) : (
+                  filteredConversations.map((conv) => {
+                    const other = getOtherParticipant(conv)
+                    if (!other) return null
+                    const isSelected = selectedConversation?.id === conv.id
+                    const hasUnread = conv.hasUnreadMessages && conv.lastSenderId !== currentUser?.id
+                    const displayName = `${other.firstName} ${other.lastName}`
+
+                    return (
+                      <div
+                        key={conv.id}
+                        className={`px-4 py-3 hover:bg-white/50 cursor-pointer transition-all relative rounded-xl mx-2 my-1 ${isSelected ? "bg-gradient-to-r from-blue-50 to-purple-50 shadow-md" : ""
+                          }`}
+                        onClick={() => setSelectedConversation(conv)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <Avatar className="w-14 h-14">
+                              <AvatarImage src={other.avatarUrl || "/placeholder.svg"} />
+                              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
+                                {displayName[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className={`text-sm truncate ${hasUnread ? "font-bold" : "font-semibold"}`}>
+                                {displayName}
+                              </h3>
+                              <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                                {formatLastMessageTime(conv.updatedDate)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <p className={`text-sm truncate flex-1 ${hasUnread ? "font-semibold text-gray-900" : "text-gray-500"}`}>
+                                {conv.lastMessage || "Démarrer la conversation"}
+                              </p>
+                              {hasUnread && (
+                                <div className="w-3 h-3 bg-blue-600 rounded-full flex-shrink-0"></div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </>
             )}
           </div>
         </div>
@@ -316,11 +470,9 @@ export const DirectMessages: React.FC = () => {
                     return (
                       <div
                         key={m.id}
-                        className={`flex items-end gap-2 ${
-                          isCurrentUser ? "justify-end" : "justify-start"
-                        }`}
+                        className={`flex items-end gap-2 ${isCurrentUser ? "justify-end" : "justify-start"
+                          }`}
                       >
-                        {/* Avatar à gauche pour les autres */}
                         {!isCurrentUser && isLastInGroup && sender && (
                           <Avatar className="w-7 h-7 mb-1">
                             <AvatarImage src={sender.avatarUrl || "/placeholder.svg"} />
@@ -328,17 +480,14 @@ export const DirectMessages: React.FC = () => {
                           </Avatar>
                         )}
 
-                        {/* Espace pour aligner les messages groupés */}
                         {!isCurrentUser && !isLastInGroup && <div className="w-7"></div>}
 
-                        {/* Message bubble */}
                         <div className={`max-w-[70%] ${isCurrentUser ? "items-end" : "items-start"} flex flex-col`}>
                           <div
-                            className={`px-4 py-2 break-words ${
-                              isCurrentUser
-                                ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-3xl rounded-br-md"
-                                : "bg-gray-100 text-gray-900 rounded-3xl rounded-bl-md"
-                            }`}
+                            className={`px-4 py-2 break-words ${isCurrentUser
+                              ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-3xl rounded-br-md"
+                              : "bg-gray-100 text-gray-900 rounded-3xl rounded-bl-md"
+                              }`}
                           >
                             <p className="text-sm leading-relaxed">{m.text}</p>
                           </div>

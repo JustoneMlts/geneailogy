@@ -13,8 +13,10 @@ import {
   where,
   writeBatch,
   arrayUnion,
+  setDoc,
 } from "firebase/firestore";
 import { ConversationType, MessageType, ConversationParticipant } from "@/lib/firebase/models";
+import { getUserById } from "./usersController";
 
 // Créer ou mettre à jour une conversation
 export const createOrUpdateConversation = async (
@@ -64,6 +66,56 @@ export const createOrUpdateConversation = async (
     throw err;
   }
 };
+
+export const createOrGetConversation = async (
+  currentUserId: string,
+  otherUserId: string,
+  otherUserInfo: { firstName: string; lastName: string; avatarUrl?: string }
+): Promise<ConversationType> => {
+  // Vérifier si une conversation existe déjà entre ces deux utilisateurs
+  const q = query(
+    collection(db, "Conversations"),
+    where("participantIds", "array-contains", currentUserId)
+  )
+  
+  const snapshot = await getDocs(q)
+  const existingConv = snapshot.docs
+    .map(doc => doc.data() as ConversationType)
+    .find(conv => conv.participantIds?.includes(otherUserId))
+  
+  if (existingConv) {
+    return existingConv
+  }
+  
+  // Créer une nouvelle conversation
+  const newConvRef = doc(collection(db, "Conversations"))
+  const currentUserInfo = await getUserById(currentUserId)
+  
+  const newConv: ConversationType = {
+    id: newConvRef.id,
+    participantIds: [currentUserId, otherUserId],
+    participants: [
+      {
+        userId: currentUserId,
+        firstName: currentUserInfo ? currentUserInfo.firstName : "",
+        lastName: currentUserInfo ? currentUserInfo.lastName : "",
+        avatarUrl: currentUserInfo ? currentUserInfo.avatarUrl : "",
+      },
+      {
+        userId: otherUserId,
+        firstName: otherUserInfo.firstName,
+        lastName: otherUserInfo.lastName,
+        avatarUrl: otherUserInfo.avatarUrl,
+      }
+    ],
+    createdDate: Date.now(),
+    updatedDate: Date.now(),
+    hasUnreadMessages: false,
+  }
+  
+  await setDoc(newConvRef, newConv)
+  return newConv
+}
 
 // Envoyer un message
 export const sendMessage = async (
