@@ -30,29 +30,38 @@ export default function ProfilePage() {
   const currentUser = useSelector(selectUser);
   const [openAlert, setOpenAlert] = useState(false);
   const [isError, setIsError] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const dispatch = useDispatch();
 
   const [vertical, setVertical] = useState<"top" | "bottom">("bottom")
   const [horizontal, setHorizontal] = useState<"left" | "center" | "right">("center")
   const [member, setMember] = useState<MemberType | null>()
-  const hasFetched = useRef(false)
 
+  // ✅ Chargement du member - une seule fois par utilisateur
   useEffect(() => {
-    if (!currentUser?.id || hasFetched.current) return
-    hasFetched.current = true
+    if (!currentUser?.id) return
 
-      ; (async () => {
-        try {
-          if (currentUser && currentUser.id) {
-            const data = await getMemberById(currentUser.id)
+    let isMounted = true
+
+    const fetchMember = async () => {
+      try {
+        if (currentUser && currentUser.id) {
+          const data = await getMemberById(currentUser.id)
+          if (isMounted) {
             setMember(data ?? null)
           }
-
-        } catch (err) {
-          console.error("Erreur lors du chargement du member :", err)
         }
-      })()
-  }, [currentUser])
+      } catch (err) {
+        console.error("Erreur lors du chargement du member :", err)
+      }
+    }
+
+    fetchMember()
+
+    return () => {
+      isMounted = false
+    }
+  }, [currentUser?.id])
 
   const [notifications, setNotifications] = useState({
     email: true,
@@ -81,25 +90,24 @@ export default function ProfilePage() {
     researchInterests?: string
   }
 
+  // ✅ État initial vide pour éviter les problèmes de synchronisation
   const [formData, setFormData] = useState<FormData>({
-    firstName: currentUser?.firstName ?? "",
-    lastName: currentUser?.lastName ?? "",
-    email: currentUser?.email ?? "",
-    birthDate: currentUser?.birthDate
-      ? new Date(currentUser.birthDate).toISOString().split("T")[0]
-      : "",
-    bio: currentUser?.bio ?? "",
-    phoneNumber: currentUser?.phoneNumber ?? "",
-    localisation: currentUser?.localisation ?? "",
-    links: currentUser?.links ?? [],
-    familyOrigin: currentUser?.familyOrigin ?? "",
-    oldestAncestor: currentUser?.oldestAncestor ?? "",
-    researchInterests: currentUser?.researchInterests ?? "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    birthDate: "",
+    bio: "",
+    phoneNumber: "",
+    localisation: "",
+    links: [],
+    familyOrigin: "",
+    oldestAncestor: "",
+    researchInterests: "",
   });
 
-  // ✅ Synchronise formData avec currentUser uniquement au premier rendu
+  // ✅ Synchronise formData avec currentUser - se déclenche uniquement quand l'ID change
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser?.id) {
       setFormData({
         firstName: currentUser.firstName ?? "",
         lastName: currentUser.lastName ?? "",
@@ -116,10 +124,18 @@ export default function ProfilePage() {
         researchInterests: currentUser.researchInterests ?? "",
       })
     }
-  }, []) // ⚠️ Tableau vide = une seule fois
+  }, [currentUser?.id])
 
   const handleSubmit = async () => {
-    if (!currentUser?.id) return console.error("User non identifié")
+    if (!currentUser?.id) {
+      console.error("User non identifié")
+      return
+    }
+
+    // ✅ Empêche les doubles soumissions
+    if (isSaving) return
+
+    setIsSaving(true)
 
     try {
       // Mise à jour du User
@@ -171,6 +187,8 @@ export default function ProfilePage() {
       console.error("Erreur lors de la mise à jour :", error)
       setIsError(true)
       setOpenAlert(true)
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -553,9 +571,10 @@ export default function ProfilePage() {
               <Button
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                 onClick={handleSubmit}
+                disabled={isSaving}
               >
                 <Save className="mr-2 h-4 w-4" />
-                Enregistrer les modifications
+                {isSaving ? "Enregistrement..." : "Enregistrer les modifications"}
               </Button>
             </div>
 

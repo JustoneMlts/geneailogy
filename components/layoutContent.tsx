@@ -37,6 +37,10 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
     if (currentUser) setIsLoading(false)
   }, [currentUser])
 
+  useEffect(() => {
+    console.log("le couteau il est gaillard")
+  }, [])
+
   if (shouldHideHeader) {
     return (
       <div className="min-h-screen w-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
