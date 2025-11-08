@@ -137,7 +137,6 @@ export const markMessagesNotificationsAsRead = async (userId: string) => {
 
     const snap = await getDocs(q)
     if (snap.empty) {
-      console.log("📭 Aucune notification de message non lue")
       return
     }
 

@@ -114,13 +114,20 @@ export interface ConversationType {
   hasUnreadMessages?: boolean
 }
 
-// Message
+export interface Attachment {
+  id?: string        // optionnel, si tu veux générer un ID pour chaque fichier
+  url: string        // URL du fichier stocké (Firebase Storage / S3 / etc.)
+  name: string       // nom original du fichier
+  type: "image" | "pdf" // type du fichier
+  size?: number      // taille en octets
+}
+
 export interface MessageType {
   id?: string
   conversationId: string
   senderId: string
   text?: string
-  mediaUrl?: string
+  attachments?: Attachment[] // tableau pour stocker plusieurs fichiers
   createdDate: number
   isRead?: boolean
   readBy?: string[] // userIds qui ont lu le message

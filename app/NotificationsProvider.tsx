@@ -181,8 +181,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (!user?.id || !isInitializedRef.current) return
 
-    console.log("🔍 Setting up messages listener for userId:", user.id)
-
     const messagesQuery = query(
       collection(db, "Messages"),
       orderBy("createdDate", "desc")

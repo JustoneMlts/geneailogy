@@ -1,7 +1,7 @@
 import { addDocumentToCollection, getAllDataFromCollectionWithWhereArray, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
 import { COLLECTIONS } from "@/lib/firebase/collections";
 import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from "firebase/firestore";
-import { db, storage  } from "@/lib/firebase/firebase";
+import { db, storage } from "@/lib/firebase/firebase";
 import { Links, LinkStatus, MemberType, TreeType, UserLink, UserType } from "@/lib/firebase/models";
 import { createOrReplaceAvatar } from "./filesController";
 import { createNotification } from "./notificationsController"
@@ -166,6 +166,7 @@ export const getUserById = async (id: string): Promise<UserType | null> => {
 }
 
 export const getUsersByIds = async (userIds: string[]): Promise<UserType[]> => {
+  console.log("getUsersByIds called with:", userIds)
   if (userIds.length === 0) return []
 
   const q = query(collection(db, "Users"), where("id", "in", userIds))
@@ -182,6 +183,21 @@ export const updateUserEmail = async (userId: string, newEmail: string) => {
   } catch (error) {
     console.error("❌ Error updating email:", error);
   }
+};
+
+export const getUsersByFriendsIds = async (friendsIds: string[]): Promise<UserType[]> => {
+  console.log("getUsersByFriendsIds called with:", friendsIds);
+  if (!friendsIds || friendsIds.length === 0) return [];
+
+  const users: UserType[] = [];
+
+  for (const friendId of friendsIds) {
+    const user = await getUserById(friendId);
+    if (user) users.push(user);
+  }
+
+  console.log("getUsersByFriendsIds result:", users);
+  return users;
 };
 
 export const updateUserAvatar = async (file: File, userId: string): Promise<string | null> => {
@@ -271,7 +287,7 @@ export const sendConnectionRequest = async (
   try {
     // Créer un nouveau document dans la collection Links
     const linksCollection = collection(db, COLLECTIONS.LINKS);
-    
+
     const newLink: Omit<Links, 'linkId'> = {
       senderId,
       receiverId,
@@ -282,7 +298,7 @@ export const sendConnectionRequest = async (
 
     // ⚠️ CORRECTION : Un seul addDoc au lieu de deux
     const linkDocRef = await addDoc(linksCollection, newLink);
-    
+
     // Créer la notification
     const senderName = `${senderFirstName} ${senderLastName}`;
     await createNotification({
@@ -312,7 +328,7 @@ export const updateConnectionStatus = async (
   try {
     const linkRef = doc(db, COLLECTIONS.LINKS, linkId);
     const linkDoc = await getDoc(linkRef);
-    
+
     if (!linkDoc.exists()) {
       throw new Error("Le lien n'existe pas");
     }
@@ -321,7 +337,7 @@ export const updateConnectionStatus = async (
     const { senderId, receiverId } = linkData;
 
     // Mettre à jour le statut du lien
-    await updateDoc(linkRef, { 
+    await updateDoc(linkRef, {
       status,
       updatedDate: Date.now()
     });
@@ -332,11 +348,11 @@ export const updateConnectionStatus = async (
       const receiverRef = doc(db, COLLECTIONS.USERS, receiverId);
 
       await Promise.all([
-        updateDoc(senderRef, { 
-          friends: arrayUnion(linkId)
+        updateDoc(senderRef, {
+          friends: arrayUnion(receiverId)
         }),
-        updateDoc(receiverRef, { 
-          friends: arrayUnion(linkId)
+        updateDoc(receiverRef, {
+          friends: arrayUnion(senderId)
         })
       ]);
 
@@ -364,13 +380,13 @@ export const cancelConnectionRequest = async (linkId: string) => {
   try {
     const linkRef = doc(db, COLLECTIONS.LINKS, linkId);
     const linkDoc = await getDoc(linkRef);
-    
+
     if (!linkDoc.exists()) {
       throw new Error("Le lien n'existe pas");
     }
 
     const linkData = linkDoc.data() as Links;
-    
+
     // Vérifier que le statut est bien "pending"
     if (linkData.status !== "pending") {
       throw new Error("Seules les demandes en attente peuvent être annulées");
@@ -388,7 +404,7 @@ export const deleteConnection = async (linkId: string) => {
   try {
     const linkRef = doc(db, COLLECTIONS.LINKS, linkId);
     const linkDoc = await getDoc(linkRef);
-    
+
     if (!linkDoc.exists()) {
       throw new Error("Le lien n'existe pas");
     }
@@ -401,10 +417,10 @@ export const deleteConnection = async (linkId: string) => {
     const receiverRef = doc(db, COLLECTIONS.USERS, receiverId);
 
     await Promise.all([
-      updateDoc(senderRef, { 
+      updateDoc(senderRef, {
         friends: arrayRemove(linkId)
       }),
-      updateDoc(receiverRef, { 
+      updateDoc(receiverRef, {
         friends: arrayRemove(linkId)
       })
     ]);
@@ -476,14 +492,14 @@ export const addConversationToUser = async (userId: string, conversationId: stri
   try {
     const userRef = doc(db, "Users", userId);
     const userSnap = await getDoc(userRef);
-    
+
     if (!userSnap.exists()) {
       console.error("Utilisateur non trouvé");
       return;
     }
 
     const currentConversations = userSnap.data()?.conversationsIds || [];
-    
+
     // Éviter les doublons
     if (!currentConversations.includes(conversationId)) {
       await updateDoc(userRef, {

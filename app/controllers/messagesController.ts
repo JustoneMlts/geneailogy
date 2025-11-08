@@ -68,54 +68,43 @@ export const createOrUpdateConversation = async (
 };
 
 export const createOrGetConversation = async (
-  currentUserId: string,
-  otherUserId: string,
-  otherUserInfo: { firstName: string; lastName: string; avatarUrl?: string }
-): Promise<ConversationType> => {
-  // Vérifier si une conversation existe déjà entre ces deux utilisateurs
-  const q = query(
-    collection(db, "Conversations"),
-    where("participantIds", "array-contains", currentUserId)
-  )
-  
-  const snapshot = await getDocs(q)
-  const existingConv = snapshot.docs
-    .map(doc => doc.data() as ConversationType)
-    .find(conv => conv.participantIds?.includes(otherUserId))
-  
+  userId1: string,
+  userId2: string,
+  otherUserData?: { firstName: string; lastName: string; avatarUrl?: string }
+) => {
+  const convRef = collection(db, "Conversations");
+
+  // 🔍 Chercher une conversation existante entre ces deux participants
+  const q = query(convRef, where("participantIds", "array-contains", userId1));
+  const snapshot = await getDocs(q);
+
+  let existingConv = snapshot.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }))
+    .find((conv: any) => conv.participantIds?.includes(userId2));
+
   if (existingConv) {
-    return existingConv
+    console.log("✅ Conversation déjà existante:", existingConv);
+    return existingConv; // ✅ avec id
   }
-  
-  // Créer une nouvelle conversation
-  const newConvRef = doc(collection(db, "Conversations"))
-  const currentUserInfo = await getUserById(currentUserId)
-  
-  const newConv: ConversationType = {
-    id: newConvRef.id,
-    participantIds: [currentUserId, otherUserId],
+
+  // ❌ pas trouvée → on la crée
+  const newConv = {
+    participantIds: [userId1, userId2],
     participants: [
-      {
-        userId: currentUserId,
-        firstName: currentUserInfo ? currentUserInfo.firstName : "",
-        lastName: currentUserInfo ? currentUserInfo.lastName : "",
-        avatarUrl: currentUserInfo ? currentUserInfo.avatarUrl : "",
-      },
-      {
-        userId: otherUserId,
-        firstName: otherUserInfo.firstName,
-        lastName: otherUserInfo.lastName,
-        avatarUrl: otherUserInfo.avatarUrl,
-      }
+      { userId: userId1 },
+      { userId: userId2, ...otherUserData },
     ],
     createdDate: Date.now(),
     updatedDate: Date.now(),
+    lastMessage: "",
+    lastSenderId: null,
     hasUnreadMessages: false,
-  }
-  
-  await setDoc(newConvRef, newConv)
-  return newConv
-}
+    isActive: true,
+  };
+
+  const docRef = await addDoc(convRef, newConv);
+  return { id: docRef.id, ...newConv }; // ✅ inclure id ici
+};
 
 // Envoyer un message
 export const sendMessage = async (
