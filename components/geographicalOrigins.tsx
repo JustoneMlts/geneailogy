@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Globe } from "lucide-react";
 import { getMembersBirthPlaces } from "@/app/controllers/membersController";
+import { MemberType } from "@/lib/firebase/models";
 
 // Typage pour les points de naissance
 interface BirthPlacePoint {
@@ -93,12 +94,42 @@ const colorPalette = [
   "#6366F1", // indigo-500
 ];
 
-const GeographicalOrigins: React.FC = () => {
+interface GeographicalOriginsProps {
+  members: MemberType[];
+}
+
+const GeographicalOrigins: React.FC<GeographicalOriginsProps> = ({ members }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [birthPlaces, setBirthPlaces] = useState<BirthPlacePoint[]>([]);
 
+  useEffect(() => {
+    if (!members || members.length === 0) {
+      setBirthPlaces([]);
+      return;
+    }
+  
+    setIsLoading(true);
+  
+    // Transformer les members en birthPlaces exploitables
+    const mapped = members
+      .filter(m => m.id && m.birthPlace?.latitude && m.birthPlace?.longitude)
+      .map(m => ({
+        id: m.id as string,
+        firstName: m.firstName,
+        lastName: m.lastName,
+        birthPlace: {
+          lat: m.birthPlace?.latitude ?? 0,
+          lng: m.birthPlace?.longitude ?? 0,
+          city: m.birthPlace?.city ?? "",
+          country: m.birthPlace?.country ?? "",
+        },
+      }));
+  
+    setBirthPlaces(mapped);
+    setIsLoading(false);
+  }, [members]);
   // Calculer les statistiques par pays
   const locationStats: LocationStats[] = React.useMemo(() => {
     if (birthPlaces.length === 0) return [];
@@ -122,34 +153,17 @@ const GeographicalOrigins: React.FC = () => {
       .sort((a, b) => b.count - a.count);
   }, [birthPlaces]);
 
-  // Récupérer les birthPlaces depuis Firestore
-  useEffect(() => {
-    const fetchBirthPlaces = async () => {
-      try {
-        setIsLoading(true);
-        const data = await getMembersBirthPlaces();
-        setBirthPlaces(data);
-      } catch (error) {
-        console.error("Erreur lors de la récupération des birthPlaces :", error);
-        setBirthPlaces([]); // Fallback sur un tableau vide en cas d'erreur
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchBirthPlaces();
-  }, []);
-
   // Initialisation de la carte Leaflet
   const initMap = () => {
     if (!mapRef.current || map || !window.L || birthPlaces.length === 0) return;
 
     try {
 
-    const container = mapRef.current as any;
-    if (container._leaflet_id) {
-      container._leaflet_id = null;
-    }
-      
+      const container = mapRef.current as any;
+      if (container._leaflet_id) {
+        container._leaflet_id = null;
+      }
+
       const newMap = window.L.map(mapRef.current);
 
       window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {

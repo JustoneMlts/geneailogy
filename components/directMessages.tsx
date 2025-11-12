@@ -340,7 +340,7 @@ export const DirectMessages: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="flex-1 flex overflow-hidden w-full md:p-6 md:gap-4"
+            className="flex-1 flex overflow-hidden w-full md:p-6 md:gap-4 no-scrollbar"
           >
             <div className="flex-1 flex overflow-hidden w-full md:p-6 md:gap-4">
               {/* Liste des conversations - cachée sur mobile si conversation sélectionnée */}

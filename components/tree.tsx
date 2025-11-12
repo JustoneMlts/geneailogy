@@ -1399,7 +1399,9 @@ export const Tree = ({ userId }: { userId?: string }) => {
             <div className="w-full max-w-full">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-slide-up animate-stagger-3">
                     <div className="h-[650px]">
-                        <GeographicalOrigins />
+                        {members && 
+                            <GeographicalOrigins members={members}/>
+                        }
                     </div>
                     {members &&
                         <div className="h-[650px]">

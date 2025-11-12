@@ -97,7 +97,6 @@ export const getMembersByTreeId = async (treeId: string): Promise<MemberType[]> 
       .map(id => batches.find(m => m.id === id))
       .filter(Boolean) as MemberType[];
 
-    console.log("sortedMembers", sortedMembers)
     return sortedMembers;
   } catch (error) {
     console.error("❌ Error getMembersByTreeId:", error);

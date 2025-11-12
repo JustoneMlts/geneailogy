@@ -8,7 +8,9 @@ import { MemberType, LocationData, TreeType } from "../../lib/firebase/models";
 import {
   addDoc, arrayUnion, collection, doc, getDoc, getDocs,
   updateDoc, arrayRemove, deleteDoc,
-  setDoc
+  setDoc,
+  query,
+  where
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 
@@ -256,7 +258,7 @@ function isSameLocation(a: LocationData, b: LocationData): boolean {
   );
 }
 
-async function cleanTreeAfterMemberRemoval(treeId: string, removedMember: MemberType) {
+export async function cleanTreeAfterMemberRemoval(treeId: string, removedMember: MemberType) {
   const treeRef = doc(db, COLLECTIONS.TREES, treeId);
   const membersSnap = await getDocs(collection(db, COLLECTIONS.MEMBERS));
 
@@ -264,6 +266,9 @@ async function cleanTreeAfterMemberRemoval(treeId: string, removedMember: Member
     .map((d) => ({ id: d.id, ...(d.data() as MemberType) }))
     .filter((m) => m.treeId === treeId && m.id !== removedMember.id);
 
+  /* -------------------------------------------------------------------------- */
+  /* 🔹 1. Nettoyage des noms de famille                                        */
+  /* -------------------------------------------------------------------------- */
   if (removedMember.lastName) {
     const lastName = removedMember.lastName.trim();
     const lastNameLower = lastName.toLowerCase();
@@ -277,25 +282,63 @@ async function cleanTreeAfterMemberRemoval(treeId: string, removedMember: Member
     }
   }
 
+  /* -------------------------------------------------------------------------- */
+  /* 🔹 2. Nettoyage des lieux de naissance                                     */
+  /* -------------------------------------------------------------------------- */
   if (removedMember.birthPlace) {
     const stillHasLocation = remainingMembers.some(
       (m) => m.birthPlace && isSameLocation(m.birthPlace, removedMember.birthPlace!)
     );
+
     if (!stillHasLocation) {
-      await updateDoc(treeRef, { locations: arrayRemove(removedMember.birthPlace) });
+      // On supprime l'objet directement du tableau `locations`
+      const treeSnap = await getDoc(treeRef);
+      if (treeSnap.exists()) {
+        const treeData = treeSnap.data();
+        const currentLocations = Array.isArray(treeData.locations)
+          ? treeData.locations
+          : [];
+
+        const updatedLocations = currentLocations.filter(
+          (loc: any) => !isSameLocation(loc, removedMember.birthPlace!)
+        );
+
+        await updateDoc(treeRef, { locations: updatedLocations });
+      }
     }
   }
 
-  // 🔹 Supprimer la nationalité si plus aucun membre ne l'a
+  /* -------------------------------------------------------------------------- */
+  /* 🔹 3. Nettoyage des nationalités                                           */
+  /* -------------------------------------------------------------------------- */
   if (removedMember.nationality) {
-    const stillHasNationality = remainingMembers.some(
-      (m) => m.nationality === removedMember.nationality
-    );
+    const stillHasNationality = remainingMembers.some((m) => {
+      if (Array.isArray(m.nationality)) {
+        return Array.isArray(removedMember.nationality)
+          ? m.nationality.some((n) => removedMember.nationality!.includes(n))
+          : m.nationality.includes(removedMember.nationality as string);
+      } else {
+        return (
+          m.nationality === removedMember.nationality ||
+          (Array.isArray(removedMember.nationality) && m.nationality &&
+            removedMember.nationality.includes(m.nationality))
+        );
+      }
+    });
+
     if (!stillHasNationality) {
-      await updateDoc(treeRef, { origin: arrayRemove(removedMember.nationality) });
+      if (Array.isArray(removedMember.nationality)) {
+        // Supprimer chaque nationalité individuellement
+        for (const nat of removedMember.nationality) {
+          await updateDoc(treeRef, { origin: arrayRemove(nat) });
+        }
+      } else {
+        await updateDoc(treeRef, { origin: arrayRemove(removedMember.nationality) });
+      }
     }
   }
 }
+
 
 export const removeMember = async (memberId: string) => {
   const memberRef = doc(db, COLLECTIONS.MEMBERS, memberId);
@@ -384,37 +427,85 @@ export const cleanAllMembersRelations = async () => {
   await Promise.all(cleanupPromises);
 };
 
-export const getMembersBirthPlaces = async (): Promise<
-  { id: string; firstName: string; lastName: string; birthPlace: { lat: number; lng: number; city?: string; country?: string } }[]
-> => {
-  const snapshot = await getDocs(collection(db, COLLECTIONS.MEMBERS));
-  const birthPlaces: {
+export const getMembersBirthPlaces = async (
+  treeId: string
+): Promise<
+  {
     id: string;
     firstName: string;
     lastName: string;
-    birthPlace: { lat: number; lng: number; city?: string; country?: string };
-  }[] = [];
+    birthPlace: {
+      lat: number;
+      lng: number;
+      city?: string;
+      country?: string;
+    };
+  }[]
+> => {
+  try {
+    // 🔹 Étape 1 : récupérer le document Tree
+    const treeRef = doc(db, COLLECTIONS.TREES, treeId);
+    const treeSnap = await getDoc(treeRef);
 
-  snapshot.forEach((docSnap) => {
-    const data = docSnap.data() as MemberType;
-    if (data.birthPlace && data.birthPlace.latitude && data.birthPlace.longitude) {
-      birthPlaces.push({
-        id: docSnap.id,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        birthPlace: {
-          lat: data.birthPlace.latitude,
-          lng: data.birthPlace.longitude,
-          city: data.birthPlace.city,
-          country: data.birthPlace.country,
-        },
+    if (!treeSnap.exists()) {
+      console.warn("Arbre introuvable :", treeId);
+      return [];
+    }
+
+    const treeData = treeSnap.data() as { memberIds?: string[] };
+    const memberIds = treeData?.memberIds || [];
+
+    if (memberIds.length === 0) {
+      console.warn("Aucun membre trouvé pour cet arbre :", treeId);
+      return [];
+    }
+
+    // 🔹 Étape 2 : récupérer les membres correspondants
+    // Firestore limite à 10 IDs par requête, donc on découpe
+    const chunks = [];
+    for (let i = 0; i < memberIds.length; i += 10) {
+      chunks.push(memberIds.slice(i, i + 10));
+    }
+
+    const birthPlaces: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      birthPlace: { lat: number; lng: number; city?: string; country?: string };
+    }[] = [];
+
+    for (const batch of chunks) {
+      const membersQuery = query(
+        collection(db, COLLECTIONS.MEMBERS),
+        where("__name__", "in", batch)
+      );
+
+      const membersSnap = await getDocs(membersQuery);
+
+      membersSnap.forEach((docSnap) => {
+        const data = docSnap.data() as MemberType;
+        if (data.birthPlace?.latitude && data.birthPlace?.longitude) {
+          birthPlaces.push({
+            id: docSnap.id,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            birthPlace: {
+              lat: data.birthPlace.latitude,
+              lng: data.birthPlace.longitude,
+              city: data.birthPlace.city,
+              country: data.birthPlace.country,
+            },
+          });
+        }
       });
     }
-  });
 
-  return birthPlaces;
+    return birthPlaces;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des lieux de naissance :", error);
+    return [];
+  }
 };
-
 export const getParentsByMemberId = async (memberId: string): Promise<MemberType[]> => {
   try {
     const memberSnap = await getDoc(doc(db, COLLECTIONS.MEMBERS, memberId));

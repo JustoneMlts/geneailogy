@@ -6,6 +6,9 @@ import { buildDynamicTree, Generation, GenerationSection, GrandparentsSection, g
 import { getTreeById } from "@/app/controllers/treesController";
 import { getUserById } from "@/app/controllers/usersController";
 import { getFamilyMembersByIds, getParentsByMemberId } from "@/app/controllers/membersController";
+import { collection, documentId, onSnapshot, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase/firebase";
+import { COLLECTIONS } from "@/lib/firebase/collections";
 
 export const DynamicFamilyTree = ({
   tree,
@@ -44,24 +47,98 @@ export const DynamicFamilyTree = ({
     }
   }, [userId, currentUser]);
 
-  // Charger l'arbre avec mise à jour en temps réel
   useEffect(() => {
-    if (!tree) return;
-
-    const loadTreeData = async () => {
-      try {
-        if (tree?.memberIds?.length) {
-          const membersData = await getFamilyMembersByIds(tree.memberIds);
-          setFamilyData(membersData);
+    if (!tree?.id) {
+      console.log("🚨 Aucun tree sélectionné");
+      return;
+    }
+  
+    console.log("ℹ️ Subscription real-time pour le tree :", tree.id);
+  
+    const treeRef = collection(db, COLLECTIONS.TREES);
+  
+    // Écoute en temps réel du tree
+    const unsubscribeTree = onSnapshot(
+      query(treeRef, where("id", "==", tree.id)),
+      (snapshot) => {
+        if (!snapshot.docs.length) {
+          console.warn("⚠️ Aucun tree trouvé avec cet ID :", tree.id);
+          return;
         }
-      } catch (err) {
-        console.error("Erreur arbre:", err);
+  
+        const treeData = snapshot.docs[0].data();
+        const memberIds: string[] = treeData.memberIds || [];
+  
+        if (!memberIds.length) {
+          console.log("ℹ️ Aucun memberId dans ce tree :", tree.id);
+          setFamilyData([]);
+          return;
+        }
+  
+        console.log("ℹ️ Récupération des membres, total :", memberIds.length);
+  
+        // 🔥 IMPORTANT : Firestore limite à 10 IDs par requête "in"
+        const chunkSize = 10;
+        const chunks: string[][] = [];
+        for (let i = 0; i < memberIds.length; i += chunkSize) {
+          chunks.push(memberIds.slice(i, i + chunkSize));
+        }
+  
+        console.log("Chunks :", chunks);
+  
+        const unsubscribers: (() => void)[] = [];
+        const allMembersMap = new Map<string, MemberType>();
+  
+        const updateAllMembers = () => {
+          const membersArray = Array.from(allMembersMap.values());
+          console.log("ℹ️ Mise à jour de familyData :", membersArray.length, "membres");
+          setFamilyData(membersArray);
+        };
+  
+        chunks.forEach((idsChunk, index) => {
+          // ✅ Requête sur les doc.id directement
+          const q = query(
+            collection(db, COLLECTIONS.MEMBERS),
+            where(documentId(), "in", idsChunk)
+          );
+  
+          const unsub = onSnapshot(
+            q,
+            (snap) => {
+              console.log(`📦 Chunk ${index + 1}: ${snap.docs.length} documents reçus`);
+  
+              snap.docs.forEach((doc) => {
+                const data = doc.data() as MemberType;
+                allMembersMap.set(doc.id, { id: doc.id, ...data });
+              });
+  
+              updateAllMembers();
+            },
+            (error) => {
+              console.error("❌ Erreur snapshot members chunk", index + 1, error);
+            }
+          );
+  
+          unsubscribers.push(unsub);
+        });
+  
+        // Nettoyage des snapshots membres quand le tree change
+        return () => {
+          console.log("🧹 Nettoyage des listeners membres");
+          unsubscribers.forEach((unsub) => unsub());
+        };
+      },
+      (error) => {
+        console.error("❌ Erreur snapshot tree :", error);
       }
+    );
+  
+    return () => {
+      console.log("ℹ️ Nettoyage subscription tree");
+      unsubscribeTree();
     };
-
-    loadTreeData();
-  }, [tree, refreshTrigger]); // refreshTrigger déclenche le rechargement
-
+  }, [tree?.id]);
+   
   // Déterminer le propriétaire
   useEffect(() => {
     if (!tree || !tree.ownerId) return;
