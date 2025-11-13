@@ -12,10 +12,10 @@ import { useSelector } from "react-redux";
 import { selectUser } from "@/lib/redux/slices/currentUserSlice";
 import { handleGetUserNameInitials } from "@/app/helpers/userHelper";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { 
-  createFeedPost, 
+import {
+  createFeedPost,
   listenPostsByUserIds,
-  getUserIdsFromLinkIds 
+  getUserIdsFromLinkIds
 } from "@/app/controllers/feedController";
 import { FeedPostType } from "@/lib/firebase/models";
 import { FeedSkeleton } from "./feedSkeleton";
@@ -59,89 +59,26 @@ export const Feed = () => {
     setFileUrl(null);
   };
 
-  useEffect(() => {
-    console.log("currentUser : ",currentUser)
-  }, [currentUser])
-
-  // 🔄 ÉTAPE 1 : Convertir les linkIds en userIds (se déclenche à chaque changement de friends)
-  useEffect(() => {
-    console.log("🔄 [1/3] Détection changement currentUser.friends:", currentUser?.friends);
-    
-    if (!currentUser?.id || !currentUser?.friends || currentUser.friends.length === 0) {
-      console.log("❌ Pas de friends, reset friendsUserIds");
-      setFriendsUserIds([]);
-      return;
-    }
-
-    let isMounted = true;
-
-    const convertLinkIds = async () => {
-      try {
-        console.log("⏳ Conversion des linkIds en userIds...");
-        const userIds = await getUserIdsFromLinkIds(
-          currentUser.friends!,
-          currentUser.id!
-        );
-        
-        if (isMounted) {
-          console.log("✅ [1/3] friendsUserIds mis à jour:", userIds);
-          setFriendsUserIds(userIds);
-        }
-      } catch (error) {
-        console.error("❌ Erreur conversion linkIds:", error);
-        if (isMounted) {
-          setFriendsUserIds([]);
-        }
-      }
-    };
-
-    convertLinkIds();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [currentUser?.id, currentUser?.friends]); // Se déclenche quand friends change
-
-  // 🎯 ÉTAPE 2 : Calculer les IDs autorisés (moi + mes amis)
   const authorizedUserIds = useMemo(() => {
-    if (!currentUser?.id) {
-      console.log("❌ [2/3] Pas de currentUser.id");
-      return [];
-    }
-    
-    const result = [currentUser.id, ...friendsUserIds];
-    console.log("✅ [2/3] authorizedUserIds calculés:", result);
-    return result;
-  }, [currentUser?.id, friendsUserIds]);
+  if (!currentUser?.id) return [];
+  return Array.from(new Set([currentUser.id, ...(currentUser.friends ?? [])]));
+}, [currentUser?.id, currentUser?.friends]);
 
-  // 👂 ÉTAPE 3 : Écouter les posts en temps réel
   useEffect(() => {
-    console.log("👂 [3/3] Mise à jour du listener avec authorizedUserIds:", authorizedUserIds);
-    
-    if (authorizedUserIds.length === 0) {
-      console.log("⚠️ Aucun userId autorisé, pas de posts à afficher");
-      setPosts([]);
-      setLoading(false);
-      return;
-    }
+  if (authorizedUserIds.length === 0) {
+    setPosts([]);
+    return;
+  }
 
-    console.log("🚀 Démarrage du listener pour", authorizedUserIds.length, "utilisateurs");
-    
-    const unsubscribe = listenPostsByUserIds(authorizedUserIds, (fetched) => {
-      // Double filtrage pour s'assurer qu'on affiche uniquement les posts autorisés
-      const authorizedSet = new Set(authorizedUserIds);
-      const filteredPosts = fetched.filter(post => authorizedSet.has(post.author.id));
+  setLoading(true);
 
-      console.log("📮 Posts reçus:", filteredPosts.length, "posts");
-      setPosts(filteredPosts);
-      setLoading(false);
-    });
+  const unsubscribe = listenPostsByUserIds(authorizedUserIds, (posts) => {
+    setPosts(posts);
+    setLoading(false);
+  });
 
-    return () => {
-      console.log("🛑 Nettoyage du listener");
-      unsubscribe();
-    };
-  }, [authorizedUserIds]); // Se déclenche quand authorizedUserIds change
+  return () => unsubscribe();
+}, [authorizedUserIds]);
 
   // 🔹 Création d'un post
   const handleSubmitInput = async () => {
@@ -324,8 +261,8 @@ export const Feed = () => {
                       Aucun post pour le moment
                     </p>
                     <p className="text-gray-500">
-                      {friendsUserIds.length === 0 
-                        ? "Ajoutez des amis pour voir leur contenu !" 
+                      {friendsUserIds.length === 0
+                        ? "Ajoutez des amis pour voir leur contenu !"
                         : "Soyez le premier à partager quelque chose !"}
                     </p>
                   </Card>

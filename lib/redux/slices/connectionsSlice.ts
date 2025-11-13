@@ -1,96 +1,61 @@
-// lib/redux/slices/connectionsSlice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit"
 import { RootState } from "../store"
-import { LinkStatus } from "@/lib/firebase/models"
-
-export interface UserLink {
-  senderId: string
-  receiverId: string
-  status: LinkStatus
-}
+import { Links } from "@/lib/firebase/models"
 
 interface ConnectionsState {
-  links: UserLink[]
+  items: Links[]
   isLoading: boolean
 }
 
 const initialState: ConnectionsState = {
-  links: [],
+  items: [],
   isLoading: true,
 }
 
-const connectionsSlice = createSlice({
+export const connectionsSlice = createSlice({
   name: "connections",
   initialState,
   reducers: {
-    setConnections: (state, action: PayloadAction<UserLink[]>) => {
-      state.links = action.payload
+    setConnections: (state, action: PayloadAction<Links[]>) => {
+      state.items = action.payload
       state.isLoading = false
     },
 
-    clearConnections: (state) => {
-      state.links = []
-      state.isLoading = false
-    },
-
-    addConnection: (state, action: PayloadAction<UserLink>) => {
-      // Évite les doublons (peu importe le sens)
-      const exists = state.links.some(
-        (c) =>
-          (c.senderId === action.payload.senderId &&
-            c.receiverId === action.payload.receiverId) ||
-          (c.senderId === action.payload.receiverId &&
-            c.receiverId === action.payload.senderId)
-      )
+    addConnection: (state, action: PayloadAction<Links>) => {
+      const exists = state.items.some(l => l.linkId === action.payload.linkId)
       if (!exists) {
-        state.links.push(action.payload)
+        state.items.push(action.payload)
       }
     },
 
     updateConnectionStatusInStore: (
       state,
-      action: PayloadAction<{ senderId: string; receiverId: string; status: LinkStatus }>
+      action: PayloadAction<{ linkId: string; status: Links["status"] }>
     ) => {
-      const { senderId, receiverId, status } = action.payload
-      state.links = state.links.map((c) =>
-        (c.senderId === senderId && c.receiverId === receiverId) ||
-        (c.senderId === receiverId && c.receiverId === senderId)
-          ? { ...c, status }
-          : c
-      )
+      const link = state.items.find(l => l.linkId === action.payload.linkId)
+      if (link) link.status = action.payload.status
     },
 
-    removeConnectionFromStore: (
-      state,
-      action: PayloadAction<{ senderId: string; receiverId: string }>
-    ) => {
-      const { senderId, receiverId } = action.payload
-      state.links = state.links.filter(
-        (c) =>
-          !(
-            (c.senderId === senderId && c.receiverId === receiverId) ||
-            (c.senderId === receiverId && c.receiverId === senderId)
-          )
-      )
+    removeConnection: (state, action: PayloadAction<string>) => {
+      state.items = state.items.filter(l => l.linkId !== action.payload)
+    },
+
+    clearConnections: (state) => {
+      state.items = []
+      state.isLoading = true
     },
   },
 })
 
 export const {
   setConnections,
-  clearConnections,
   addConnection,
   updateConnectionStatusInStore,
-  removeConnectionFromStore,
+  removeConnection,
+  clearConnections,
 } = connectionsSlice.actions
 
+export const selectConnections = (state: RootState) => state.connections.items
+export const selectConnectionsLoading = (state: RootState) => state.connections.isLoading
+
 export default connectionsSlice.reducer
-
-// --- 🔍 Selectors ---
-export const selectConnections = (state: RootState) => state.connections.links
-
-export const selectPendingRequestsCount =
-  (currentUserId: string) => (state: RootState) =>
-    state.connections.links.filter(
-      (c) => c.status === "pending" && c.receiverId === currentUserId
-    ).length

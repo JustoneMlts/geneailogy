@@ -1,4 +1,4 @@
-export type LinkStatus = "pending" | "accepted"
+export type LinkStatus = "pending" | "accepted" | "none"
 
 export interface UserLink {
   senderId: string;   

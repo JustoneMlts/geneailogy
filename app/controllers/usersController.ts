@@ -1,6 +1,6 @@
 import { addDocumentToCollection, getAllDataFromCollectionWithWhereArray, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
 import { COLLECTIONS } from "@/lib/firebase/collections";
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, DocumentData, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase/firebase";
 import { Links, LinkStatus, MemberType, TreeType, UserLink, UserType } from "@/lib/firebase/models";
 import { createOrReplaceAvatar } from "./filesController";
@@ -567,4 +567,17 @@ export const deleteFriendship = async (
     console.error("❌ Erreur lors de la suppression de l'amitié:", error)
     throw error
   }
+}
+
+export async function getLinkBetweenUsers(userA: string, userB: string): Promise<Links | null> {
+  const linksRef = collection(db, "Links")
+
+  const q1 = query(linksRef, where("senderId", "==", userA), where("receiverId", "==", userB))
+  const q2 = query(linksRef, where("senderId", "==", userB), where("receiverId", "==", userA))
+
+  const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)])
+
+  const doc = !snap1.empty ? snap1.docs[0] : !snap2.empty ? snap2.docs[0] : null
+
+  return doc ? ({ linkId: doc.id, ...(doc.data() as DocumentData) } as Links) : null
 }

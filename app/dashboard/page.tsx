@@ -96,7 +96,7 @@ export default function Dashboard() {
           {activeTab === "ai" && (
             <Ai />
           )}
-
+          
           {activeTab === "connections" && (
             <Connections />
           )}

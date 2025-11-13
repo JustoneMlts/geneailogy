@@ -12,6 +12,7 @@ import WidgetNotifications from "@/components/widgets/widgetNotifications"
 import WidgetFamilyDiversity from "./widgets/widgetFamilyDiversity"
 import WidgetUpcomingEvents from "./widgets/widgetUpcomingEvents"
 import FloatingAiAssistant from "./floatingAssistant/floatingAssistant"
+import { LinksProvider } from "./LinksProvider"
 
 export function LayoutContent({ children }: { children: React.ReactNode }) {
   const activeTab = useSelector(selectActiveTab)
@@ -37,10 +38,6 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
     if (currentUser) setIsLoading(false)
   }, [currentUser])
 
-  useEffect(() => {
-    console.log("le couteau il est gaillard")
-  }, [])
-
   if (shouldHideHeader) {
     return (
       <div className="min-h-screen w-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
@@ -52,46 +49,20 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
   if (!currentUser) return null
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
-      {!shouldHideHeader && currentUser && <Header currentUser={currentUser} />}
+   <LinksProvider userId={currentUser.id ?? ""}>
+      <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
+        {!shouldHideHeader && <Header currentUser={currentUser} />}
 
-      <div className="flex-1 flex overflow-y-auto scrollbar-thin overflow-x-hidden py-6 gap-12">
-        
-        {/* --- Widgets gauche (désactivés) --- */}
-        {/*
-        {!isMobile && !shouldHideWidgets && (
-          <aside className="hidden lg:flex flex-col w-1/4 space-y-6 mt-6 py-2 pl-10">
-            <h2 className="text-gray-800 font-semibold text-sm uppercase tracking-wide pl-1 mb-1">
-              Centre d'analyse
-            </h2>
-            <WidgetAISuggestions />
-            <WidgetTreeStats />
-            <WidgetFamilyDiversity /> 
-          </aside>
-        )}
-        */}
+        <div className="flex-1 flex overflow-y-auto scrollbar-thin overflow-x-hidden py-6 gap-12">
+          {/* Widgets gauche désactivés */}
+          <main className="flex-1 min-w-0 px-6">
+            {children}
+          </main>
+          {/* Widgets droite désactivés */}
+        </div>
 
-        {/* Contenu principal */}
-        <main className="flex-1 min-w-0 px-6">
-          {children}
-        </main>
-
-        {/* --- Widgets droite (désactivés) --- */}
-        {/*
-        {!isMobile && !shouldHideWidgets && (
-          <aside className="hidden lg:flex flex-col w-1/4 space-y-6 mt-6 py-2 pr-10">
-            <h2 className="text-gray-800 font-semibold text-sm uppercase tracking-wide pl-1 mb-1">
-              Centre de notifications
-            </h2>
-            <WidgetNotifications />
-            <WidgetRecentActivity />
-            <WidgetUpcomingEvents />
-          </aside>
-        )}
-        */}
+        <FloatingAiAssistant />
       </div>
-
-      <FloatingAiAssistant />
-    </div>
+    </LinksProvider>
   )
 }
