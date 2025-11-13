@@ -23,7 +23,6 @@ export interface UserType {
   email: string
   familyOrigin? : string
   researchInterests?: string
-  links?: UserLink[]
   friends?: string[]
   createdDate?: number
   updatedDate?: number

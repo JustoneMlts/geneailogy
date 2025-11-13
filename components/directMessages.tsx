@@ -73,7 +73,6 @@ export const DirectMessages: React.FC = () => {
 
   useEffect(() => {
     const fetchFriends = async () => {
-      console.log("Fetching friends for user:", currentUser)
       console.log("Current user's friends:", currentUser?.friends)
       if (!currentUser?.friends || currentUser.friends.length === 0) return
 
@@ -97,6 +96,10 @@ export const DirectMessages: React.FC = () => {
 
     fetchFriends()
   }, [currentUser])
+
+  useEffect(() => {
+    console.log("friends : ", friends)
+  }, [friends])
 
   useEffect(() => {
     if (!currentUser?.id) return
@@ -290,7 +293,6 @@ export const DirectMessages: React.FC = () => {
         lastName: friend.lastName,
         avatarUrl: friend.avatarUrl,
       })
-      console.log("Started conversation:", conversation)
       setSelectedConversation(conversation as ConversationType);
       setQueryText("")
       setIsSearchFocused(false)
