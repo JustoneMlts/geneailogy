@@ -78,7 +78,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   // 🔹 Reset des refs quand l'utilisateur change
   useEffect(() => {
     if (!user?.id) {
-      console.log("🔄 User disconnected, clearing notifications")
       dispatch(clearNotifications())
       connectionTimestampRef.current = null
       isInitializedRef.current = false
@@ -97,7 +96,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       processedMessagesRef.current.clear()
       queueRef.current = []
       isInitializedRef.current = true
-      console.log("✅ NotificationsProvider initialized at:", new Date(connectionTimestampRef.current))
     }
   }, [user?.id, dispatch])
 
@@ -136,19 +134,12 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
           const isNew = notifTime > connectionTime
 
-          if (isNew) {
-            console.log("🆕 New notification found:", n.id, new Date(notifTime))
-          }
-
           return isNew
         })
 
         // Ajouter seulement les nouvelles notifications non affichées
         const unshownNewNotifs = newNotifications.filter(n => {
           const isUnshown = n.id && !displayedIdsRef.current.has(n.id)
-          if (isUnshown) {
-            console.log("➕ Adding notification to queue:", n.id, n.message)
-          }
           return isUnshown
         })
 
@@ -291,8 +282,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       setCurrentNotif(nextNotif)
       setOpen(true)
     } else {
-      console.log("📭 Queue empty, no more notifications to show")
-    }
+      setCurrentNotif(null)}
   }
 
   const handleClick = () => {

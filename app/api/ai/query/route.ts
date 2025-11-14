@@ -30,7 +30,6 @@ if (!admin.apps.length) {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
-    console.log("✅ Firebase Admin initialisé");
   } catch (error) {
     console.error("❌ Erreur initialisation Firebase Admin:", error);
   }
@@ -185,7 +184,6 @@ async function searchPotentialRelatives(
   }
 
   const searchSurnames = [...new Set([...surnames, userSurname].filter(Boolean))];
-  console.log("🔍 Recherche de correspondances pour les noms:", searchSurnames);
 
   const otherMembersSnap = await db
     .collection("Members")
@@ -244,7 +242,6 @@ async function searchPotentialRelatives(
   });
 
   potentialMatches.sort((a, b) => b.matchScore - a.matchScore);
-  console.log(`✅ ${potentialMatches.length} correspondances potentielles trouvées`);
   return potentialMatches.slice(0, 20);
 }
 
@@ -255,7 +252,6 @@ async function findSimilarFamilies(
   currentTree: any,
   searchSurname?: string
 ): Promise<any[]> {
-  console.log("🧬 Recherche de familles similaires...");
 
   const surnamesLower: string[] = currentTree.surnamesLower || [];
   const origins: string[] = currentTree.origin || [];
@@ -331,7 +327,6 @@ async function findSimilarFamilies(
   });
 
   potential.sort((a, b) => b.matchScore - a.matchScore);
-  console.log(`✅ ${potential.length} familles similaires trouvées`);
   return potential.slice(0, 15); // Augmenté de 10 à 15 pour avoir plus de résultats
 }
 
@@ -342,7 +337,6 @@ async function findCommonAncestors(
   currentTree: any,
   allMembers: any[]
 ): Promise<any[]> {
-  console.log("🧬 Recherche d'ancêtres communs...");
   const ancestorNames = allMembers
     .filter(m => m.isAncestor)
     .map(m => m.lastName?.toLowerCase())
@@ -370,7 +364,6 @@ async function findCommonAncestors(
     }
   });
 
-  console.log(`✅ ${results.length} ancêtres communs trouvés`);
   return results;
 }
 
@@ -437,7 +430,6 @@ const tools: ChatCompletionTool[] = [
 
 export async function POST(req: Request) {
   try {
-    console.log("📥 Requête reçue");
     const body = await req.json();
     const { prompt, userId } = body;
 
@@ -554,7 +546,6 @@ IMPORTANT: Utilise TOUJOURS l'ID réel de l'arbre, pas le nom.`,
         }
 
         let result: any = null;
-        console.log(`🛠️ GPT appelle ${name} avec`, args);
 
         if (name === "searchPotentialRelatives")
           result = await searchPotentialRelatives(tree, currentUserMember, allMembers);

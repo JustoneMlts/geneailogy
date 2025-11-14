@@ -18,7 +18,6 @@ export const createFeedPost = async (postData: FeedPostType) => {
 
     await setDoc(docRef, dataToSave); // on écrase le doc vide avec les vraies données
 
-    console.log("Post créé avec l'ID :", docRef.id);
     return docRef.id;
   } catch (error) {
     console.error("Erreur lors de la création du post :", error);
@@ -38,7 +37,7 @@ export const updateFeedPost = async (postId: string, postData: any) => {
   try {
     await updateDocumentToCollection(COLLECTIONS.FEED, postId, postData);
   } catch (error) {
-    console.log("Error updateFeedPost", error);
+    console.error("Erreur lors de la mise à jour du post :", error);
   }
 };
 
@@ -201,9 +200,8 @@ export const addCommentToPost = async (
   postId: string,
   comment: { author: { name: string; avatar: string }; content: string; timeAgo: string }
 ) => {
-  console.log("postId : ", postId)
   const postRef = doc(db, "Feed", postId);
   await updateDoc(postRef, {
-    comments: arrayUnion(comment), // ✅ conserve les anciens commentaires
+    comments: arrayUnion(comment), 
   });
 };

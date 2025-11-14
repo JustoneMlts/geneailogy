@@ -5,7 +5,7 @@ export const createConversation = async (conversationData: any) => {
   try {
     await addDocumentToCollection(COLLECTIONS.CONVERSATIONS, conversationData);
   } catch (error) {
-    console.log("Error createConversation", error);
+    console.error("Error createConversation", error);
   }
 };
 

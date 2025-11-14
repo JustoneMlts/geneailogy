@@ -114,19 +114,16 @@ useEffect(() => {
 
   const handleToggle = (id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => 
   (checked: boolean | "indeterminate") => {
-    console.log(`Toggle called for ID: ${id}, checked: ${checked}`); // Debug
     
     if (checked === true) {
       setter(prev => {
         if (!prev.includes(id)) {
-          console.log(`Adding ${id} to selection`); // Debug
           return [...prev, id];
         }
         return prev;
       });
     } else {
       setter(prev => {
-        console.log(`Removing ${id} from selection`); // Debug
         return prev.filter(i => i !== id);
       });
     }
@@ -169,9 +166,6 @@ useEffect(() => {
   };
 
 const renderMemberCheckboxes = (selectedList: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) => {
-  console.log("renderMemberCheckboxes - familyMembers:", familyMembers);
-  console.log("renderMemberCheckboxes - selectedList:", selectedList);
-  
   if (loadingMembers) {
     return <p className="text-sm text-gray-500">Chargement des membres...</p>;
   }
@@ -202,7 +196,6 @@ const renderMemberCheckboxes = (selectedList: string[], setter: React.Dispatch<R
             <Checkbox
               checked={isSelected}
               onCheckedChange={(checked) => {
-                console.log(`Checkbox clicked for ${member.id}, checked:`, checked);
                 if (checked === true) {
                   setter(prev => [...prev.filter(id => id !== member.id), member.id]);
                 } else {

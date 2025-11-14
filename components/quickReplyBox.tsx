@@ -35,7 +35,6 @@ export default function QuickReplyBox({ conversationId, setOpen }: QuickReplyBox
       await sendMessage(msg)
       setReplyText("")
       setOpen(false)
-      console.log("✅ Quick reply sent successfully")
     } catch (error) {
       console.error("❌ Error sending quick reply:", error)
     } finally {

@@ -84,10 +84,7 @@ useEffect(() => {
     setIsLoading(true);
     try {
       const usersRef = collection(db, "Users");
-      
-      console.log("🔍 Recherche pour:", queryLower);
-      
-      // Requête prénom
+           
       const qFirstName = query(
         usersRef,
         where("firstNameLower", ">=", queryLower),
@@ -96,7 +93,6 @@ useEffect(() => {
         limit(10)
       );
       
-      // Requête nom
       const qLastName = query(
         usersRef,
         where("lastNameLower", ">=", queryLower),
@@ -117,33 +113,22 @@ useEffect(() => {
         })
       ]);
       
-      console.log("📄 Résultats firstName:", snapFirst.docs.length);
-      console.log("📄 Résultats lastName:", snapLast.docs.length);
-      
-      // Fusionner et supprimer les doublons
       const userMap = new Map<string, UserType>();
       
-      // Ajouter les résultats du prénom
       snapFirst.docs.forEach(doc => {
         const userData = { id: doc.id, ...doc.data() } as UserType;
-        console.log("👤 User trouvé (prénom):", userData.firstName, userData.lastName);
         userMap.set(doc.id, userData);
       });
       
-      // Ajouter les résultats du nom
       snapLast.docs.forEach(doc => {
         if (!userMap.has(doc.id)) {
           const userData = { id: doc.id, ...doc.data() } as UserType;
-          console.log("👤 User trouvé (nom):", userData.firstName, userData.lastName);
           userMap.set(doc.id, userData);
         }
       });
       
-      // Convertir en tableau
       const combined = Array.from(userMap.values());
-      
-      console.log("✅ Total résultats:", combined.length);
-      
+            
       setResults(combined.slice(0, 5));
       setIsOpen(combined.length > 0);
     } catch (err) {
@@ -259,95 +244,5 @@ useEffect(() => {
   );
 };
 
-// Page de démonstration
-const SearchDemo: React.FC = () => {
-  const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
-  const [searchPageQuery, setSearchPageQuery] = useState<string>('');
-
-  const handleUserSelect = (user: UserType): void => {
-    setSelectedUser(user);
-    console.log('Utilisateur sélectionné:', user);
-    // Ici vous pouvez naviguer vers le profil de l'utilisateur
-    // Par exemple: navigate(`/profile/${user.id}`)
-  };
-
-  const handleViewAllResults = (query: string): void => {
-    setSearchPageQuery(query);
-    console.log('Recherche complète pour:', query);
-    // Ici vous pouvez naviguer vers la page de résultats
-    // Par exemple: navigate(`/search?q=${query}`)
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header avec SearchBar */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-              A
-            </div>
-            <h1 className="text-xl font-bold text-gray-900 hidden sm:block">Mon App</h1>
-          </div>
-
-          <div className="flex-1">
-            <UserSearchBar
-              onUserSelect={handleUserSelect}
-              onViewAllResults={handleViewAllResults}
-            />
-          </div>
-
-          <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-        </div>
-      </header>
-
-      {/* Contenu principal */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        {selectedUser ? (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Utilisateur sélectionné</h2>
-            <div className="flex items-center gap-4">
-              <img
-                src={selectedUser.avatarUrl || `https://ui-avatars.com/api/?name=${selectedUser.firstName}+${selectedUser.lastName}&background=random`}
-                alt={`${selectedUser.firstName} ${selectedUser.lastName}`}
-                className="w-20 h-20 rounded-full object-cover"
-              />
-              <div>
-                <div className="text-xl font-semibold">
-                  {selectedUser.firstName} {selectedUser.lastName}
-                </div>
-                {selectedUser.localisation && (
-                  <div className="flex items-center gap-1 text-gray-600">
-                    <MapPin className="w-4 h-4" />
-                    <span>{selectedUser.localisation}</span>
-                  </div>
-                )}
-                {selectedUser.bio && (
-                  <p className="text-sm text-gray-600 mt-2">{selectedUser.bio}</p>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : searchPageQuery ? (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">
-              Résultats de recherche pour "{searchPageQuery}"
-            </h2>
-            <p className="text-gray-600">
-              Ici s'afficheraient tous les résultats de la recherche avec pagination...
-            </p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Fil d'actualité</h2>
-            <p className="text-gray-600">
-              Utilisez la barre de recherche ci-dessus pour trouver des utilisateurs.
-            </p>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-};
 
 export default UserSearchBar;

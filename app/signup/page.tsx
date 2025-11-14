@@ -93,10 +93,7 @@ export default function SignupPage() {
           uid: user.uid,
         });
 
-        // 🔹 Ensuite, récupère le User créé :
         currentUser = await getUserById(user.uid);
-
-        console.log("Nouvel utilisateur Google créé:", currentUser);
       }
 
       // Enregistre dans Redux + redirige
@@ -144,7 +141,6 @@ export default function SignupPage() {
         uid: userCredential.user.uid
       });
 
-      console.log('Utilisateur, famille et membre créés avec succès:', result);
       route.push("/login");
 
     } catch (err: any) {

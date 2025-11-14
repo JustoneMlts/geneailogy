@@ -48,7 +48,7 @@ export const getAllDataFromCollection = async (collectionName: string) => {
       
         return allDataFromCollection.filter(allDataFromCollection, "isActive");
     } catch (error) {
-        console.log("Error On getAllDataFromCollection()", error);
+        console.error("Error On getAllDataFromCollection()", error);
     }
 
 };
@@ -68,7 +68,7 @@ export const addDocumentToCollection = async (
     );
     return newDocRef.id;
   } catch (error) {
-    console.log("Error On addDocumentToCollection()", error);
+    console.error("Error On addDocumentToCollection()", error);
   }
 };
 
@@ -82,7 +82,7 @@ export const updateDocumentToCollection = async (
     const docRefToUpdate = doc(db, collectionName, dataToUpdateId);
     await updateDoc(docRefToUpdate, dataToUpdate);
   } catch (error) {
-    console.log("Error On updateDocumentToCollection()", error);
+    console.error("Error On updateDocumentToCollection()", error);
   }
 };
 

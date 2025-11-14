@@ -19,9 +19,6 @@ app.get('/api/geocode', async (req, res) => {
       return res.status(400).json({ error: 'Paramètre de recherche requis (minimum 2 caractères)' });
     }
 
-    console.log('Recherche géocodage pour:', q);
-
-    // Requête vers Nominatim
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?` +
       `q=${encodeURIComponent(q)}&` +
@@ -41,7 +38,6 @@ app.get('/api/geocode', async (req, res) => {
     }
 
     const data = await response.json();
-    console.log(`Trouvé ${data.length} résultats pour "${q}"`);
 
     res.json(data);
   } catch (error) {
@@ -53,11 +49,6 @@ app.get('/api/geocode', async (req, res) => {
 // Endpoint de santé
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
-
-app.listen(PORT, () => {
-  console.log(`Serveur de géocodage démarré sur http://localhost:${PORT}`);
-  console.log(`Test: http://localhost:${PORT}/api/geocode?q=Paris`);
 });
 
 module.exports = app;

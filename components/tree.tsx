@@ -763,7 +763,7 @@ export const Tree = ({ userId }: { userId?: string }) => {
                 const data = await getMembersByTreeId(treeId)
                 setMembers(data)
             } catch {
-                console.log("Une erreur est survenue lors de la récupération des membres.")
+                console.error("Une erreur est survenue lors de la récupération des membres.")
             }
         }
         fetchMembers()
@@ -869,7 +869,6 @@ export const Tree = ({ userId }: { userId?: string }) => {
             let conversationId: string;
 
             if (existingConversationId) {
-                console.log("Conversation existante trouvée:", existingConversationId);
                 conversationId = existingConversationId;
             } else {
                 const treeOwner = await getUserById(tree.ownerId);

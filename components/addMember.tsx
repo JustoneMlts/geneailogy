@@ -76,7 +76,7 @@ export default function AddMemberModal({
                 const data = await getMembersByTreeId(treeId);
                 setMembers(data);
             } catch {
-                console.log("❌ Erreur récupération des membres");
+                console.error("❌ Erreur récupération des membres");
             }
         };
         fetchMembers();

@@ -35,8 +35,7 @@ export const markNotificationAsRead = async (notificationId: string) => {
       unread: false,
     })
   } catch (error) {
-    console.log("Error markNotificationAsRead", error)
-  }
+    console.error("Erreur lors du marquage de la notification comme lue :", error)}
 }
 
 export const getMyNotifications = async (userId: string): Promise<NotificationType[]> => {
@@ -102,9 +101,7 @@ export const markAllNotificationsAsRead = async (notifications: NotificationType
       )
     )
 
-    console.log("✅ Toutes les notifications ont été marquées comme lues")
   } catch (error) {
-    console.log("Error markAllNotificationsAsRead", error)
   }
 }
 
@@ -146,7 +143,6 @@ export const markMessagesNotificationsAsRead = async (userId: string) => {
     })
 
     await batch.commit()
-    console.log(`✅ ${snap.size} notifications de messages marquées comme lues`)
   } catch (error) {
     console.error("❌ Erreur lors du marquage des notifications de messages :", error)
   }

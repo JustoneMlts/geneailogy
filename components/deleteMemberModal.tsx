@@ -29,13 +29,7 @@ export default function DeleteMemberModal({
         setIsDeleting(true);
         try {
             await removeMember(memberId);
-            console.log("✅ Membre supprimé avec succès");
-            
-            // Appeler le callback de succès si fourni
-            // if (onDeleteSuccess) {
-            //     onDeleteSuccess();
-            // }
-            
+
             onClose();
         } catch (error) {
             console.error("❌ Erreur lors de la suppression du membre:", error);

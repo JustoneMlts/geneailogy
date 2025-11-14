@@ -28,7 +28,6 @@ export const createTree = async (treeData: Omit<TreeType, 'id'>) => {
 
     return docRef.id;
   } catch (error) {
-    console.log("Error createTree", error);
     throw error;
   }
 };
@@ -37,8 +36,7 @@ export const updateTree = async (treeId: string, treeData: any) => {
   try {
     await updateDocumentToCollection(COLLECTIONS.TREES, treeId, treeData);
   } catch (error) {
-    console.log("Error updateTree", error);
-  }
+    console.error("❌ Error updateTree:", error);}
 };
 
 export const getTrees = async () => {
@@ -66,8 +64,6 @@ export const getMembersByTreeId = async (treeId: string): Promise<MemberType[]> 
   try {
     const treeRef = doc(db, "Trees", treeId);
     const treeSnap = await getDoc(treeRef);
-    console.log("treeRef", treeRef)
-    console.log("treeSnap", treeSnap)
 
     if (!treeSnap.exists()) return [];
 

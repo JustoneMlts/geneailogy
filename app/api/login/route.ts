@@ -10,7 +10,6 @@ export async function POST(req: Request) {
   try {
     const authInstance = await adminAuth;
     const sessionCookie = await authInstance.createSessionCookie(idToken, { expiresIn });
-    console.log('session cookie', sessionCookie)
     const cookiesStore = await cookies();
     cookiesStore.set('session', sessionCookie, {
       maxAge: expiresIn / 1000,
@@ -22,7 +21,6 @@ export async function POST(req: Request) {
 
     return new Response(JSON.stringify({ status: 'success' }), { status: 200 });
   } catch (err) {
-    console.log(err)
     return new Response(JSON.stringify({ error: 'Failed to create session' }), { status: 401 });
   }
 }

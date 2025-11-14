@@ -76,7 +76,6 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
             currentUser.lastName,
             currentUser.avatarUrl ?? ""
         )
-        console.log("link : ", link)
         dispatch(
             addConnection({
                 senderId: currentUser.id,

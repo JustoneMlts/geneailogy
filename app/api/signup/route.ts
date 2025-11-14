@@ -6,7 +6,6 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { idToken } = body;
-    console.log('📝 Received signup request');
     
     if (!idToken) {
       console.error('❌ No idToken provided');
@@ -16,14 +15,9 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log('🔍 Token received (length):', idToken.length);
-    
-    // Vérifier le token
-    console.log('🔍 Verifying idToken...');
     let decodedToken;
     try {
       decodedToken = await adminAuth.verifyIdToken(idToken);
-      console.log('✅ Token verified for user:', decodedToken.uid);
     } catch (verifyError: any) {
       console.error('❌ Token verification failed:', {
         message: verifyError.message,
@@ -38,16 +32,12 @@ export async function POST(req: Request) {
         { status: 401 }
       );
     }
-   
-    // Créer le session cookie
-    console.log('🍪 Creating session cookie...');
     let sessionCookie;
     try {
       // expiresIn en millisecondes (5 jours)
       sessionCookie = await adminAuth.createSessionCookie(idToken, { 
         expiresIn: 1000 * 60 * 60 * 24 * 5
       });
-      console.log('✅ Session cookie created successfully (length:', sessionCookie.length, ')');
     } catch (sessionError: any) {
       console.error('❌ Session cookie creation failed:', {
         message: sessionError.message,
@@ -73,7 +63,6 @@ export async function POST(req: Request) {
       path: '/',
       sameSite: 'lax'
     });
-    console.log('✅ Session cookie set in response');
     
     return NextResponse.json(
       {

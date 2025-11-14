@@ -87,7 +87,6 @@ export default function LoginPage() {
 
         // 🔹 Ensuite, récupère le User créé :
         currentUser = await getUserById(user.uid);
-        console.log("Nouvel utilisateur Google créé:", currentUser);
       }
 
       // Enregistre dans Redux + redirige

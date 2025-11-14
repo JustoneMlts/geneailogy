@@ -57,17 +57,13 @@ const signUpWithEmailAndPassword = async (
       password
     );
     const idToken = await userCredential.user.getIdToken();
-    
-    console.log("Token obtenu:", idToken.substring(0, 20) + "...");
-    
+       
     const response = await fetch("/api/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idToken }),
     });
-    
-    console.log("Réponse status:", response.status);
-    
+        
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || `Signup API failed: ${response.status}`);
@@ -122,7 +118,6 @@ const signUpWithEmailAndPassword = async (
       );
       return true;
     } catch (error) {
-      console.log("Error on isLoggedIn()", error);
       return false;
     }
   };

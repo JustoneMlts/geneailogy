@@ -30,9 +30,7 @@ export default function SearchResultsPage() {
       setIsLoading(true);
       try {
         const usersRef = collection(db, "Users");
-        
-        console.log("🔍 Recherche pour:", queryLower);
-        
+                
         // Requête prénom
         const qFirstName = query(
           usersRef,
@@ -62,10 +60,7 @@ export default function SearchResultsPage() {
             return { docs: [] };
           })
         ]);
-        
-        console.log("📄 Résultats firstName:", snapFirst.docs.length);
-        console.log("📄 Résultats lastName:", snapLast.docs.length);
-        
+
         // Fusionner et supprimer les doublons
         const userMap = new Map<string, UserType>();
         
@@ -85,9 +80,7 @@ export default function SearchResultsPage() {
         
         // Convertir en tableau
         const combined = Array.from(userMap.values());
-        
-        console.log("✅ Total résultats:", combined.length);
-        
+                
         setResults(combined);
       } catch (err) {
         console.error("❌ Erreur recherche Firestore:", err);
@@ -104,14 +97,6 @@ export default function SearchResultsPage() {
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0]}${lastName[0]}`.toUpperCase();
-  };
-
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    // Mettre à jour l'URL sans recharger la page
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('q', value);
-    router.push(`/search?${params.toString()}`, { scroll: false });
   };
 
   return (
@@ -228,8 +213,6 @@ export default function SearchResultsPage() {
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        // TODO: Implémenter la messagerie
-                        console.log('Message à:', user.firstName);
                       }}
                       className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
                     >

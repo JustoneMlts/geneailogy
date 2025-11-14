@@ -118,7 +118,6 @@ export const createUser = async ({
 
     return { userId: uid, familyId };
   } catch (error) {
-    console.log("Error createUser", error);
     throw error;
   }
 };
@@ -166,7 +165,6 @@ export const getUserById = async (id: string): Promise<UserType | null> => {
 }
 
 export const getUsersByIds = async (userIds: string[]): Promise<UserType[]> => {
-  console.log("getUsersByIds called with:", userIds)
   if (userIds.length === 0) return []
 
   const q = query(collection(db, "Users"), where("id", "in", userIds))
@@ -186,7 +184,6 @@ export const updateUserEmail = async (userId: string, newEmail: string) => {
 };
 
 export const getUsersByFriendsIds = async (friendsIds: string[]): Promise<UserType[]> => {
-  console.log("getUsersByFriendsIds called with:", friendsIds);
   if (!friendsIds || friendsIds.length === 0) return [];
 
   const users: UserType[] = [];
@@ -196,7 +193,6 @@ export const getUsersByFriendsIds = async (friendsIds: string[]): Promise<UserTy
     if (user) users.push(user);
   }
 
-  console.log("getUsersByFriendsIds result:", users);
   return users;
 };
 

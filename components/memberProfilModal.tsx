@@ -23,7 +23,7 @@ export const MemberProfileModal = ({ memberId, isOpen, onClose, showShareMenu, s
           setMember(data)
         }
       } catch {
-        console.log("Une erreur est survenue ")
+        console.error("Une erreur est survenue ")
       }
     }
 

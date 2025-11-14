@@ -60,15 +60,8 @@ export const Feed = () => {
   };
 
   useEffect(() => {
-    console.log("currentUser : ",currentUser)
-  }, [currentUser])
-
-  // 🔄 ÉTAPE 1 : Convertir les linkIds en userIds (se déclenche à chaque changement de friends)
-  useEffect(() => {
-    console.log("🔄 [1/3] Détection changement currentUser.friends:", currentUser?.friends);
     
     if (!currentUser?.id || !currentUser?.friends || currentUser.friends.length === 0) {
-      console.log("❌ Pas de friends, reset friendsUserIds");
       setFriendsUserIds([]);
       return;
     }
@@ -77,18 +70,15 @@ export const Feed = () => {
 
     const convertLinkIds = async () => {
       try {
-        console.log("⏳ Conversion des linkIds en userIds...");
         const userIds = await getUserIdsFromLinkIds(
           currentUser.friends!,
           currentUser.id!
         );
         
         if (isMounted) {
-          console.log("✅ [1/3] friendsUserIds mis à jour:", userIds);
           setFriendsUserIds(userIds);
         }
       } catch (error) {
-        console.error("❌ Erreur conversion linkIds:", error);
         if (isMounted) {
           setFriendsUserIds([]);
         }
@@ -100,50 +90,38 @@ export const Feed = () => {
     return () => {
       isMounted = false;
     };
-  }, [currentUser?.id, currentUser?.friends]); // Se déclenche quand friends change
+  }, [currentUser?.id, currentUser?.friends]); 
 
-  // 🎯 ÉTAPE 2 : Calculer les IDs autorisés (moi + mes amis)
   const authorizedUserIds = useMemo(() => {
     if (!currentUser?.id) {
-      console.log("❌ [2/3] Pas de currentUser.id");
       return [];
     }
     
     const result = [currentUser.id, ...friendsUserIds];
-    console.log("✅ [2/3] authorizedUserIds calculés:", result);
     return result;
   }, [currentUser?.id, friendsUserIds]);
 
-  // 👂 ÉTAPE 3 : Écouter les posts en temps réel
   useEffect(() => {
-    console.log("👂 [3/3] Mise à jour du listener avec authorizedUserIds:", authorizedUserIds);
     
     if (authorizedUserIds.length === 0) {
-      console.log("⚠️ Aucun userId autorisé, pas de posts à afficher");
       setPosts([]);
       setLoading(false);
       return;
     }
-
-    console.log("🚀 Démarrage du listener pour", authorizedUserIds.length, "utilisateurs");
     
     const unsubscribe = listenPostsByUserIds(authorizedUserIds, (fetched) => {
-      // Double filtrage pour s'assurer qu'on affiche uniquement les posts autorisés
       const authorizedSet = new Set(authorizedUserIds);
       const filteredPosts = fetched.filter(post => authorizedSet.has(post.author.id));
 
-      console.log("📮 Posts reçus:", filteredPosts.length, "posts");
       setPosts(filteredPosts);
       setLoading(false);
     });
 
     return () => {
-      console.log("🛑 Nettoyage du listener");
       unsubscribe();
     };
-  }, [authorizedUserIds]); // Se déclenche quand authorizedUserIds change
+  }, [authorizedUserIds]); 
 
-  // 🔹 Création d'un post
   const handleSubmitInput = async () => {
     if (!currentUser?.id || (!postMessage.trim() && !fileUrl)) return;
 
