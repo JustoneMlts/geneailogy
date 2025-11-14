@@ -1,6 +1,6 @@
 import { addDocumentToCollection, getAllDataFromCollectionWithWhereArray, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
 import { COLLECTIONS } from "@/lib/firebase/collections";
-import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, DocumentData, getDoc, getDocs, limit, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase/firebase";
 import { Links, LinkStatus, MemberType, TreeType, UserLink, UserType } from "@/lib/firebase/models";
 import { createOrReplaceAvatar } from "./filesController";
@@ -61,7 +61,6 @@ export const createUser = async ({
       oldestAncestor: "",
       familyOrigin: "",
       researchInterests: "",
-      links: [],
       treesIds: [],
       createdDate: Date.now(),
       updatedDate: Date.now(),
@@ -122,25 +121,68 @@ export const createUser = async ({
   }
 };
 
-export const updateUser = async (user: UserType): Promise<boolean> => {
+export const syncUserToMember = async (userId: string) => {
   try {
-    if (!user.id) throw new Error("Aucun ID fourni.")
+    const userRef = doc(db, COLLECTIONS.USERS, userId);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) return;
 
-    const userRef = doc(db, "Users", user.id)
-    const { id, ...userData } = user
+    const user = userSnap.data() as UserType;
 
-    const updateData: Record<string, any> = { updatedDate: Date.now() }
-    Object.entries(userData).forEach(([k, v]) => {
-      if (v !== undefined) updateData[k] = v
-    })
+    // Construire les champs à synchroniser
+    const syncedData: Partial<MemberType> = {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      avatar: user.avatarUrl || "",
+      bio: user.bio || "",
+      nationality: user.nationality,
+      updatedDate: Date.now(),
+    };
 
-    await updateDoc(userRef, updateData)
-    return true
-  } catch (err) {
-    console.error("Erreur updateUser:", err)
-    return false
+    // 🔹 Filtrer les undefined avant updateDoc
+    const cleanData = Object.fromEntries(
+      Object.entries(syncedData).filter(([_, v]) => v !== undefined)
+    );
+
+    const memberRef = doc(db, COLLECTIONS.MEMBERS, userId);
+    const memberSnap = await getDoc(memberRef);
+
+    if (!memberSnap.exists()) {
+      console.warn(`⚠️ Aucun member trouvé pour ${userId}`);
+      return;
+    }
+
+    await updateDoc(memberRef, cleanData);
+
+    console.log(`✅ Member synchronisé avec le User ${userId}`);
+  } catch (error) {
+    console.error("❌ Erreur syncUserToMember:", error);
   }
-}
+};
+
+export const updateUser = async (user: UserType & { id: string }): Promise<boolean> => {
+  try {
+    if (!user.id) throw new Error("Aucun ID fourni.");
+
+    const userRef = doc(db, COLLECTIONS.USERS, user.id);
+    const { id, ...userData } = user;
+
+    const updateData: Record<string, any> = { updatedDate: Date.now() };
+    Object.entries(userData).forEach(([k, v]) => {
+      if (v !== undefined) updateData[k] = v;
+    });
+
+    await updateDoc(userRef, updateData);
+
+    // 🔹 Synchroniser automatiquement le Member
+    await syncUserToMember(user.id);
+
+    return true;
+  } catch (err) {
+    console.error("Erreur updateUser:", err);
+    return false;
+  }
+};
 
 export const getUserById = async (id: string): Promise<UserType | null> => {
   try {
@@ -429,20 +471,6 @@ export const deleteConnection = async (linkId: string) => {
   }
 };
 
-// Récupérer toutes les connexions
-export const getConnexionsByUserId = async (userId: string): Promise<UserLink[]> => {
-  try {
-    const userSnap = await getDoc(doc(db, COLLECTIONS.USERS, userId));
-    if (!userSnap.exists()) return [];
-
-    const userData = userSnap.data() as UserType;
-    return Object.values(userData.links || {}) as UserLink[];
-  } catch (error) {
-    console.error("Erreur lors de la récupération des connexions :", error);
-    return [];
-  }
-};
-
 const getUserDisplayName = async (userId: string): Promise<string> => {
   try {
     const userSnap = await getDoc(doc(db, COLLECTIONS.USERS, userId));
@@ -506,3 +534,46 @@ export const addConversationToUser = async (userId: string, conversationId: stri
     console.error("Erreur lors de la mise à jour des conversations:", error);
   }
 };
+
+export const deleteFriendship = async (
+  linkId: string,
+  currentUserId: string,
+  otherUserId: string
+): Promise<void> => {
+  try {
+    // 1️⃣ Supprimer mutuellement les IDs du tableau friends
+    const currentUserRef = doc(db, "Users", currentUserId)
+    const otherUserRef = doc(db, "Users", otherUserId)
+
+    await Promise.all([
+      updateDoc(currentUserRef, {
+        friends: arrayRemove(otherUserId),
+      }),
+      updateDoc(otherUserRef, {
+        friends: arrayRemove(currentUserId),
+      }),
+    ])
+
+    // 2️⃣ Supprimer le document Links
+    const linkRef = doc(db, "Links", linkId)
+    await deleteDoc(linkRef)
+
+    console.log(`✅ Amitié supprimée: ${linkId}`)
+  } catch (error) {
+    console.error("❌ Erreur lors de la suppression de l'amitié:", error)
+    throw error
+  }
+}
+
+export async function getLinkBetweenUsers(userA: string, userB: string): Promise<Links | null> {
+  const linksRef = collection(db, "Links")
+
+  const q1 = query(linksRef, where("senderId", "==", userA), where("receiverId", "==", userB))
+  const q2 = query(linksRef, where("senderId", "==", userB), where("receiverId", "==", userA))
+
+  const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)])
+
+  const doc = !snap1.empty ? snap1.docs[0] : !snap2.empty ? snap2.docs[0] : null
+
+  return doc ? ({ linkId: doc.id, ...(doc.data() as DocumentData) } as Links) : null
+}

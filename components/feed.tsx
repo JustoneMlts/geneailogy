@@ -12,10 +12,10 @@ import { useSelector } from "react-redux";
 import { selectUser } from "@/lib/redux/slices/currentUserSlice";
 import { handleGetUserNameInitials } from "@/app/helpers/userHelper";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { 
-  createFeedPost, 
+import {
+  createFeedPost,
   listenPostsByUserIds,
-  getUserIdsFromLinkIds 
+  getUserIdsFromLinkIds
 } from "@/app/controllers/feedController";
 import { FeedPostType } from "@/lib/firebase/models";
 import { FeedSkeleton } from "./feedSkeleton";
@@ -59,69 +59,30 @@ export const Feed = () => {
     setFileUrl(null);
   };
 
-  useEffect(() => {
-    
-    if (!currentUser?.id || !currentUser?.friends || currentUser.friends.length === 0) {
-      setFriendsUserIds([]);
-      return;
-    }
-
-    let isMounted = true;
-
-    const convertLinkIds = async () => {
-      try {
-        const userIds = await getUserIdsFromLinkIds(
-          currentUser.friends!,
-          currentUser.id!
-        );
-        
-        if (isMounted) {
-          setFriendsUserIds(userIds);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setFriendsUserIds([]);
-        }
-      }
-    };
-
-    convertLinkIds();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [currentUser?.id, currentUser?.friends]); 
-
   const authorizedUserIds = useMemo(() => {
-    if (!currentUser?.id) {
-      return [];
-    }
-    
-    const result = [currentUser.id, ...friendsUserIds];
-    return result;
-  }, [currentUser?.id, friendsUserIds]);
+  if (!currentUser?.id) return [];
+  return Array.from(new Set([currentUser.id, ...(currentUser.friends ?? [])]));
+}, [currentUser?.id, currentUser?.friends]);
 
   useEffect(() => {
-    
-    if (authorizedUserIds.length === 0) {
-      setPosts([]);
-      setLoading(false);
-      return;
-    }
-    
-    const unsubscribe = listenPostsByUserIds(authorizedUserIds, (fetched) => {
-      const authorizedSet = new Set(authorizedUserIds);
-      const filteredPosts = fetched.filter(post => authorizedSet.has(post.author.id));
+  if (authorizedUserIds.length === 0) {
+    setPosts([]);
+    return;
+  }
 
-      setPosts(filteredPosts);
-      setLoading(false);
-    });
+  setLoading(true);
+
+  const unsubscribe = listenPostsByUserIds(authorizedUserIds, (posts) => {
+    setPosts(posts);
+    setLoading(false);
+  });
 
     return () => {
       unsubscribe();
     };
-  }, [authorizedUserIds]); 
+  }, [authorizedUserIds]); // Se déclenche quand authorizedUserIds change
 
+  // 🔹 Création d'un post
   const handleSubmitInput = async () => {
     if (!currentUser?.id || (!postMessage.trim() && !fileUrl)) return;
 
@@ -302,8 +263,8 @@ export const Feed = () => {
                       Aucun post pour le moment
                     </p>
                     <p className="text-gray-500">
-                      {friendsUserIds.length === 0 
-                        ? "Ajoutez des amis pour voir leur contenu !" 
+                      {friendsUserIds.length === 0
+                        ? "Ajoutez des amis pour voir leur contenu !"
                         : "Soyez le premier à partager quelque chose !"}
                     </p>
                   </Card>

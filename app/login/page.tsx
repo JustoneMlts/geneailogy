@@ -71,7 +71,7 @@ export default function LoginPage() {
           nationality: "",
           familyOrigin: "",
           researchInterests: "",
-          links: [],
+          friends: [],
           createdDate: Date.now(),
           updatedDate: Date.now(),
           isActive: true,

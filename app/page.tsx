@@ -1,17 +1,48 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { TreePine, Users, MessageCircle, Search, Sparkles, ArrowRight, Heart } from "lucide-react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
+import { 
+  TreePine, Users, MessageCircle, Search, Sparkles, ArrowRight, Heart 
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 export default function LandingPage() {
+  const [isMobile, setIsMobile] = useState(false)
 
+  // Détecte si l'écran est mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
+
+  if (isMobile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50 p-4">
+        <Card className="max-w-md text-center p-8 shadow-lg border-0 bg-white/80 backdrop-blur-sm animate-fade-in">
+          <CardHeader>
+            <TreePine className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+            <CardTitle className="text-2xl font-bold text-gray-800 mb-2">
+              Version mobile en développement
+            </CardTitle>
+            <CardDescription className="text-gray-600">
+              Pour l'instant, l'application doit être utilisée sur desktop.
+              Nous travaillons activement sur la version smartphone. 🚀
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    )
+  }
+
+  // Version Desktop
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
       {/* Header */}
-    <header className="fixed top-0 left-0 w-full border-b bg-white/70 backdrop-blur-md shadow-sm z-50">
+      <header className="fixed top-0 left-0 w-full border-b bg-white/70 backdrop-blur-md shadow-sm z-50">
         <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <TreePine className="h-8 w-8 text-blue-600" />
@@ -113,7 +144,9 @@ export default function LandingPage() {
               <CardHeader>
                 <Search className="h-12 w-12 text-teal-600 mb-4" />
                 <CardTitle className="text-teal-800">Recherche avancée</CardTitle>
-                <CardDescription>Trouvez des familles par nom, lieu, époque et bien d'autres critères</CardDescription>
+                <CardDescription>
+                  Trouvez des familles par nom, lieu, époque et bien d'autres critères
+                </CardDescription>
               </CardHeader>
             </Card>
 

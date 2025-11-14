@@ -84,7 +84,6 @@ export default function ProfilePage() {
     bio?: string
     phoneNumber?: string
     localisation?: string
-    links: UserLink[]
     familyOrigin?: string
     oldestAncestor?: string
     researchInterests?: string
@@ -99,7 +98,6 @@ export default function ProfilePage() {
     bio: "",
     phoneNumber: "",
     localisation: "",
-    links: [],
     familyOrigin: "",
     oldestAncestor: "",
     researchInterests: "",
@@ -118,7 +116,6 @@ export default function ProfilePage() {
         bio: currentUser.bio ?? "",
         phoneNumber: currentUser.phoneNumber ?? "",
         localisation: currentUser.localisation ?? "",
-        links: currentUser.links ?? [],
         familyOrigin: currentUser.familyOrigin ?? "",
         oldestAncestor: currentUser.oldestAncestor ?? "",
         researchInterests: currentUser.researchInterests ?? "",
@@ -139,12 +136,13 @@ export default function ProfilePage() {
 
     try {
       // Mise à jour du User
-      const updatedUser: UserType = {
-        id: currentUser.id,
+      const updatedUser: UserType & { id: string } = {
+        ...currentUser,
+        id: currentUser.id!, // ❗ le ! dit "je garantis que ce n'est pas undefined"
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
-        lastNameLower: formData.lastName.trim().toLowerCase(),
         firstNameLower: formData.firstName.trim().toLowerCase(),
+        lastNameLower: formData.lastName.trim().toLowerCase(),
         email: formData.email.trim(),
         bio: formData.bio || undefined,
         phoneNumber: formData.phoneNumber || undefined,
@@ -152,9 +150,9 @@ export default function ProfilePage() {
         familyOrigin: formData.familyOrigin || undefined,
         oldestAncestor: formData.oldestAncestor || undefined,
         researchInterests: formData.researchInterests || undefined,
-        links: formData.links ?? [],
         birthDate: formData.birthDate ? new Date(formData.birthDate).getTime() : undefined,
         avatarUrl: currentUser.avatarUrl,
+        friends: currentUser.friends || [],
         nationality: currentUser.nationality,
         createdDate: currentUser.createdDate,
         isActive: currentUser.isActive ?? true,

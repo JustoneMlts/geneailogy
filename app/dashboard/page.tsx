@@ -14,8 +14,14 @@ import Wall from "@/components/wall"
 import { getMyNotifications } from "../controllers/notificationsController"
 import { setNotifications } from "@/lib/redux/slices/notificationSlice"
 import { selectActiveTab } from "@/lib/redux/slices/uiSlice"
-import { getConnexionsByUserId } from "../controllers/usersController"
-import { setConnections } from "@/lib/redux/slices/connectionsSlice"
+import { getUsersByFriendsIds } from "../controllers/usersController"
+
+interface SimpleContact {
+  id: string
+  firstName: string
+  lastName: string
+  avatarUrl?: string
+}
 
 export default function Dashboard() {
   const activeTab = useSelector(selectActiveTab)
@@ -23,6 +29,8 @@ export default function Dashboard() {
   const [isPinned, setIsPinned] = useState(false)
   const dispatch = useDispatch()
   const currentUser = useSelector(selectUser)
+  const [isLoadingFriends, setIsLoadingFriends] = useState<boolean>(false)
+  const [friends, setFriends] = useState<SimpleContact[]>([])
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -43,14 +51,29 @@ export default function Dashboard() {
   useEffect(() => {
   if (!currentUser?.id) return
 
-  const fetchConnections = async () => {
-    if (currentUser.id) {
-      const data = await getConnexionsByUserId(currentUser.id)
-      dispatch(setConnections(data))
-    }  
-  }
-
-  fetchConnections()
+ const fetchFriends = async () => {
+       console.log("Current user's friends:", currentUser?.friends)
+       if (!currentUser?.friends || currentUser.friends.length === 0) return
+ 
+       setIsLoadingFriends(true)
+       await getUsersByFriendsIds(currentUser.friends)
+         .then((users) => {
+           console.log("loaded friends users:", users)
+           const simpleContacts: SimpleContact[] = users
+             .filter((u) => u.id)
+             .map((u) => ({
+               id: u.id!,
+               firstName: u.firstName,
+               lastName: u.lastName,
+               avatarUrl: u.avatarUrl,
+             }))
+           setFriends(simpleContacts)
+         })
+         .catch((err) => console.error("Erreur chargement amis:", err))
+         .finally(() => setIsLoadingFriends(false))
+     }
+ 
+     fetchFriends()
 }, [currentUser, dispatch])
 
   return (
@@ -73,7 +96,7 @@ export default function Dashboard() {
           {activeTab === "ai" && (
             <Ai />
           )}
-
+          
           {activeTab === "connections" && (
             <Connections />
           )}
