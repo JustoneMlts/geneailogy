@@ -37,17 +37,14 @@ import { getUsersByFriendsIds, getUsersByIds } from "@/app/controllers/usersCont
 import { motion, AnimatePresence } from "framer-motion"
 import EmojiPicker from "emoji-picker-react"
 import { uploadFileToStorage } from "@/lib/firebase/firebase-functions"
+import { useAppSelector } from "@/lib/redux/hooks"
+import { selectFriends } from "@/lib/redux/slices/friendsSlice"
+import { set } from "lodash"
 
 interface MessageWithAvatar extends MessageType {
   showAvatar: boolean
 }
 
-interface SimpleContact {
-  id: string
-  firstName: string
-  lastName: string
-  avatarUrl?: string
-}
 
 export const DirectMessages: React.FC = () => {
   const currentUser = useSelector(selectUser) as UserType | null
@@ -58,42 +55,22 @@ export const DirectMessages: React.FC = () => {
   const [messageText, setMessageText] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false)
-  const [friends, setFriends] = useState<SimpleContact[]>([])
   const [isLoadingFriends, setIsLoadingFriends] = useState<boolean>(false)
   const [minimumDelayDone, setMinimumDelayDone] = useState<boolean>(false)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const friends = useAppSelector(selectFriends) as UserType[] | null;
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const hasSelectedInitial = useRef(false)
 
   useEffect(() => {
-    const timer = setTimeout(() => setMinimumDelayDone(true), 400)
-    return () => clearTimeout(timer)
-  }, [])
+    const timer = setTimeout(() => {
+      setMinimumDelayDone(true)
+    }, 200);
 
-  useEffect(() => {
-    const fetchFriends = async () => {
-      if (!currentUser?.friends || currentUser.friends.length === 0) return
+    return () => clearTimeout(timer);
+  }, [friends]);
 
-      setIsLoadingFriends(true)
-      await getUsersByFriendsIds(currentUser.friends)
-        .then((users) => {
-          const simpleContacts: SimpleContact[] = users
-            .filter((u) => u.id)
-            .map((u) => ({
-              id: u.id!,
-              firstName: u.firstName,
-              lastName: u.lastName,
-              avatarUrl: u.avatarUrl,
-            }))
-          setFriends(simpleContacts)
-        })
-        .catch((err) => console.error("Erreur chargement amis:", err))
-        .finally(() => setIsLoadingFriends(false))
-    }
-
-    fetchFriends()
-  }, [currentUser])
 
   useEffect(() => {
     if (!currentUser?.id) return
@@ -159,8 +136,13 @@ export const DirectMessages: React.FC = () => {
     })
   }, [messages])
 
-  const getOtherParticipant = (conv: ConversationType): ConversationParticipant | undefined => {
-    return conv.participants?.find((p: ConversationParticipant) => p.userId !== currentUser?.id)
+  const getOtherParticipant = (conv: ConversationType, userId: string): UserType | undefined => {
+    const otherUserId = conv.participantIds?.find((otherUserId: string) => otherUserId !== userId)
+    return friends?.find((f => f.id === otherUserId)) || undefined
+  }
+
+  const getSenderParticipant = (senderId: string): UserType | undefined => {
+    return friends?.find((f => f.id === senderId)) || undefined
   }
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -240,15 +222,16 @@ export const DirectMessages: React.FC = () => {
     if (!queryText.trim()) return conversations
     const q = queryText.toLowerCase()
     return conversations.filter((conv: ConversationType) => {
-      const other = getOtherParticipant(conv)
+      const other = getOtherParticipant(conv, currentUser?.id || "")
       if (!other) return false
       const fullName = `${other.firstName} ${other.lastName}`.toLowerCase()
       return fullName.includes(q)
     })
   }, [conversations, queryText, currentUser?.id])
 
-  const filteredFriends = useMemo<SimpleContact[]>(() => {
+  const filteredFriends = useMemo<UserType[] | null>(() => {
     if (!queryText.trim()) return friends
+    if (!friends) return null
     const q = queryText.toLowerCase()
     return friends.filter((friend) => {
       const fullName = `${friend.firstName} ${friend.lastName}`.toLowerCase()
@@ -274,10 +257,11 @@ export const DirectMessages: React.FC = () => {
     }
   }
 
-  const handleStartConversation = async (friend: SimpleContact): Promise<void> => {
+  const handleStartConversation = async (friend: UserType): Promise<void> => {
     if (!currentUser?.id) return
 
     try {
+      if (!friend.id) return;
       const conversation = await createOrGetConversation(currentUser.id, friend.id, {
         firstName: friend.firstName,
         lastName: friend.lastName,
@@ -391,7 +375,7 @@ export const DirectMessages: React.FC = () => {
                 {!isSearchFocused && (
                   <div className="md:hidden px-4 py-3 border-b border-gray-200/50 overflow-x-auto">
                     <div className="flex gap-4">
-                      {friends.slice(0, 10).map((friend) => (
+                      {friends && friends.slice(0, 10).map((friend) => (
                         <div
                           key={friend.id}
                           className="flex flex-col items-center gap-1 cursor-pointer flex-shrink-0"
@@ -422,7 +406,7 @@ export const DirectMessages: React.FC = () => {
                           <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
                           <p className="text-gray-500 text-sm mt-3">Chargement des contacts...</p>
                         </div>
-                      ) : filteredFriends.length === 0 ? (
+                      ) : filteredFriends && filteredFriends.length === 0 ? (
                         <div className="text-center py-12 px-4">
                           <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                           <p className="text-gray-500 font-medium">Aucun contact trouvé</p>
@@ -433,7 +417,7 @@ export const DirectMessages: React.FC = () => {
                           <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
                             Vos contacts
                           </div>
-                          {filteredFriends.map((friend) => (
+                          {filteredFriends && filteredFriends.map((friend) => (
                             <div
                               key={friend.id}
                               className="px-4 py-3 hover:bg-gray-50 md:hover:bg-white/50 cursor-pointer transition-all md:rounded-xl md:mx-2 md:my-1"
@@ -467,7 +451,7 @@ export const DirectMessages: React.FC = () => {
                         </div>
                       ) : (
                         filteredConversations.map((conv) => {
-                          const other = getOtherParticipant(conv)
+                          const other = getOtherParticipant(conv, currentUser?.id || "")
                           if (!other) return null
                           const isSelected = selectedConversation?.id === conv.id
                           const hasUnread = conv.hasUnreadMessages && conv.lastSenderId !== currentUser?.id
@@ -537,13 +521,13 @@ export const DirectMessages: React.FC = () => {
                         </Button>
 
                         {(() => {
-                          const other = getOtherParticipant(selectedConversation)
-                          return other ? (
+                          const other = getOtherParticipant(selectedConversation, currentUser?.id || "")
+                          return other && other.firstName && other.lastName ? (
                             <>
                               <Avatar className="w-10 h-10">
-                                <AvatarImage src={other.avatarUrl || "/placeholder.svg"} />
+                                <AvatarImage src={other.avatarUrl} />
                                 <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
-                                  {other.firstName[0]}
+                                  {other.firstName[0] ?? "?"}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
@@ -574,9 +558,7 @@ export const DirectMessages: React.FC = () => {
                     <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 bg-transparent min-h-0">
                       <div className="space-y-2 max-w-full mx-auto">
                         {messagesWithAvatarFlag.map((m: MessageWithAvatar, idx: number) => {
-                          const sender = selectedConversation?.participants?.find(
-                            (p: ConversationParticipant) => p.userId === m.senderId
-                          )
+                          const sender = getSenderParticipant(m.senderId)
                           const isCurrentUser = m.senderId === currentUser?.id
                           const nextMsg = messagesWithAvatarFlag[idx + 1]
                           const isLastInGroup = !nextMsg || nextMsg.senderId !== m.senderId
@@ -587,10 +569,10 @@ export const DirectMessages: React.FC = () => {
                               className={`flex items-end gap-2 ${isCurrentUser ? "justify-end" : "justify-start"
                                 }`}
                             >
-                              {!isCurrentUser && isLastInGroup && sender && (
+                              {!isCurrentUser && isLastInGroup && sender && sender.firstName && (
                                 <Avatar className="w-7 h-7 mb-1">
-                                  <AvatarImage src={sender.avatarUrl || "/placeholder.svg"} />
-                                  <AvatarFallback className="text-xs">{sender.firstName[0]}</AvatarFallback>
+                                  <AvatarImage src={sender.avatarUrl} />
+                                  <AvatarFallback className="text-xs">{sender.firstName[0] ?? "?"}</AvatarFallback>
                                 </Avatar>
                               )}
 

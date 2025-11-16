@@ -21,23 +21,11 @@ export function PostCard({ post }: { post: FeedPostType }) {
   const currentUser = useSelector(selectUser);
   const dispatch = useAppDispatch();
   const friends = useAppSelector(selectFriends);
-  const liveAuthor = useSelector(selectLiveUserById(post.authorId));
-
-  // Fallback si l'auteur n'est pas encore chargé
-  const author = liveAuthor || {
-    id: post.authorId,
-    firstName: "",
-    lastName: "",
-    avatar: "/placeholder.svg",
-    initials: "",
-    verified: false,
-  };
 
   const [liked, setLiked] = useState(post.likesIds.includes(currentUser?.id || ""));
   const [likeCount, setLikeCount] = useState(post.likesIds.length);
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState("");
-  const [showLikers, setShowLikers] = useState(false);
 
   const router = useRouter();
 
@@ -48,7 +36,7 @@ export function PostCard({ post }: { post: FeedPostType }) {
   
   const handleLike = async (post: FeedPostType) => {
     if (!currentUser?.id) return;
-
+    const author = getAuthor(post.authorId);
     const alreadyLiked = post.likesIds.includes(currentUser.id);
     setLiked(!alreadyLiked);
     setLikeCount(alreadyLiked ? likeCount - 1 : likeCount + 1);
@@ -73,6 +61,7 @@ export function PostCard({ post }: { post: FeedPostType }) {
     if (!currentUser) return;
     const content = newComment.trim();
     if (!content) return;
+    const author = getAuthor(post.authorId);
 
     await addCommentToPost(post.id!, {
       author: {
@@ -116,7 +105,7 @@ export function PostCard({ post }: { post: FeedPostType }) {
               >
                 <AvatarImage src={getAuthor(post.authorId).avatarUrl} />
                 <AvatarFallback className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-lg">
-                  {author.initials || handleGetUserNameInitials(getAuthor(post.authorId))}
+                  {getAuthor(post.authorId).initials || handleGetUserNameInitials(getAuthor(post.authorId))}
                 </AvatarFallback>
               </Avatar>
 
@@ -128,7 +117,7 @@ export function PostCard({ post }: { post: FeedPostType }) {
                   >
                     {getAuthor(post.authorId).firstName} {getAuthor(post.authorId).lastName}
                   </h3>
-                  {author.verified && <Badge className="bg-blue-100 text-blue-800 text-xs flex-shrink-0">Vérifié</Badge>}
+                  {getAuthor(post.authorId).verified && <Badge className="bg-blue-100 text-blue-800 text-xs flex-shrink-0">Vérifié</Badge>}
                   {post.isOnWall && <span className="text-gray-500 text-xs sm:text-sm flex-shrink-0">→ sur votre mur</span>}
                 </div>
                 <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-500 mt-1">

@@ -104,7 +104,6 @@ export interface ConversationParticipant {
 export interface ConversationType {
   id?: string
   participantIds: string[] // userIds (pour compatibilité)
-  participants: ConversationParticipant[] // ✨ NOUVEAU: Infos complètes
   createdDate?: number
   updatedDate?: number
   isActive?: boolean
