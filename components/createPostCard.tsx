@@ -60,18 +60,8 @@ export function CreatePostCard({ user, wallOwner, onPostCreated }: CreatePostCar
     setIsLoading(true)
 
     const newPost: FeedPostType = {
-      author: {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        avatar: user.avatarUrl || "/placeholder.svg",
-      },
-      destinator: {
-        id: wallOwner.id ? wallOwner.id : "",
-        firstName: wallOwner.firstName,
-        lastName: wallOwner.lastName,
-        avatar: wallOwner.avatarUrl || "/placeholder.svg",
-      },
+      authorId: user.id ?? "",
+      destinatorId: wallOwner.id ?? "",
       content: postMessage.trim(),
       image: selectedFile?.type.startsWith("image/") ? fileUrl ?? "" : "",
       documentUrl:

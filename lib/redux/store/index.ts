@@ -3,6 +3,8 @@ import currentUserReducer from "../slices/currentUserSlice"
 import notificationReducer from "../slices/notificationSlice"
 import uiReducer from "../slices/uiSlice"
 import connectionsReducer from "../slices/connectionsSlice"
+import usersLiveReducer from "../slices/usersLiveSlice"
+import friendsReducer from "../slices/friendsSlice"
 
 import {
   persistReducer,
@@ -20,7 +22,10 @@ const rootReducer = combineReducers({
   connections: connectionsReducer,
   ui: uiReducer,
   user: currentUserReducer,
+  usersLive: usersLiveReducer,
   notifications: notificationReducer,
+  friends: friendsReducer, 
+  
 })
 
 const persistConfig = {

@@ -56,7 +56,6 @@ export const createOrUpdateConversation = async (
         }
 
         await batch.commit();
-        console.log(`✅ Conversation ${newConversationId} ajoutée aux ${participantIds.length} users`);
       }
 
       return newConversationId;
@@ -83,7 +82,6 @@ export const createOrGetConversation = async (
     .find((conv: any) => conv.participantIds?.includes(userId2));
 
   if (existingConv) {
-    console.log("✅ Conversation déjà existante:", existingConv);
     return existingConv; // ✅ avec id
   }
 

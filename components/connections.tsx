@@ -149,10 +149,6 @@ export const Connections: React.FC = () => {
         }
     }
 
-    useEffect(() => {
-        console.log("currentUser : ", currentUser)
-    }, [currentUser])
-
     const handleNavigate = (userId: string): void => router.push(`/wall/${userId}`)
 
     if (isLoading) return <ConnectionsSkeleton />

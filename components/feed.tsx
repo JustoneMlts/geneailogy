@@ -21,6 +21,10 @@ import { FeedPostType } from "@/lib/firebase/models";
 import { FeedSkeleton } from "./feedSkeleton";
 import { PostCard } from "./postCard";
 import { uploadFileToStorage } from "@/lib/firebase/firebase-functions";
+import { useUser } from "@/hooks/useUsers"; 
+import { reconcileUserListeners } from "@/lib/listeners/useLiveManager";
+import { useAppDispatch, useAppSelector } from "@/lib/redux/hooks";
+import { selectFriends } from "@/lib/redux/slices/friendsSlice";
 
 export const Feed = () => {
   const currentUser = useSelector(selectUser);
@@ -82,56 +86,55 @@ export const Feed = () => {
     };
   }, [authorizedUserIds]); // Se déclenche quand authorizedUserIds change
 
-  // 🔹 Création d'un post
-  const handleSubmitInput = async () => {
-    if (!currentUser?.id || (!postMessage.trim() && !fileUrl)) return;
 
-    const newPost: FeedPostType = {
-      author: {
-        id: currentUser.id,
-        firstName: currentUser.firstName || "",
-        lastName: currentUser.lastName || "",
-        avatar: currentUser.avatarUrl || "/placeholder.svg",
-      },
-      destinator: {
-        id: currentUser.id,
-        firstName: currentUser.firstName || "",
-        lastName: currentUser.lastName || "",
-        avatar: currentUser.avatarUrl || "/placeholder.svg",
-      },
-      content: postMessage.trim(),
-      image: selectedFile?.type.startsWith("image/") ? fileUrl ?? "" : "",
-      documentUrl:
-        selectedFile &&
-          !selectedFile.type.startsWith("image/") &&
-          fileUrl
-          ? fileUrl
-          : undefined,
-      documentName:
-        selectedFile && !selectedFile.type.startsWith("image/")
-          ? selectedFile.name
-          : undefined,
-      createdAt: Date.now(),
-      timeAgo: "À l'instant",
-      likesIds: [],
-      comments: [],
-      privacy: "public",
-      isOnWall: true,
-    };
+const handleSubmitInput = async () => {
+  if (!currentUser?.id || (!postMessage.trim() && !fileUrl)) return;
 
-    try {
-      const cleanPost = Object.fromEntries(
-        Object.entries(newPost).filter(([_, v]) => v !== undefined)
-      ) as FeedPostType;
-
-      await createFeedPost(cleanPost);
-      setPostMessage("");
-      setSelectedFile(null);
-      setFileUrl(null);
-    } catch (err) {
-      console.error("Erreur lors de la création du post :", err);
-    }
+  const newPost: FeedPostType = {
+    authorId: currentUser.id,
+    destinatorId: currentUser.id,
+    content: postMessage.trim(),
+    image: selectedFile?.type.startsWith("image/") ? fileUrl ?? "" : "",
+    documentUrl:
+      selectedFile &&
+      !selectedFile.type.startsWith("image/") &&
+      fileUrl
+        ? fileUrl
+        : undefined,
+    documentName:
+      selectedFile && !selectedFile.type.startsWith("image/")
+        ? selectedFile.name
+        : undefined,
+    createdAt: Date.now(),
+    timeAgo: "À l'instant",
+    likesIds: [],
+    comments: [],
+    privacy: "public",
+    isOnWall: true,
   };
+
+  try {
+    const cleanPost = Object.fromEntries(
+      Object.entries(newPost).filter(([_, v]) => v !== undefined)
+    ) as FeedPostType;
+
+    const postId = await createFeedPost(cleanPost);
+
+    const postWithId = { ...cleanPost, id: postId };
+
+    // 🔹 Ajouter l’auteur dans le store pour qu’on le voie dans le feed
+    reconcileUserListeners([currentUser.id]);
+
+    // 🔹 Mettre à jour le state local pour l’afficher immédiatement
+    setPosts((prev) => [postWithId, ...prev]);
+
+    setPostMessage("");
+    setSelectedFile(null);
+    setFileUrl(null);
+  } catch (err) {
+    console.error("Erreur lors de la création du post :", err);
+  }
+};
 
   return (
     <div className="animate-fade-in">
@@ -274,7 +277,7 @@ export const Feed = () => {
                       key={post.id}
                       post={{
                         ...post,
-                        isOnWall: post.author.id !== post.destinator.id,
+                        isOnWall: post.authorId !== post.destinatorId,
                       }}
                     />
                   ))

@@ -128,7 +128,7 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
             const fetched = snapshot.docs
                 .map((doc) => ({ id: doc.id, ...doc.data() } as FeedPostType))
                 // ✅ filtrer seulement si destinator existe et a un id
-                .filter((post) => post.destinator && post.destinator.id === wallOwner.id)
+                .filter((post) => post && post.destinatorId === wallOwner.id)
 
             fetched.sort((a, b) => b.createdAt - a.createdAt)
             setWallPosts(fetched)
@@ -189,7 +189,7 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
                             post={{
                                 ...post,
                                 comments: post.comments || [],
-                                isOnWall: post.author.id !== post.destinator.id,
+                                isOnWall: post.authorId !== post.destinatorId,
                             }}
                         />
                     ))}

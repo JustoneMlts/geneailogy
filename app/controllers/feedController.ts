@@ -3,28 +3,35 @@ import { db } from "@/lib/firebase/firebase";
 import { addDocumentToCollection, getAllDataFromCollection, getDataFromCollection, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
 import { FeedPostType, Links } from "@/lib/firebase/models";
 import { addDoc, arrayRemove, arrayUnion, collection, doc, documentId, getDocs, onSnapshot, or, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import { store } from "@/lib/redux/store";
+import { reconcileUserListeners, unsubscribeAllUsers } from "@/lib/listeners/useLiveManager";
 
 export const createFeedPost = async (postData: FeedPostType) => {
   try {
     const collectionRef = collection(db, "Feed");
     const docRef = await addDoc(collectionRef, {}); // crée un doc vide pour récupérer l’ID
+
+    // On met à jour l'objet avec l'id et on nettoie les undefined
     const dataToSave: FeedPostType = {
       ...postData,
-      id: docRef.id, // 🔑 on ajoute l’ID généré
-      createdAt: Date.now(),
-      comments: [],
-      likesIds: [],
+      id: docRef.id,
     };
 
-    await setDoc(docRef, dataToSave); // on écrase le doc vide avec les vraies données
+    // Supprime les champs undefined pour Firestore
+    Object.keys(dataToSave).forEach(
+      (key) =>
+        (dataToSave[key as keyof typeof dataToSave] === undefined ||
+          dataToSave[key as keyof typeof dataToSave] === null) &&
+        delete dataToSave[key as keyof typeof dataToSave]
+    );
 
+    await setDoc(docRef, dataToSave); // safe
     return docRef.id;
   } catch (error) {
     console.error("Erreur lors de la création du post :", error);
     throw error;
   }
 };
-
 export const getFeedPosts = async () => {
   return await getAllDataFromCollection(COLLECTIONS.FEED);
 };
@@ -45,10 +52,10 @@ export const getPostsByUserId = async (userId: string): Promise<FeedPostType[]> 
   try {
     const q = query(
       collection(db, COLLECTIONS.FEED),
-        where("destinator.id", "==", userId)
-      );
+      where("destinator.id", "==", userId)
+    );
     const querySnapshot = await getDocs(q);
-    
+
     const posts: FeedPostType[] = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...(doc.data() as Omit<FeedPostType, "id">),
@@ -116,7 +123,7 @@ export const getUserIdsFromLinkIds = async (
       );
 
       const snapshot = await getDocs(q);
-      
+
       snapshot.forEach(doc => {
         const link = doc.data() as Links;
         // Ajouter l'autre utilisateur (pas moi)
@@ -135,9 +142,6 @@ export const getUserIdsFromLinkIds = async (
   }
 };
 
-/**
- * Écoute en temps réel les posts des utilisateurs spécifiés
- */
 export const listenPostsByUserIds = (
   userIds: string[],
   callback: (posts: FeedPostType[]) => void
@@ -147,34 +151,29 @@ export const listenPostsByUserIds = (
     return () => {};
   }
 
-  // Firestore limite les "in" queries à 30 éléments maximum
-  // On découpe en chunks de 10 pour être sûr
+  // Firestore impose max 10 IDs par requête "in"
   const chunks: string[][] = [];
   for (let i = 0; i < userIds.length; i += 10) {
     chunks.push(userIds.slice(i, i + 10));
   }
 
-  // Map pour stocker les posts par chunk
   const postsMap = new Map<number, FeedPostType[]>();
 
   const unsubscribes = chunks.map((idsChunk, chunkIndex) => {
     const q = query(
       collection(db, COLLECTIONS.FEED),
-      where("author.id", "in", idsChunk)
+      where("authorId", "in", idsChunk)
     );
 
     return onSnapshot(q, (snapshot) => {
-      const posts: FeedPostType[] = snapshot.docs.map(
-        (doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        } as FeedPostType)
-      );
+      const posts: FeedPostType[] = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as FeedPostType)
+      }));
 
-      // Stocke les posts de CE chunk
       postsMap.set(chunkIndex, posts);
 
-      // Fusionne tous les chunks et trie par date
+      // Fusion de tous les chunks
       const allPosts = Array.from(postsMap.values())
         .flat()
         .sort((a, b) => b.createdAt - a.createdAt);
@@ -183,7 +182,6 @@ export const listenPostsByUserIds = (
     });
   });
 
-  // Retourne une fonction pour se désabonner de tous les listeners
   return () => unsubscribes.forEach((unsub) => unsub());
 };
 
@@ -202,6 +200,6 @@ export const addCommentToPost = async (
 ) => {
   const postRef = doc(db, "Feed", postId);
   await updateDoc(postRef, {
-    comments: arrayUnion(comment), 
+    comments: arrayUnion(comment),
   });
 };

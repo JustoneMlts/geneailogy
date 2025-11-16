@@ -1,8 +1,8 @@
 export type LinkStatus = "pending" | "accepted" | "none"
 
 export interface UserLink {
-  senderId: string;   
-  receiverId: string;  
+  senderId: string;
+  receiverId: string;
   status: LinkStatus;
 }
 
@@ -15,20 +15,20 @@ export interface UserType {
   lastNameLower: string
   birthDate?: number // timestamp
   nationality?: string
-  bio? : string,
+  bio?: string,
   phoneNumber?: string,
   localisation?: string,
   oldestAncestor?: string,
   avatarUrl?: string
   email: string
-  familyOrigin? : string
+  familyOrigin?: string
   researchInterests?: string
   friends?: string[]
   createdDate?: number
   updatedDate?: number
   isActive?: boolean
   treesIds?: string[]
-  conversationsIds? : string[]
+  conversationsIds?: string[]
 }
 
 export interface Links {
@@ -63,11 +63,11 @@ export interface MemberType {
   birthDate?: number
   deathDate?: number
   deathPlace?: string,
-  birthPlace?: LocationData 
+  birthPlace?: LocationData
   gender?: "male" | "female" | "other"
   avatar?: string
   bio?: string
-  nationality?: string | string []
+  nationality?: string | string[]
   treeId: string
   mariageId?: string
   isMarried?: boolean
@@ -82,14 +82,14 @@ export interface MemberType {
 }
 
 export interface LocationData {
-    city: string;
-    country: string;
-    latitude: number;
-    longitude: number;
-    displayName: string;
-    countryCode?: string;
-    region?: string;
-    postcode?: string;
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  displayName: string;
+  countryCode?: string;
+  region?: string;
+  postcode?: string;
 }
 
 export interface ConversationParticipant {
@@ -184,22 +184,12 @@ export interface CommentDisplayType {
 
 export interface FeedPostType {
   id?: string
-  author: {
-    id: string
-    firstName: string
-    lastName: string
-    avatar: string
-  }
-  destinator: {
-    id: string
-    firstName: string
-    lastName: string
-    avatar: string
-  }
+  authorId: string
+  destinatorId: string
   content: string
   timeAgo: string
   privacy: string
-  likesIds: string []
+  likesIds: string[]
   isLiked?: boolean
   isOnWall: boolean
   image?: string
@@ -219,7 +209,7 @@ export interface NotificationType {
   senderAvatarUrl?: string // 🔹 photo du sender
   type: "suggestion" | "message" | "connection" | "update" | "like" | "comment"
   title: string
-  message: string  
+  message: string
   relatedId?: string // postId, memberId, etc.
   unread: boolean
   createdDate: number

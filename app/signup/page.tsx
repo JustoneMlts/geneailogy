@@ -79,7 +79,7 @@ export default function SignupPage() {
           nationality: "",
           familyOrigin: "",
           researchInterests: "",
-          links: [],
+          friends: [],
           createdDate: Date.now(),
           updatedDate: Date.now(),
           isActive: true,

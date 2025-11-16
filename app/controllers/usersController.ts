@@ -154,7 +154,6 @@ export const syncUserToMember = async (userId: string) => {
 
     await updateDoc(memberRef, cleanData);
 
-    console.log(`✅ Member synchronisé avec le User ${userId}`);
   } catch (error) {
     console.error("❌ Erreur syncUserToMember:", error);
   }
@@ -558,7 +557,6 @@ export const deleteFriendship = async (
     const linkRef = doc(db, "Links", linkId)
     await deleteDoc(linkRef)
 
-    console.log(`✅ Amitié supprimée: ${linkId}`)
   } catch (error) {
     console.error("❌ Erreur lors de la suppression de l'amitié:", error)
     throw error

@@ -15,6 +15,8 @@ import { getMyNotifications } from "../controllers/notificationsController"
 import { setNotifications } from "@/lib/redux/slices/notificationSlice"
 import { selectActiveTab } from "@/lib/redux/slices/uiSlice"
 import { getUsersByFriendsIds } from "../controllers/usersController"
+import { fetchFriends, selectFriends } from "@/lib/redux/slices/friendsSlice"
+import { useAppDispatch, useAppSelector } from "@/lib/redux/hooks"
 
 interface SimpleContact {
   id: string
@@ -27,10 +29,11 @@ export default function Dashboard() {
   const activeTab = useSelector(selectActiveTab)
   const [isExpanded, setIsExpanded] = useState(false)
   const [isPinned, setIsPinned] = useState(false)
-  const dispatch = useDispatch()
   const currentUser = useSelector(selectUser)
   const [isLoadingFriends, setIsLoadingFriends] = useState<boolean>(false)
-  const [friends, setFriends] = useState<SimpleContact[]>([])
+
+  const dispatch = useAppDispatch();
+  const friends = useAppSelector(selectFriends);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -49,32 +52,10 @@ export default function Dashboard() {
   }, [currentUser])
 
   useEffect(() => {
-  if (!currentUser?.id) return
-
- const fetchFriends = async () => {
-       console.log("Current user's friends:", currentUser?.friends)
-       if (!currentUser?.friends || currentUser.friends.length === 0) return
- 
-       setIsLoadingFriends(true)
-       await getUsersByFriendsIds(currentUser.friends)
-         .then((users) => {
-           console.log("loaded friends users:", users)
-           const simpleContacts: SimpleContact[] = users
-             .filter((u) => u.id)
-             .map((u) => ({
-               id: u.id!,
-               firstName: u.firstName,
-               lastName: u.lastName,
-               avatarUrl: u.avatarUrl,
-             }))
-           setFriends(simpleContacts)
-         })
-         .catch((err) => console.error("Erreur chargement amis:", err))
-         .finally(() => setIsLoadingFriends(false))
-     }
- 
-     fetchFriends()
-}, [currentUser, dispatch])
+    if (currentUser?.friends?.length) {
+      dispatch(fetchFriends(currentUser.friends)); // <-- tes IDs d'amis
+    }
+  }, [currentUser]);
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen">
@@ -96,7 +77,7 @@ export default function Dashboard() {
           {activeTab === "ai" && (
             <Ai />
           )}
-          
+
           {activeTab === "connections" && (
             <Connections />
           )}
