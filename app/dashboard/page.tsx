@@ -10,7 +10,6 @@ import { Connections } from "@/components/connections"
 import { selectUser, setCurrentUser } from "@/lib/redux/slices/currentUserSlice"
 import { useDispatch, useSelector } from "react-redux"
 import { Sidebar } from "@/components/sidebar"
-import Wall from "@/components/wall"
 import { getMyNotifications } from "../controllers/notificationsController"
 import { setNotifications } from "@/lib/redux/slices/notificationSlice"
 import { selectActiveTab } from "@/lib/redux/slices/uiSlice"
@@ -64,10 +63,6 @@ export default function Dashboard() {
         <div>
           {activeTab === "feed" && (
             <Feed />
-          )}
-
-          {activeTab === "wall" && (
-            <Wall />
           )}
 
           {activeTab === "tree" && (
