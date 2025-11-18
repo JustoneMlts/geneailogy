@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { ConversationType, MessageType, ConversationParticipant } from "@/lib/firebase/models";
 import { getUserById } from "./usersController";
+import { last } from "lodash";
 
 // Créer ou mettre à jour une conversation
 export const createOrUpdateConversation = async (
@@ -95,6 +96,7 @@ export const createOrGetConversation = async (
     createdDate: Date.now(),
     updatedDate: Date.now(),
     lastMessage: "",
+    lastMessageId: null,
     lastSenderId: null,
     hasUnreadMessages: false,
     isActive: true,
@@ -121,6 +123,7 @@ export const sendMessage = async (
     const convRef = doc(db, COLLECTIONS.CONVERSATIONS, message.conversationId);
     await updateDoc(convRef, {
       lastMessage: message.text || "",
+      lastMessageId: docRef.id,
       updatedDate: Date.now(),
       lastSenderId: message.senderId,
       hasUnreadMessages: true, // ✨ Nouveau message = messages non lus
@@ -205,9 +208,6 @@ export const markConversationAsRead = async (
 
       const messageRef = doc(db, COLLECTIONS.MESSAGES, docSnap.id);
 
-      // Système hybride :
-      // - on garde isRead pour compatibilité
-      // - on ajoute un tableau readBy[] pour plus de granularité
       const updates: any = { isRead: true };
       if (data.readBy && Array.isArray(data.readBy)) {
         if (!data.readBy.includes(readerId)) {
@@ -259,17 +259,4 @@ export const findExistingConversation = async (
     console.error("Erreur lors de la recherche de conversation existante:", error);
     return null;
   }
-};
-
-// Créer les participants à partir des UserTypes
-export const createConversationParticipants = (
-  users: Array<{ id: string; firstName: string; lastName: string; avatarUrl?: string; location?: string }>
-): ConversationParticipant[] => {
-  return users.map(user => ({
-    userId: user.id,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    avatarUrl: user.avatarUrl,
-    location: user.location,
-  }));
 };

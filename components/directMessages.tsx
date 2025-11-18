@@ -97,6 +97,10 @@ export const DirectMessages: React.FC = () => {
   }, [currentUser?.id])
 
   useEffect(() => {
+    console.log("Selected conversation changed:", selectedConversation)
+  }, [selectedConversation])
+
+  useEffect(() => {
     if (!selectedConversation?.id || !currentUser?.id) {
       setMessages([])
       return
@@ -295,6 +299,10 @@ export const DirectMessages: React.FC = () => {
   const handleBackToList = () => {
     setSelectedConversation(null)
   }
+  
+  const getLastMessageById = (conv: ConversationType, lastMessageId: string): MessageType | undefined => {
+    return messages.find((msg) => msg.id === lastMessageId);
+  }
 
   return (
     <div className="h-screen overflow-y-hidden flex flex-col">
@@ -454,7 +462,7 @@ export const DirectMessages: React.FC = () => {
                           const other = getOtherParticipant(conv, currentUser?.id || "")
                           if (!other) return null
                           const isSelected = selectedConversation?.id === conv.id
-                          const hasUnread = conv.hasUnreadMessages && conv.lastSenderId !== currentUser?.id
+                          const hasUnread = conv.lastSenderId !== currentUser?.id && getLastMessageById(conv, conv.lastMessageId || "") ?.isRead === false
                           const displayName = `${other.firstName} ${other.lastName}`
 
                           return (

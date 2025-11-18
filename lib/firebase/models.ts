@@ -108,6 +108,7 @@ export interface ConversationType {
   updatedDate?: number
   isActive?: boolean
   lastMessage?: string
+  lastMessageId?: string
   lastSenderId?: string // ✨ Renommé pour clarté
   hasUnreadMessages?: boolean
 }
