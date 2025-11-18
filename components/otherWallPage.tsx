@@ -123,11 +123,10 @@ export default function OtherWallPage({ wallOwner }: OtherWallProps) {
 
     useEffect(() => {
         if (!wallOwner?.id) return
-        const q = query(collection(db, COLLECTIONS.FEED), where("destinator.id", "==", wallOwner.id))
+        const q = query(collection(db, COLLECTIONS.FEED), where("destinatorId", "==", wallOwner.id))
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetched = snapshot.docs
                 .map((doc) => ({ id: doc.id, ...doc.data() } as FeedPostType))
-                // ✅ filtrer seulement si destinator existe et a un id
                 .filter((post) => post && post.destinatorId === wallOwner.id)
 
             fetched.sort((a, b) => b.createdAt - a.createdAt)
