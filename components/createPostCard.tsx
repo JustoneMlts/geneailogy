@@ -8,16 +8,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Camera, FileText, Send, X } from "lucide-react"
 import { handleGetUserNameInitials } from "@/app/helpers/userHelper"
 import { FeedPostType, UserType } from "@/lib/firebase/models"
-import { createFeedPost } from "@/app/controllers/feedController"
+import { createFeedPost, updateFeedPost } from "@/app/controllers/feedController"
 import { uploadFileToStorage } from "@/lib/firebase/firebase-functions"
+import { cp } from "fs"
 
 interface CreatePostCardProps {
   user: UserType
   wallOwner: UserType
   onPostCreated?: (post: FeedPostType) => void
+  isEditing?: boolean
+  post?: FeedPostType 
 }
 
-export function CreatePostCard({ user, wallOwner, onPostCreated }: CreatePostCardProps) {
+export function CreatePostCard({ user, wallOwner, onPostCreated, isEditing, post }: CreatePostCardProps) {
   const [postMessage, setPostMessage] = useState<string>("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [fileUrl, setFileUrl] = useState<string | null>(null)
@@ -87,13 +90,62 @@ export function CreatePostCard({ user, wallOwner, onPostCreated }: CreatePostCar
         Object.entries(newPost).filter(([_, v]) => v !== undefined)
       ) as FeedPostType
 
-      const postId = await createFeedPost(cleanPost)
+      const postId = (await createFeedPost(cleanPost)) as unknown as string | undefined
       const postWithId = { ...cleanPost, id: postId }
 
       setPostMessage("")
       setSelectedFile(null)
       setFileUrl(null)
       onPostCreated?.(postWithId)
+    } catch (err) {
+      console.error("Erreur lors de la création du post :", err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEditPost = async () => {
+    if (!user?.id || (!postMessage.trim() && !fileUrl) || isLoading || !post) return
+
+    setIsLoading(true)
+
+    const newPost: FeedPostType = {
+      authorId: user.id ?? "",
+      destinatorId: wallOwner.id ?? "",
+      content: postMessage.trim(),
+      image: selectedFile?.type.startsWith("image/") ? fileUrl ?? "" : "",
+      documentUrl:
+        selectedFile &&
+        !selectedFile.type.startsWith("image/") &&
+        fileUrl
+          ? fileUrl
+          : undefined,
+      documentName:
+        selectedFile && !selectedFile.type.startsWith("image/")
+          ? selectedFile.name
+          : undefined,
+      createdAt: Date.now(),
+      timeAgo: "À l'instant",
+      likesIds: [],
+      comments: [],
+      privacy: "public",
+      isOnWall: user.id !== wallOwner.id,
+    }
+
+    try {
+      const cleanPost = Object.fromEntries(
+        Object.entries(newPost).filter(([_, v]) => v !== undefined)
+      ) as FeedPostType
+      if (post && post.id) {
+        const postId = (await updateFeedPost(post?.id, cleanPost)) as unknown as string | undefined
+        const postWithId = { ...cleanPost, id: postId }
+
+        setPostMessage("")
+        setSelectedFile(null)
+        setFileUrl(null)
+        onPostCreated?.(postWithId)
+      }
+      
     } catch (err) {
       console.error("Erreur lors de la création du post :", err)
     } finally {
@@ -169,18 +221,22 @@ export function CreatePostCard({ user, wallOwner, onPostCreated }: CreatePostCar
                     : `Écrivez quelque chose sur le mur de ${wallOwner.firstName}...`
                 }
                 className="bg-gray-100 pr-10"
-                value={postMessage}
+                value={isEditing && post ? postMessage : post?.content}
                 onChange={(e) => setPostMessage(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
+                  if (e.key === "Enter" && !isEditing) {
                     e.preventDefault()
                     handleSubmitPost()
                   }
+                  if (e.key === "Enter" && isEditing) {
+                    e.preventDefault()
+                    handleEditPost()
+                  } 
                 }}
               />
               <Send
                 className="absolute w-5 h-5 right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-500 cursor-pointer transition-all duration-200 ease-in-out hover:scale-110"
-                onClick={handleSubmitPost}
+                onClick={!isEditing ? handleSubmitPost : handleEditPost}
               />
             </div>
           </div>

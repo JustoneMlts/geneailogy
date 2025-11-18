@@ -8,6 +8,7 @@ import { AiMessageType } from "@/lib/firebase/models"
 import ReactMarkdown from "react-markdown"
 import { MemberCard } from "../ai/memberCard"
 import TreeCard from "../treeCard"
+import { Minus } from "lucide-react"
 
 const TEMPLATE_QUESTIONS = [
     "Ai-je des potentiels liens avec d'autres membres?",
@@ -23,21 +24,17 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
     const [input, setInput] = useState("")
     const [loading, setLoading] = useState(false)
 
-    // 🔹 Référence du conteneur de messages
     const messagesEndRef = useRef<HTMLDivElement | null>(null)
     const scrollContainerRef = useRef<HTMLDivElement | null>(null)
 
-    // 🔹 Fonction pour scroller tout en bas
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
     }
 
-    // 🔹 Scroll auto à chaque ajout de message
     useEffect(() => {
         scrollToBottom()
     }, [messages])
 
-    // 🔹 Initialiser avec un message de bienvenue uniquement
     useEffect(() => {
         if (!currentUser?.id) return
 
@@ -50,7 +47,6 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
         setMessages([welcome])
     }, [currentUser])
 
-    // 🔹 Déterminer le type de card à afficher
     const getCardType = (card: any): "member" | "tree" | null => {
         if (card.cardType) return card.cardType
 
@@ -64,7 +60,6 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
         return null
     }
 
-    // 🔹 Envoyer un message utilisateur
     const sendMessage = async (messageText?: string) => {
         const textToSend = messageText || input.trim()
         if (!textToSend || !currentUser?.id) return
@@ -125,12 +120,10 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
         }
     }
 
-    // 🔹 Gérer le clic sur une question template
     const handleTemplateClick = (question: string) => {
         sendMessage(question)
     }
 
-    // 🔹 Renderer pour les cards
     const renderCard = (card: any) => {
         const cardType = getCardType(card)
 
@@ -177,9 +170,14 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
             {/* 🔹 En-tête */}
             <div className="flex justify-between items-center px-4 py-2 border-b bg-gray-50 rounded-t-2xl">
                 <h3 className="font-semibold text-sm text-gray-700">Assistant IA - Fam 🤖</h3>
+                <div className="space-x-4 flex justify-center items-center">
+                    {/* <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xs">
+                        <Minus size={12} />
+                    </button> */}
                 <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xs">
                     ✕
-                </button>
+                </button> 
+                </div>
             </div>
 
             {/* 🔹 Messages */}

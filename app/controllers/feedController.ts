@@ -41,6 +41,7 @@ export const getFeedPostById = async (postId: string) => {
 };
 
 export const updateFeedPost = async (postId: string, postData: any) => {
+  console.log("Updating post:", postId, postData);
   try {
     await updateDocumentToCollection(COLLECTIONS.FEED, postId, postData);
   } catch (error) {
