@@ -1,4 +1,4 @@
-import { addCommentToPost, toggleLikePost } from "@/app/controllers/feedController";
+import { addCommentToPost, toggleLikePost, deleteFeedPost } from "@/app/controllers/feedController";
 import { handleGetUserNameInitials } from "@/app/helpers/userHelper";
 import { selectUser } from "@/lib/redux/slices/currentUserSlice";
 import { Globe, Users, MoreHorizontal, MapPin, Heart, MessageCircle, Share2, Send, Lock, FileText, Edit, Delete } from "lucide-react";
@@ -110,9 +110,33 @@ export function PostCard({ post }: { post: FeedPostType }) {
     setOpenMenu(false);
   };
 
+  const handleDelete = async (currentPost: FeedPostType) => {    
+    if (!currentPost.id) return;
+    try {
+      await deleteFeedPost(currentPost.id);
+      // Optionally, you can add some UI feedback here, like removing the post from the feed
+    } catch (error) {
+      console.error("Erreur lors de la suppression du post :", error);
+    }
+  };
+
   const handlePostCreated = () => {
     setIsEditing(false);
   }
+
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.relative')) {
+      setOpenMenu(false);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
 
   return (
     <Card className="mb-4 sm:mb-6 transition-shadow hover:shadow-lg">
@@ -130,7 +154,7 @@ export function PostCard({ post }: { post: FeedPostType }) {
                   {getAuthor(currentPost.authorId).initials || handleGetUserNameInitials(getAuthor(currentPost.authorId))}
                 </AvatarFallback>
               </Avatar>
-
+             
               <div className="min-w-0 flex-1">
                 <div className="flex items-center space-x-2 flex-wrap">
                   <h3
@@ -151,6 +175,11 @@ export function PostCard({ post }: { post: FeedPostType }) {
                 </div>
               </div>
             </div>
+             {isEditing && (
+                <div className="flex items-center">
+                  <h3 className="mb-3 p-2 bg-blue-50 rounded-lg text-sm text-blue-700">Modification du post</h3>
+                </div>
+              )}
             {currentUser?.id === currentPost.authorId &&
             <div className="relative">
               <Button variant="ghost" size="icon" className="text-gray-400 hover:text-gray-600 h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0" onClick={handleOpenMenu}>
@@ -168,6 +197,7 @@ export function PostCard({ post }: { post: FeedPostType }) {
                 <hr className="my-1 border-gray-200" />
                 <button
                   className="w-full flex items-center text-red-600 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  onClick={() => handleDelete(currentPost)}
                 >
                   <Delete className="w-4 h-4 mr-3 text-red-600" />
                   Supprimer
@@ -225,9 +255,9 @@ export function PostCard({ post }: { post: FeedPostType }) {
               <Button variant="ghost" size="sm" onClick={() => setShowComments(!showComments)} className="flex-1 text-gray-600 text-xs sm:text-sm">
                 <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 sm:mr-2" />Commenter
               </Button>
-              <Button variant="ghost" size="sm" className="flex-1 text-gray-600 text-xs sm:text-sm">
+              {/* <Button variant="ghost" size="sm" className="flex-1 text-gray-600 text-xs sm:text-sm">
                 <Share2 className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 mr-1 sm:mr-2" />Partager
-              </Button>
+              </Button> */}
             </div>
 
             {/* Commentaires */}

@@ -2,7 +2,7 @@ import { COLLECTIONS } from "@/lib/firebase/collections";
 import { db } from "@/lib/firebase/firebase";
 import { addDocumentToCollection, getAllDataFromCollection, getDataFromCollection, updateDocumentToCollection } from "@/lib/firebase/firebase-functions";
 import { FeedPostType, Links } from "@/lib/firebase/models";
-import { addDoc, arrayRemove, arrayUnion, collection, doc, documentId, getDocs, onSnapshot, or, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import { addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, documentId, getDocs, onSnapshot, or, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { store } from "@/lib/redux/store";
 import { reconcileUserListeners, unsubscribeAllUsers } from "@/lib/listeners/useLiveManager";
 
@@ -41,11 +41,19 @@ export const getFeedPostById = async (postId: string) => {
 };
 
 export const updateFeedPost = async (postId: string, postData: any) => {
-  console.log("Updating post:", postId, postData);
   try {
     await updateDocumentToCollection(COLLECTIONS.FEED, postId, postData);
   } catch (error) {
     console.error("Erreur lors de la mise à jour du post :", error);
+  }
+};
+
+export const deleteFeedPost = async (postId: string) => {
+  try {
+    const postRef = doc(db, COLLECTIONS.FEED, postId);
+    await deleteDoc(postRef);
+  } catch (error) {
+    console.error("Erreur lors de la suppression du post :", error);
   }
 };
 
