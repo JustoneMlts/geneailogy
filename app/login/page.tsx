@@ -115,7 +115,17 @@ export default function LoginPage() {
       dispatch(setActiveTab("feed"))
       route.push("/dashboard")
     } catch (err: any) {
-      setError(err.message || 'Une erreur est survenue lors de la connexion');
+      const code = err.code || "";
+      if (
+        code === "auth/invalid-credential" ||
+        code === "auth/user-not-found" ||
+        code === "auth/wrong-password" ||
+        code === "auth/invalid-email"
+      ) {
+        setError("Identifiant ou mot de passe incorrect.");
+      } else {
+        setError("Une erreur est survenue lors de la connexion.");
+      }
       console.error(err);
     } finally {
       setLoading(false);
@@ -220,6 +230,10 @@ export default function LoginPage() {
                     Mot de passe oublié ?
                   </Link>
                 </div>
+
+                {error && (
+                  <p className="text-sm text-red-600 text-center">{error}</p>
+                )}
 
                 <Button
                   type="submit"

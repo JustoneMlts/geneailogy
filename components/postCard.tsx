@@ -38,9 +38,26 @@ export function PostCard({ post }: { post: FeedPostType }) {
     setCurrentPost(post);
   }, [post]);
 
-  const getAuthor = (authorId : string) => {
+  const getAuthor = (authorId: string): UserType => {
     if (currentUser?.id === authorId) return currentUser;
-    return friends.find((friend: UserType) => friend.id === authorId);
+    return friends.find((friend: UserType) => friend.id === authorId) ?? {
+      id: authorId,
+      firstName: "Utilisateur",
+      lastName: "",
+      firstNameLower: "",
+      lastNameLower: "",
+      email: "",
+      bio: "",
+      avatarUrl: "",
+      localisation: "",
+      nationality: "",
+      familyOrigin: "",
+      researchInterests: "",
+      friends: [],
+      createdDate: 0,
+      updatedDate: 0,
+      isActive: false,
+    };
   }
   
   const handleLike = async (post: FeedPostType) => {
