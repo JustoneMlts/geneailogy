@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   description:
     "Créez votre arbre généalogique, connectez-vous avec votre famille et laissez l'IA vous suggérer de nouveaux liens familiaux",
   generator: "v0.dev",
+  icons: {
+    icon: "/favIconGen.png",
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
