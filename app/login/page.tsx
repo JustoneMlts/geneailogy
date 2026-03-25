@@ -160,30 +160,33 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-4">
 
           {/* Comptes de test */}
-          <div className="rounded-xl border border-blue-200 bg-blue-50/80 backdrop-blur-sm p-4 space-y-3">
-            <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Comptes de démonstration</p>
-            <div className="grid grid-cols-1 gap-2">
-              {[
-                { label: "🇫🇷 Jean Dupont", email: "jean.dupont@test.com" },
-                { label: "🇫🇷 Sophie Dupont", email: "sophie.dupont@test.com" },
-                { label: "🇪🇸 Carlos Martin", email: "carlos.martin@test.com" },
-                { label: "🇲🇦 Amina Benali", email: "amina.benali@test.com" },
-                { label: "🇮🇹 Salvatore Maltese", email: "salvatore.maltese@test.com" },
-                { label: "🇮🇹 Rosario Bonanno", email: "rosario.bonanno@test.com" },
-                { label: "🇮🇹 Ignazio Castiglia", email: "ignazio.castiglia@test.com" },
-                { label: "🇮🇹 Leonardo Conti", email: "leonardo.conti@test.com" },
-              ].map(({ label, email }) => (
-                <button
-                  key={email}
-                  type="button"
-                  onClick={() => setFormData({ email, password: "Test1234!", rememberMe: false })}
-                  className="flex items-center justify-between w-full rounded-lg px-3 py-2 text-left text-xs bg-white border border-blue-100 hover:border-blue-400 hover:bg-blue-50 transition-colors group"
-                >
-                  <span className="font-medium text-gray-700">{label}</span>
-                  <span className="text-gray-400 group-hover:text-blue-600 font-mono">{email}</span>
-                </button>
-              ))}
-            </div>
+          <div className="rounded-xl border border-blue-200 bg-blue-50/80 backdrop-blur-sm p-4 space-y-2">
+            <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Compte de démonstration</p>
+            <select
+              className="w-full rounded-lg border border-blue-100 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-blue-400"
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) setFormData({ email: e.target.value, password: "Test1234!", rememberMe: false });
+              }}
+            >
+              <option value="" disabled>Sélectionner un compte...</option>
+              <optgroup label="🇫🇷 France">
+                <option value="jean.dupont@test.com">Jean Dupont</option>
+                <option value="sophie.dupont@test.com">Sophie Dupont</option>
+              </optgroup>
+              <optgroup label="🇪🇸 Espagne">
+                <option value="carlos.martin@test.com">Carlos Martin</option>
+              </optgroup>
+              <optgroup label="🇲🇦 Maroc">
+                <option value="amina.benali@test.com">Amina Benali</option>
+              </optgroup>
+              <optgroup label="🇮🇹 Sicile">
+                <option value="salvatore.maltese@test.com">Salvatore Maltese</option>
+                <option value="rosario.bonanno@test.com">Rosario Bonanno</option>
+                <option value="ignazio.castiglia@test.com">Ignazio Castiglia</option>
+                <option value="leonardo.conti@test.com">Leonardo Conti</option>
+              </optgroup>
+            </select>
             <p className="text-xs text-blue-500 text-center">Mot de passe universel : <span className="font-mono font-bold">Test1234!</span></p>
           </div>
 
