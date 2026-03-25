@@ -6,7 +6,7 @@ import { buildDynamicTree, Generation, GenerationSection, GrandparentsSection, g
 import { getTreeById } from "@/app/controllers/treesController";
 import { getUserById } from "@/app/controllers/usersController";
 import { getFamilyMembersByIds, getParentsByMemberId } from "@/app/controllers/membersController";
-import { collection, documentId, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, documentId, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { COLLECTIONS } from "@/lib/firebase/collections";
 
@@ -53,18 +53,16 @@ export const DynamicFamilyTree = ({
       return;
     }
  
-    const treeRef = collection(db, COLLECTIONS.TREES);
-  
-    // Écoute en temps réel du tree
+    // Écoute en temps réel du tree directement par son ID
     const unsubscribeTree = onSnapshot(
-      query(treeRef, where("id", "==", tree.id)),
+      doc(db, COLLECTIONS.TREES, tree.id),
       (snapshot) => {
-        if (!snapshot.docs.length) {
+        if (!snapshot.exists()) {
           console.warn("⚠️ Aucun tree trouvé avec cet ID :", tree.id);
           return;
         }
-  
-        const treeData = snapshot.docs[0].data();
+
+        const treeData = snapshot.data();
         const memberIds: string[] = treeData.memberIds || [];
   
         if (!memberIds.length) {
