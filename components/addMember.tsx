@@ -43,8 +43,6 @@ export default function AddMemberModal({
     isEdit = false,
     memberId,
 }: AddMemberModalProps) {
-    if (!isOpen) return null;
-
     type Gender = "male" | "female" | "other";
 
     const [birthDate, setBirthDate] = useState<Date>();
@@ -178,6 +176,8 @@ export default function AddMemberModal({
             console.error("❌ Erreur sauvegarde :", error);
         }
     };
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 overflow-auto bg-black/50 flex justify-center items-start pt-12" style={{ zIndex: 9999 }}>
