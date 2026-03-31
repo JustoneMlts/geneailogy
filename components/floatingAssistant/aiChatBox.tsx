@@ -290,7 +290,7 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
                 <button
                     onClick={() => sendMessage()}
                     disabled={loading}
-                    className="bg-blue-500 text-white text-sm px-3 py-1 rounded-lg hover:bg-blue-600 
+                    className="flex-shrink-0 bg-blue-500 text-white text-sm px-3 py-1 rounded-lg hover:bg-blue-600
                              disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                     Envoyer

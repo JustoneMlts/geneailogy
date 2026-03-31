@@ -25,7 +25,7 @@ export default function FloatingAiAssistant() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 40 }}
-            className="fixed bottom-24 right-10 w-80 bg-white/80 backdrop-blur-md shadow-xl rounded-2xl border border-gray-200 overflow-hidden"
+            className="fixed bottom-24 right-2 sm:right-10 w-[calc(100vw-1rem)] sm:w-96 max-w-sm bg-white/80 backdrop-blur-md shadow-xl rounded-2xl border border-gray-200 overflow-hidden"
           >
             <AiChatBox onClose={() => setOpen(false)} />
           </motion.div>
