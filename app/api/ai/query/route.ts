@@ -194,6 +194,24 @@ async function searchPotentialRelatives(
     .where("lastName", "in", searchSurnames.slice(0, 10))
     .get();
 
+  const treeIdsToFetch = new Set<string>();
+  otherMembersSnap.forEach(doc => {
+    const member = { id: doc.id, ...(doc.data() as MemberType) };
+    if (member.treeId && member.treeId !== currentTree.id && !allCurrentMembers.some(m => m.id === member.id)) {
+      treeIdsToFetch.add(member.treeId);
+    }
+  });
+
+  const treeOwnerMap: Record<string, string> = {};
+  await Promise.all(
+    Array.from(treeIdsToFetch).map(async (treeId) => {
+      const treeDoc = await database!.collection("Trees").doc(treeId).get();
+      if (treeDoc.exists) {
+        treeOwnerMap[treeId] = (treeDoc.data() as any).ownerId;
+      }
+    })
+  );
+
   otherMembersSnap.forEach(doc => {
     const member = { id: doc.id, ...(doc.data() as MemberType) };
     if (
@@ -233,6 +251,7 @@ async function searchPotentialRelatives(
           cardType: "member",
           matchScore,
           matchReasons,
+          treeOwnerId: member.treeId ? treeOwnerMap[member.treeId] : undefined,
         });
       }
     }
@@ -381,7 +400,8 @@ export async function POST(req: Request) {
         role: "system",
         content: `Tu es Fam, assistant IA spécialisé en généalogie. Tu as déjà accès à toutes les données nécessaires — ne demande JAMAIS d'identifiant ou d'information supplémentaire à l'utilisateur, utilise directement les outils disponibles.
 Contexte de l'utilisateur : arbre="${tree.id}", membre="${currentUserMember.id}", prénom="${currentUserMember.firstName}", nom="${currentUserMember.lastName}", noms de famille de l'arbre: ${(tree.surnames || []).join(", ")}.
-Outils disponibles : searchPotentialRelatives (recherche des membres liés dans d'autres arbres), findSimilarFamilies (recherche d'arbres similaires), findCommonAncestors (ancêtres communs). Appelle-les directement sans demander de confirmation à l'utilisateur.`
+Outils disponibles : searchPotentialRelatives (recherche des membres liés dans d'autres arbres), findSimilarFamilies (recherche d'arbres similaires), findCommonAncestors (ancêtres communs). Appelle-les directement sans demander de confirmation à l'utilisateur.
+IMPORTANT : Quand tu retournes des résultats qui seront affichés sous forme de cards visuelles, écris UNIQUEMENT une phrase d'introduction courte (max 1-2 phrases). Ne liste JAMAIS les détails des membres ou arbres dans le texte — les cards s'en chargent.`
       },
       { role: "user", content: prompt },
     ];

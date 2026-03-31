@@ -9,15 +9,16 @@ export function MemberCard({ member }: { member: any }) {
   const router = useRouter()
 
   const handleClick = () => {
-    if (member.treeId) {
-      router.push(`/tree/${member.id}`)
+    const ownerId = member.treeOwnerId
+    if (ownerId) {
+      router.push(`/tree/${ownerId}`)
     }
   }
 
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
-      className="bg-gradient-to-br from-blue-50 to-purple-50 border rounded-xl p-3 shadow-sm hover:shadow-md transition cursor-pointer"
+      className={`bg-gradient-to-br from-blue-50 to-purple-50 border rounded-xl p-3 shadow-sm hover:shadow-md transition ${member.treeOwnerId ? "cursor-pointer" : "cursor-default"}`}
       onClick={handleClick}
     >
       <div className="flex items-center justify-start space-x-2">
