@@ -377,9 +377,11 @@ export async function POST(req: Request) {
     }
 
     const messages: ChatCompletionMessageParam[] = [
-      { 
-        role: "system", 
-        content: `Tu es Fam, assistant IA spécialisé en généalogie. Utilise tools: searchPotentialRelatives, findSimilarFamilies, findCommonAncestors. Contexte: arbre=${tree.id}, noms: ${(tree.surnames || []).join(", ")}` 
+      {
+        role: "system",
+        content: `Tu es Fam, assistant IA spécialisé en généalogie. Tu as déjà accès à toutes les données nécessaires — ne demande JAMAIS d'identifiant ou d'information supplémentaire à l'utilisateur, utilise directement les outils disponibles.
+Contexte de l'utilisateur : arbre="${tree.id}", membre="${currentUserMember.id}", prénom="${currentUserMember.firstName}", nom="${currentUserMember.lastName}", noms de famille de l'arbre: ${(tree.surnames || []).join(", ")}.
+Outils disponibles : searchPotentialRelatives (recherche des membres liés dans d'autres arbres), findSimilarFamilies (recherche d'arbres similaires), findCommonAncestors (ancêtres communs). Appelle-les directement sans demander de confirmation à l'utilisateur.`
       },
       { role: "user", content: prompt },
     ];
