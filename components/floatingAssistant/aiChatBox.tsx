@@ -140,6 +140,7 @@ export default function AiChatBox({ onClose }: { onClose: () => void }) {
                         nationality: card.nationality,
                         matchScore: card.matchScore,
                         matchReasons: card.matchReasons,
+                        treeOwnerId: card.treeOwnerId,
                     }}
                 />
             )
